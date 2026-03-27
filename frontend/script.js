@@ -6,7 +6,7 @@ async function askMonika() {
   if (!q) return; // do nothing if input is empty
 
   // Your backend URL from Render (safe, no API key exposed here)
-  const backendUrl = "https://YOUR_RENDER_BACKEND_URL/ask";
+  const backendUrl = "https://monika-ai-0jpf.onrender.com/ask";
 
   try {
     // Send the question to your backend
