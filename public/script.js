@@ -1,17 +1,22 @@
 const backendUrl = "https://monika-ai-0jpf.onrender.com/ask";
 
 async function askMonika() {
-    const inputField = document.getElementById("user-input");
-    const chatBox = document.getElementById("chat-box");
+    // UPDATED: Now matches id="question" and id="chat" in your HTML
+    const inputField = document.getElementById("question");
+    const chatBox = document.getElementById("chat");
     const userInput = inputField.value.trim();
 
     if (!userInput) return;
 
-    // 1. Display Arpit's message
+    // 1. Play the pop sound (optional)
+    const pop = document.getElementById("popSound");
+    if (pop) pop.play();
+
+    // 2. Display Arpit's message
     appendMessage("Arpit", userInput);
     inputField.value = ""; // Clear input
 
-    // 2. Show "Writing..." indicator
+    // 3. Show "Writing..." indicator
     const loadingMessage = appendMessage("Monika", "Writing... ✍️🌸");
 
     try {
@@ -25,7 +30,7 @@ async function askMonika() {
         loadingMessage.remove(); // Remove "Writing..."
 
         if (response.ok) {
-            // Updated parsing for Gemini 2.5 Flash
+            // Parsing for Gemini 2.5 Flash
             const monikaReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm a bit shy right now... try again? 💖";
             appendMessage("Monika", monikaReply);
         } else {
@@ -40,11 +45,14 @@ async function askMonika() {
 }
 
 function appendMessage(sender, text) {
-    const chatBox = document.getElementById("chat-box");
+    const chatBox = document.getElementById("chat");
     const msgDiv = document.createElement("div");
-    msgDiv.className = sender === "Arpit" ? "user-msg" : "monika-msg";
     
-    // Formatting: Bold the name and handle line breaks
+    // Apply classes from your style.css
+    msgDiv.classList.add("bubble");
+    msgDiv.classList.add(sender === "Arpit" ? "user" : "monika");
+    
+    // Formatting: Handle line breaks
     msgDiv.innerHTML = `<strong>${sender}:</strong> ${text.replace(/\n/g, "<br>")}`;
     
     chatBox.appendChild(msgDiv);
@@ -52,10 +60,13 @@ function appendMessage(sender, text) {
     return msgDiv;
 }
 
-// FIX: Listen for 'Enter' key on the input field
-document.getElementById("user-input").addEventListener("keydown", function (e) {
+// FIX: Listen for 'Enter' key on the input field id="question"
+document.getElementById("question").addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
-        e.preventDefault(); // Prevent page refresh
+        e.preventDefault(); 
         askMonika();
     }
 });
+
+// FIX: Make sure the button also works
+document.getElementById("sendButton").addEventListener("click", askMonika);
