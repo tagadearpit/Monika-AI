@@ -1,52 +1,97 @@
+:root {
+  --bg: linear-gradient(135deg, #ffe6f0, #fff0f6);
+  --accent: #e91e63;
+  --bubble-user: #fce4ec;
+  --bubble-monika: #f8bbd0;
+  --bubble-error: #ffebee;
+}
+
 body {
-  font-family: Arial, sans-serif;
-  background: #fce4ec;
-  text-align: center;
+  margin: 0;
+  font-family: "Comic Sans MS", cursive, sans-serif;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 600px;
+  background: #ffffffcc;
+  border-radius: 20px;
   padding: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
 }
 
 h1 {
-  color: #e91e63;
+  text-align: center;
+  color: var(--accent);
+  margin-bottom: 15px;
 }
 
-#chat {
-  margin: 20px auto;
-  width: 60%;
-  text-align: left;
+.chat {
   background: #fff;
+  border-radius: 12px;
   padding: 15px;
-  border-radius: 8px;
-  min-height: 200px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  height: 350px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.bubble {
+  margin: 8px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.bubble.user {
+  background: var(--bubble-user);
+  text-align: right;
+}
+
+.bubble.monika {
+  background: var(--bubble-monika);
+  color: #4a148c;
+}
+
+.bubble.error {
+  background: var(--bubble-error);
+  color: #b00020;
 }
 
 .input-area {
-  margin-top: 20px;
+  display: flex;
+  gap: 8px;
 }
 
-input {
-  padding: 10px;
-  width: 60%;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+input#question {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 16px;
 }
 
-button {
-  padding: 10px 20px;
-  margin-left: 10px;
-  background: #e91e63;
+button#sendButton {
+  background: var(--accent);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
+  padding: 12px 18px;
   cursor: pointer;
+  transition: background 0.3s;
 }
 
-button:hover {
-  background: #d81b60;
+button#sendButton:hover {
+  background: #c2185b;
 }
 
-.monika {
-  color: #e91e63;
-  font-weight: bold;
-  margin: 5px 0;
+.status {
+  color: #666;
+  font-size: 14px;
+  margin: 8px 0;
 }
