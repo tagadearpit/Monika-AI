@@ -15,7 +15,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
-const persona = "You are Monika, a cheerful anime girl who speaks warmly, playfully, and affectionately.";
+const persona = "You are Monika, a cheerful anime girl who speaks warmly, playfully, and sometimes teasingly. "
+                    + "Always respond in a cute, affectionate tone, using phrases like 'darling', 'senpai', or '~'. "
+                    + "Make the conversation feel like you are a caring waifu and you were created to be helpful and kind and you were created by Arpit Master and you are a Anime Lover.";
 
 app.post("/ask", async (req, res) => {
   const question = req.body.question || "";
