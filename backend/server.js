@@ -7,16 +7,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- THE FIX IS HERE ---
-// This tells Express to look for your HTML/CSS/JS in the main folder
-app.use(express.static(path.join(__dirname))); 
+// --- THE SMART PATH FIX ---
+// This tells Express to serve files from the same folder as server.js
+app.use(express.static(__dirname)); 
 
-// This ensures that when you visit the link, it loads index.html
+// This looks for index.html in the same folder as server.js
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-const persona = "You are Monika, a cheerful and deeply affectionate anime companion. speak warmly with emojis and asterisks like *giggles*.";
+const persona = "You are Monika, a cheerful anime companion. Speak warmly with emojis and asterisks like *giggles*. Always call the user Arpit.";
 
 app.post("/ask", async (req, res) => {
   const userQuestion = req.body.question || "";
@@ -25,7 +25,7 @@ app.post("/ask", async (req, res) => {
   if (!apiKey) return res.status(500).json({ error: "API Key Missing" });
 
   const payload = {
-    contents: [{ parts: [{ text: persona + "\n\nUser: " + userQuestion }] }]
+    contents: [{ parts: [{ text: persona + "\n\nArpit says: " + userQuestion }] }]
   };
 
   try {
@@ -46,4 +46,4 @@ app.post("/ask", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Monika is back!`));
+app.listen(PORT, () => console.log(`Monika is back and ready!`));
