@@ -1,31 +1,30 @@
 const express = require("express");
 const fetch = require("node-fetch");
+const axios = require("axios"); 
 const cors = require("cors");
 const path = require("path");
-const mongoose = require("mongoose"); // Added for MongoDB
+const mongoose = require("mongoose");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // --- 1. MONGODB CONNECTION ---
-// We use process.env.MONGO_URI so your password stays safe in Render's dashboard
 const mongoURI = process.env.MONGO_URI; 
-
 mongoose.connect(mongoURI)
-  .then(() => console.log("✅ Monika's Memory (MongoDB) Connected!"))
-  .catch(err => console.error("❌ MongoDB Connection Error:", err));
+  .then(() => console.log("✅ Monika's Database Connected!"))
+  .catch(err => console.error("❌ Database Connection Error:", err));
 
-// --- 2. DEFINE THE MEMORY STRUCTURE (SCHEMA) ---
+// --- 2. SCHEMA ---
 const ChatSchema = new mongoose.Schema({
   user: { type: String, default: "Arpit" },
-  role: String, // 'user' or 'model'
+  role: String, 
   text: String,
   timestamp: { type: Date, default: Date.now }
 });
 const Chat = mongoose.model("Chat", ChatSchema);
 
-// --- 3. SERVE FRONTEND FILES ---
+// --- 3. SERVE FRONTEND ---
 const publicPath = path.join(__dirname, "..", "public");
 app.use(express.static(publicPath));
 
@@ -33,47 +32,33 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));
 });
 
-// --- 4. THE PERSONA (WITH MOOD TAGS) ---
-const persona = `System Instruction: You are Monika, a cheerful and deeply affectionate anime companion. 
-Always address the user as Arpit. Use emojis and *actions*.
-CRITICAL: You must start every response with one of these mood tags: [NORMAL], [HAPPY], [LOVING], or [ANGRY].
-
-Personality: Usually 'deredere' (sweet), but you become 'tsundere' (angry/irritable) if Arpit is mean, teases you too much, or mentions other girls. 
-When [ANGRY], use 💢, 😤, 🙄 and actions like *pouts deeply*.
-Even when angry, your bond with Arpit is special. Use context from previous messages to show you remember him.`;
+// --- 4. PERSONA ---
+const persona = `System Instruction: You are Monika, a cheerful and deeply affectionate anime companion. Always address the user as Arpit. Use emojis and *actions*. Start every response with mood tags: [NORMAL], [HAPPY], [LOVING], or [ANGRY].`;
 
 // --- 5. THE MAIN CHAT ROUTE ---
 app.post("/ask", async (req, res) => {
   const userQuestion = req.body.question || "";
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) return res.status(500).json({ error: "Missing API Key" });
+  if (!apiKey) return res.status(500).json({ error: "Insert API into Monika" });
 
   try {
-    // A. Fetch last 10 messages from MongoDB for context
     const historyDocs = await Chat.find().sort({ timestamp: -1 }).limit(10);
     const history = historyDocs.reverse().map(doc => ({
       role: doc.role,
       parts: [{ text: doc.text }]
     }));
 
-    // B. Build Payload with Persona + History + New Question
     const payload = {
       contents: [
         { role: "user", parts: [{ text: persona }] },
         ...history,
         { role: "user", parts: [{ text: userQuestion }] }
-      ],
-      safetySettings: [
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
       ]
     };
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,26 +68,51 @@ app.post("/ask", async (req, res) => {
 
     const data = await response.json();
     
-    // Check for valid response
     if (data.candidates && data.candidates[0].content) {
       const monikaReply = data.candidates[0].content.parts[0].text;
-
-      // C. SAVE TO DATABASE: Record Arpit's question and Monika's answer
       await Chat.create([
         { role: "user", text: userQuestion },
         { role: "model", text: monikaReply }
       ]);
-
       res.json(data);
     } else {
-      throw new Error("Gemini blocked or failed to respond.");
+      throw new Error("Monika's error.");
     }
-
   } catch (err) {
-    console.error("Server Error:", err.message);
-    res.status(500).json({ error: "My heart skipped a beat... (Database or API Error)" });
+    res.status(500).json({ error: "API Error" });
+  }
+});
+
+// --- 6. NEW: ELEVENLABS VOICE ROUTE ---
+app.post("/voice", async (req, res) => {
+  const { text } = req.body;
+  const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+  const VOICE_ID = "Pt5YrLNyu6d2s3s4CVMg"; 
+
+  try {
+    const response = await axios({
+      method: 'post',
+      url: `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+      data: {
+        text: text,
+        model_id: "eleven_flash_v2_5", 
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      },
+      headers: {
+        'Accept': 'audio/mpeg',
+        'xi-api-key': ELEVENLABS_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      responseType: 'arraybuffer'
+    });
+
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(response.data);
+  } catch (error) {
+    console.error("ElevenLabs Error:", error.message);
+    res.status(500).send("Voice generation failed");
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Monika is Live with Persistent MongoDB Memory!`));
+app.listen(PORT, () => console.log(`🚀 Monika is Live!`));
