@@ -7,6 +7,7 @@
   --bg-loving: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
   --monika-pink: #e91e63;
   --monika-dark: #c2185b;
+  --monika-light: #ff8fa3;
 }
 
 body {
@@ -18,14 +19,11 @@ body {
   align-items: center;
   min-height: 100vh;
   overflow: hidden;
-  transition: background 1.5s ease-in-out; /* Smooth mood shifting */
+  transition: background 1.5s ease-in-out;
 }
 
-/* --- Mood Classes (Controlled by script.js) --- */
-body.mood-happy {
-  background: var(--bg-happy);
-}
-
+/* --- Mood Classes --- */
+body.mood-happy { background: var(--bg-happy); }
 body.mood-loving {
   background: var(--bg-loving);
   animation: heart-pulse 4s infinite;
@@ -37,7 +35,7 @@ body.mood-loving {
   100% { filter: saturate(1); }
 }
 
-/* --- Floating Hearts Background --- */
+/* --- Floating Hearts --- */
 @keyframes float {
   0% { transform: translateY(0) rotate(-45deg) scale(1); opacity: 0.6; }
   100% { transform: translateY(-110vh) rotate(-45deg) scale(1.5); opacity: 0; }
@@ -51,10 +49,8 @@ body.mood-loving {
   background: rgba(233, 30, 99, 0.3);
   animation: float 12s linear infinite;
   z-index: 0;
-  transition: background 1s ease;
 }
 
-/* Make hearts redder and faster when Loving */
 body.mood-loving .heart {
   background: rgba(255, 0, 80, 0.6);
   animation-duration: 6s; 
@@ -71,7 +67,7 @@ body.mood-loving .heart {
 .heart::before { top: -10px; left: 0; }
 .heart::after { left: 10px; top: 0; }
 
-/* --- Main Glassmorphism Container --- */
+/* --- Container --- */
 .container {
   width: 95%;
   max-width: 450px;
@@ -95,10 +91,9 @@ h1 {
   text-align: center;
   color: var(--monika-dark);
   margin: 0 0 15px 0;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.05));
 }
 
-/* --- Chat Area & Bubbles --- */
+/* --- Chat Area --- */
 .chat {
   flex: 1;
   overflow-y: auto;
@@ -115,7 +110,6 @@ h1 {
   padding: 12px 16px;
   font-size: 15px;
   line-height: 1.5;
-  position: relative;
   animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -129,7 +123,6 @@ h1 {
   color: white;
   align-self: flex-end;
   border-radius: 20px 20px 4px 20px;
-  box-shadow: 0 4px 15px rgba(233, 30, 99, 0.2);
 }
 
 .bubble.monika {
@@ -137,27 +130,61 @@ h1 {
   color: #333;
   align-self: flex-start;
   border-radius: 20px 20px 20px 4px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   border: 1px solid rgba(0,0,0,0.02);
 }
 
-/* --- Input Area --- */
+/* --- Input Area & Voice Buttons --- */
 .input-area {
   display: flex;
   background: white;
-  padding: 8px;
+  padding: 6px;
   border-radius: 50px;
   margin-top: 15px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  align-items: center;
 }
 
 input#question {
   flex: 1;
   border: none;
-  padding: 10px 18px;
+  padding: 10px 15px;
   font-size: 15px;
   outline: none;
   background: transparent;
+}
+
+/* New Mic Button Styling */
+button#micButton {
+  background: transparent;
+  color: var(--monika-pink);
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  margin-right: 5px;
+}
+
+button#micButton:hover {
+  background: rgba(233, 30, 99, 0.1);
+}
+
+/* Listening State for Mic */
+button#micButton.listening {
+  color: white;
+  background: #ff1a1a;
+  animation: mic-pulse 1.5s infinite;
+}
+
+@keyframes mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(255, 26, 26, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0); }
 }
 
 button#sendButton {
@@ -179,7 +206,6 @@ button#sendButton:hover {
   background: var(--monika-dark);
 }
 
-/* --- Writing Indicator --- */
 .writing-msg {
   font-style: italic;
   font-size: 13px;
