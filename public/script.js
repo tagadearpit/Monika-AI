@@ -1,6 +1,6 @@
 const backendUrl = "https://monika-ai-0jpf.onrender.com/ask";
 
-// --- Voice Synthesis Function ---
+// --- Optimized Voice Synthesis Function ---
 function monikaSpeak(text) {
     if ('speechSynthesis' in window) {
         // Stop any current speaking before starting new reply
@@ -8,20 +8,24 @@ function monikaSpeak(text) {
         
         const utterance = new SpeechSynthesisUtterance(text);
         
-        // Fetch available voices
+        // Fetch all available voices from the browser
         const voices = window.speechSynthesis.getVoices();
         
-        // Try to find a pleasant female voice (works best in Chrome)
-        const monikaVoice = voices.find(v => 
-            v.name.includes("Female") || 
-            v.name.includes("Google US English") || 
-            v.name.includes("Microsoft Zira")
-        );
+        // Priority list for finding a high-quality female voice
+        const monikaVoice = voices.find(v => v.name.includes("Google US English")) || 
+                           voices.find(v => v.name.includes("Samantha")) || 
+                           voices.find(v => v.name.includes("Female")) || 
+                           voices.find(v => v.name.includes("Microsoft Zira")) ||
+                           voices.find(v => v.name.includes("Aria"));
         
-        if (monikaVoice) utterance.voice = monikaVoice;
+        if (monikaVoice) {
+            utterance.voice = monikaVoice;
+        }
         
-        utterance.pitch = 1.2; // Makes the voice slightly higher/cute
-        utterance.rate = 1.0;  // Normal speed
+        // Personality Settings: Slightly higher pitch for a cute/feminine feel
+        utterance.pitch = 1.3; 
+        utterance.rate = 1.0;  // Normal conversational speed
+        utterance.volume = 1.0;
         
         window.speechSynthesis.speak(utterance);
     }
@@ -40,7 +44,7 @@ async function askMonika() {
 
     // 2. Display Arpit's message
     appendMessage("Arpit", userInput);
-    inputField.value = ""; // Clear input
+    inputField.value = ""; 
 
     // 3. Show "Writing..." indicator
     const loadingMessage = appendMessage("Monika", "Writing... ✍️🌸");
@@ -54,15 +58,15 @@ async function askMonika() {
 
         const data = await response.json();
         
-        if (loadingMessage) loadingMessage.remove(); // Remove "Writing..."
+        if (loadingMessage) loadingMessage.remove(); 
 
         if (response.ok) {
-            // Parsing for Gemini response structure
+            // Parsing Gemini response structure
             const monikaReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm a bit shy right now... try again? 💖";
             
             appendMessage("Monika", monikaReply);
             
-            // --- NEW: Trigger Voice Output ---
+            // Trigger Voice Output
             monikaSpeak(monikaReply);
 
         } else {
@@ -87,15 +91,15 @@ function appendMessage(sender, text) {
     msgDiv.classList.add("bubble");
     msgDiv.classList.add(sender === "Arpit" ? "user" : "monika");
     
-    // Formatting: Handle line breaks and bolding
+    // Formatting: Handle line breaks
     msgDiv.innerHTML = `<strong>${sender}:</strong> ${text.replace(/\n/g, "<br>")}`;
     
     chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+    chatBox.scrollTop = chatBox.scrollHeight; 
     return msgDiv;
 }
 
-// FIX: Listen for 'Enter' key
+// Event Listener for 'Enter' key
 document.getElementById("question").addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
         e.preventDefault(); 
@@ -103,10 +107,13 @@ document.getElementById("question").addEventListener("keydown", function (e) {
     }
 });
 
-// FIX: Send Button Click
+// Send Button Click
 document.getElementById("sendButton").addEventListener("click", askMonika);
 
-// Chrome requires a user interaction before it loads voices
-window.speechSynthesis.onvoiceschanged = () => {
-    window.speechSynthesis.getVoices();
-};
+// Force voices to load on page load (Crucial for Chrome)
+if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+        console.log("Voices updated and ready!");
+    };
+}
