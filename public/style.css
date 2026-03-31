@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;600&display=swap');
 
-/* --- Root Variables & Base --- */
+/* --- Root Variables --- */
 :root {
   --bg-normal: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
   --bg-happy: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
@@ -22,23 +22,13 @@ body {
   transition: background 1.5s ease-in-out;
 }
 
-/* --- Mood Classes --- */
+/* --- Moods & Floating Hearts --- */
 body.mood-happy { background: var(--bg-happy); }
-body.mood-loving {
-  background: var(--bg-loving);
-  animation: heart-pulse 4s infinite;
-}
+body.mood-loving { background: var(--bg-loving); animation: heart-pulse 4s infinite; }
 
 @keyframes heart-pulse {
-  0% { filter: saturate(1); }
+  0%, 100% { filter: saturate(1); }
   50% { filter: saturate(1.4); }
-  100% { filter: saturate(1); }
-}
-
-/* --- Floating Hearts --- */
-@keyframes float {
-  0% { transform: translateY(0) rotate(-45deg) scale(1); opacity: 0.6; }
-  100% { transform: translateY(-110vh) rotate(-45deg) scale(1.5); opacity: 0; }
 }
 
 .heart {
@@ -51,21 +41,10 @@ body.mood-loving {
   z-index: 0;
 }
 
-body.mood-loving .heart {
-  background: rgba(255, 0, 80, 0.6);
-  animation-duration: 6s; 
+@keyframes float {
+  0% { transform: translateY(0) rotate(-45deg) scale(1); opacity: 0.6; }
+  100% { transform: translateY(-110vh) rotate(-45deg) scale(1.5); opacity: 0; }
 }
-
-.heart::before, .heart::after {
-  content: "";
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: inherit;
-  border-radius: 50%;
-}
-.heart::before { top: -10px; left: 0; }
-.heart::after { left: 10px; top: 0; }
 
 /* --- Container --- */
 .container {
@@ -74,13 +53,11 @@ body.mood-loving .heart {
   height: 85vh;
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
   border-radius: 30px;
   padding: 20px;
   box-shadow: 0 25px 50px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(255, 255, 255, 0.4);
   position: relative;
   z-index: 1;
 }
@@ -103,7 +80,6 @@ h1 {
   gap: 12px;
   scrollbar-width: none;
 }
-.chat::-webkit-scrollbar { display: none; }
 
 .bubble {
   max-width: 85%;
@@ -133,11 +109,11 @@ h1 {
   border: 1px solid rgba(0,0,0,0.02);
 }
 
-/* --- Input Area & Voice Buttons --- */
+/* --- Input Area --- */
 .input-area {
   display: flex;
   background: white;
-  padding: 6px;
+  padding: 8px;
   border-radius: 50px;
   margin-top: 15px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.05);
@@ -153,16 +129,16 @@ input#question {
   background: transparent;
 }
 
-/* New Mic Button Styling */
+/* --- The Mic Button (Updated for Live Mode) --- */
 button#micButton {
   background: transparent;
   color: var(--monika-pink);
-  width: 40px;
-  height: 40px;
+  width: 45px;
+  height: 45px;
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -170,27 +146,24 @@ button#micButton {
   margin-right: 5px;
 }
 
-button#micButton:hover {
-  background: rgba(233, 30, 99, 0.1);
-}
-
-/* Listening State for Mic */
+/* This is the Live Mode active state */
 button#micButton.listening {
+  background: #ff4d4d !important;
   color: white;
-  background: #ff1a1a;
   animation: mic-pulse 1.5s infinite;
+  box-shadow: 0 0 15px rgba(255, 77, 77, 0.5);
 }
 
 @keyframes mic-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0.4); }
-  70% { box-shadow: 0 0 0 12px rgba(255, 26, 26, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.6); }
+  70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
 }
 
 button#sendButton {
   background: var(--monika-pink);
-  width: 42px;
-  height: 42px;
+  width: 45px;
+  height: 45px;
   border: none;
   border-radius: 50%;
   color: white;
@@ -199,16 +172,4 @@ button#sendButton {
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease;
-}
-
-button#sendButton:hover {
-  transform: scale(1.1);
-  background: var(--monika-dark);
-}
-
-.writing-msg {
-  font-style: italic;
-  font-size: 13px;
-  color: var(--monika-pink);
-  margin-left: 10px;
 }
