@@ -6,31 +6,27 @@
   <title>Monika AI Chat</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    /* Styling for the new Mic Button */
+    /* Styling for the Mic Button */
     #micButton {
-      background: #ff4d6d;
-      color: white;
+      background: transparent;
+      color: #e91e63;
       border: none;
       padding: 0 15px;
       border-radius: 8px;
       cursor: pointer;
       margin-right: 8px;
       font-size: 1.2rem;
-      transition: transform 0.2s, background 0.2s;
+      transition: all 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-
-    #micButton:active {
-      transform: scale(0.9);
-    }
-
     #micButton.listening {
+      color: white;
       background: #ff1a1a;
+      border-radius: 50%;
       animation: pulse 1.5s infinite;
     }
-
     @keyframes pulse {
       0% { box-shadow: 0 0 0 0 rgba(255, 26, 26, 0.7); }
       70% { box-shadow: 0 0 0 10px rgba(255, 26, 26, 0); }
@@ -51,75 +47,13 @@
 
     <div class="input-area">
       <input id="question" type="text" placeholder="Type your message..." autocomplete="off" />
-      
       <button id="micButton" title="Talk to Monika">🎤</button>
-      
       <button id="sendButton">Send</button>
     </div>
   </div>
 
-  <audio id="popSound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto"></audio>
+  <audio id="popSound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
 
   <script src="script.js"></script>
-
-  <script>
-    const micBtn = document.getElementById('micButton');
-    const inputField = document.getElementById('question');
-    const sendBtn = document.getElementById('sendButton');
-
-    // 1. Speech Recognition (User Speaking)
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.continuous = false;
-
-      micBtn.addEventListener('click', () => {
-        recognition.start();
-        micBtn.classList.add('listening');
-        micBtn.textContent = "🛑"; 
-      });
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        inputField.value = transcript;
-        
-        // Short delay to let user see the text before sending
-        setTimeout(() => {
-          sendBtn.click();
-        }, 500);
-      };
-
-      recognition.onend = () => {
-        micBtn.classList.remove('listening');
-        micBtn.textContent = "🎤";
-      };
-    } else {
-      micBtn.style.display = 'none';
-      console.log("Browser does not support Web Speech API");
-    }
-
-    // 2. Speech Synthesis (Monika Talking Back)
-    // You should call this function inside your main script.js 
-    // whenever you display the AI's response text!
-    function monikaSpeak(text) {
-      if ('speechSynthesis' in window) {
-        // Stop any current speaking
-        window.speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        const voices = window.speechSynthesis.getVoices();
-        
-        // Try to find a pleasant female voice
-        const preferredVoice = voices.find(v => v.name.includes("Female") || v.name.includes("Google US English"));
-        if (preferredVoice) utterance.voice = preferredVoice;
-
-        utterance.pitch = 1.2; // Feminine pitch
-        utterance.rate = 1.0; 
-        window.speechSynthesis.speak(utterance);
-      }
-    }
-  </script>
 </body>
 </html>
