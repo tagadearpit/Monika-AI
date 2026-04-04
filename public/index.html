@@ -7,12 +7,13 @@
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  
   <link rel="stylesheet" href="style.css" />
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
 </head>
 <body>
+
+  <video id="vision-feed" style="display:none;" autoplay playsinline></video>
 
   <div class="heart-container">
     <div class="heart" style="left:10%; animation-delay:0s;"></div>
@@ -60,15 +61,19 @@
   <script src="script.js"></script>
   
   <script>
+    // UX Helper for the Mic Button icon toggle
     const micBtn = document.getElementById('micButton');
     const micIcon = document.getElementById('micIcon');
     
     micBtn.addEventListener('click', () => {
-      if (micBtn.classList.contains('listening')) {
-        micIcon.innerText = '🛑'; // Stop icon when active
-      } else {
-        micIcon.innerText = '🎤';
-      }
+      // Small delay to let script.js update the class first
+      setTimeout(() => {
+        if (micBtn.classList.contains('listening')) {
+          micIcon.innerText = '🛑'; 
+        } else {
+          micIcon.innerText = '🎤';
+        }
+      }, 50);
     });
   </script>
 
