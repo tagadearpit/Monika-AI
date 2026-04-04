@@ -19,7 +19,7 @@
     <div class="heart" style="left:90%; animation-delay:6s;"></div>
   </div>
 
-  <div class="app-wrapper">
+  <div class="app-wrapper" id="main-wrapper">
     <div id="vision-container" class="side-left">
       <header>
         <h1>👁️ Monika's Eyes</h1>
@@ -32,8 +32,9 @@
     </div>
 
     <div id="chat-container" class="side-right">
-      <header>
+      <header class="chat-header">
         <h1>🌸 Monika AI 🌸</h1>
+        <button id="pipButton" title="Pop out to Desktop">🖼️</button>
       </header>
 
       <main id="chat" class="chat">
@@ -43,19 +44,11 @@
       </main>
 
       <div class="input-area">
-        <input 
-          id="question" 
-          type="text" 
-          placeholder="Say something to Monika..." 
-          autocomplete="off" 
-          spellcheck="false" 
-        />
-        
-        <button id="micButton" title="Toggle Vision & Voice">
+        <input id="question" type="text" placeholder="Say something..." autocomplete="off" />
+        <button id="micButton">
           <span id="micIcon">🎤</span>
         </button>
-        
-        <button id="sendButton" title="Send Message">
+        <button id="sendButton">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
           </svg>
@@ -65,7 +58,6 @@
   </div>
 
   <audio id="popSound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
-
   <script src="script.js"></script>
 </body>
 </html>
