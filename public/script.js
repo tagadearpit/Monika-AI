@@ -4,6 +4,7 @@ let isLiveMode = false;
 
 const visionFeed = document.getElementById('vision-feed');
 const visionContainer = document.getElementById('vision-container');
+const chatContainer = document.getElementById('chat-container');
 const canvas = document.getElementById('capture-canvas');
 const micBtn = document.getElementById('micButton');
 const micIcon = document.getElementById('micIcon');
@@ -20,7 +21,8 @@ function typeWriter(text, element, callback) {
         if (i < cleanText.length) {
             element.innerHTML += cleanText.charAt(i);
             i++;
-            let speed = (cleanText[i-1] === "." || cleanText[i-1] === ",") ? 200 : 30;
+            let speed = (cleanText[i-1] === "." || cleanText[i-1] === ",") ? 250 : 35;
+            chatBox.scrollTop = chatBox.scrollHeight;
             setTimeout(type, speed);
         } else if (callback) {
             callback();
@@ -34,18 +36,17 @@ async function startVision() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         visionFeed.srcObject = stream;
-        visionContainer.classList.add('active'); // Use CSS class for transition
-        console.log("Monika's eyes are open! 👁️");
+        visionContainer.classList.add('active'); 
+        console.log("Monika is looking... 👁️");
     } catch (e) {
-        console.warn("Camera access denied.");
-        alert("Arpit, I need camera access to see you! 🌸");
+        alert("Camera access is needed for vision! 🌸");
     }
 }
 
 function stopVision() {
     if (visionFeed.srcObject) {
         visionFeed.srcObject.getTracks().forEach(track => track.stop());
-        visionContainer.classList.remove('active'); // Hide via CSS
+        visionContainer.classList.remove('active');
     }
 }
 
@@ -58,25 +59,23 @@ async function captureVisionFrame() {
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 }
 
-// --- 3. BROWSER VOICE ---
+// --- 3. VOICE ENGINE ---
 function monikaSpeak(text, voiceEnabled = false) {
     if (!voiceEnabled) return; 
     const cleanText = text.replace(/\[.*?\]/g, "").trim();
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.pitch = 0.9; // Optimized for stability
+    utterance.pitch = 0.9; 
     utterance.rate = 1.0; 
 
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(v => 
-        v.name.includes("Google US English") || v.name.includes("Female") || v.name.includes("Samantha")
+        v.name.includes("Google US English") || v.name.includes("Female")
     );
     if (preferredVoice) utterance.voice = preferredVoice;
 
-    utterance.onend = () => {
-        if (isLiveMode) startListening();
-    };
+    utterance.onend = () => { if (isLiveMode) startListening(); };
     window.speechSynthesis.speak(utterance);
 }
 
@@ -107,13 +106,8 @@ async function askMonika(isFromVoice = false) {
         const data = await response.json();
         if (loadingBubble) loadingBubble.remove(); 
 
-        const monikaReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Something went wrong... 💖";
+        const monikaReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble connecting... 💖";
         
-        // Mood UI logic
-        if (monikaReply.includes("[HAPPY]")) document.body.className = "mood-happy";
-        else if (monikaReply.includes("[LOVING]")) document.body.className = "mood-loving";
-        else document.body.className = "";
-
         const newMsg = appendMessage("Monika", "");
         typeWriter(monikaReply, newMsg, () => {
             monikaSpeak(monikaReply, isFromVoice);
@@ -121,7 +115,7 @@ async function askMonika(isFromVoice = false) {
 
     } catch (error) {
         if (loadingBubble) loadingBubble.remove();
-        appendMessage("Monika", "Connection lost... 💔");
+        appendMessage("Monika", "Network error... 💔");
     }
 }
 
@@ -133,8 +127,7 @@ if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        inputField.value = transcript;
+        inputField.value = event.results[0][0].transcript;
         askMonika(true); 
     };
     recognition.onerror = () => { if(isLiveMode) startListening(); };
@@ -152,7 +145,6 @@ micBtn.onclick = () => {
         micBtn.classList.add('listening');
         micIcon.innerText = '📸';
         startVision();
-        
         const greeting = "I'm looking and listening, Arpit! 🌸";
         const msg = appendMessage("Monika", "");
         typeWriter(greeting, msg, () => monikaSpeak(greeting, true));
@@ -175,7 +167,17 @@ function appendMessage(sender, text) {
     return msgDiv;
 }
 
-window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+// --- 6. 3D MOUSE PARALLAX EFFECT ---
+document.addEventListener('mousemove', (e) => {
+    const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
+    const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
+    
+    chatContainer.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+    if (visionContainer.classList.contains('active')) {
+        visionContainer.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+    }
+});
 
-document.getElementById("sendButton").addEventListener("click", () => askMonika(false));
-inputField.addEventListener("keydown", (e) => { if (e.key === "Enter") askMonika(false); });
+document.getElementById("sendButton").onclick = () => askMonika(false);
+inputField.onkeydown = (e) => { if (e.key === "Enter") askMonika(false); };
+window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
