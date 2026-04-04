@@ -78,13 +78,14 @@
     const visionCont = document.getElementById('vision-container'); 
     
     micBtn.addEventListener('click', () => {
+      // Small delay to allow script.js logic to process first
       setTimeout(() => {
         if (micBtn.classList.contains('listening')) {
           micIcon.innerText = '📸';
-          visionCont.classList.add('active'); // Shows the left side
+          visionCont.classList.add('active'); 
         } else {
           micIcon.innerText = '🎤';
-          visionCont.classList.remove('active'); // Hides the left side
+          visionCont.classList.remove('active');
         }
       }, 50);
     });
