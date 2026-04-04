@@ -1,16 +1,24 @@
 {
-  "name": "monika-backend",
-  "version": "1.0.0",
+  "name": "monika-ai-backend",
+  "version": "1.1.0",
+  "description": "Advanced AI Companion with Vision, Memory, and Search",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "axios": "^1.6.0",
+    "@google/generative-ai": "^0.1.0",
+    "axios": "^1.6.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "mongoose": "^8.0.0",
-    "node-fetch": "^2.6.7"
-  }
+    "mongoose": "^8.0.1",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Arpit Tagade",
+  "license": "MIT"
 }
