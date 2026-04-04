@@ -1,84 +1,103 @@
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;600&display=swap');
 
-/* --- Root Variables --- */
 :root {
   --bg-normal: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
   --bg-happy: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
   --bg-loving: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
   --monika-pink: #e91e63;
   --monika-dark: #c2185b;
-  --monika-light: #ff8fa3;
-  --glass: rgba(255, 255, 255, 0.3);
+  --glass: rgba(255, 255, 255, 0.45);
 }
 
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
   background: var(--bg-normal);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   overflow: hidden;
-  transition: background 1.5s ease-in-out;
+}
+
+/* --- App Wrapper for Split Layout --- */
+.app-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  padding: 20px;
+  gap: 20px;
+  align-items: stretch;
+  z-index: 10;
   position: relative;
 }
 
-/* --- Immersive Vignette Aura --- */
-body::after {
-  content: "";
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  box-shadow: inset 0 0 150px rgba(255, 255, 255, 0);
-  transition: box-shadow 2s ease;
-  z-index: 2;
-}
-
-body.mood-happy::after { box-shadow: inset 0 0 150px rgba(166, 193, 238, 0.4); }
-body.mood-loving::after { box-shadow: inset 0 0 200px rgba(233, 30, 99, 0.4); }
-
-/* --- Background State Changes --- */
-body.mood-happy { background: var(--bg-happy); }
-body.mood-loving { 
-  background: var(--bg-loving); 
-  animation: heart-pulse 4s infinite; 
-}
-
-@keyframes heart-pulse {
-  0%, 100% { filter: saturate(1) contrast(1); }
-  50% { filter: saturate(1.2) contrast(1.05); }
-}
-
-/* --- Main Glass Container --- */
-.container {
-  width: 92%;
-  max-width: 420px;
-  height: 85vh;
-  background: rgba(255, 255, 255, 0.45);
+/* --- Left Pane (Vision) --- */
+.side-left {
+  flex: 0; /* Starts hidden */
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
   backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
+  border-radius: 35px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.side-left.active {
+  flex: 1; /* Takes 50% width when active */
+  opacity: 1;
+  padding: 25px;
+}
+
+.video-box {
+  flex: 1;
+  position: relative;
+  background: #000;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 3px solid var(--monika-pink);
+}
+
+#vision-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+#vision-label {
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  background: rgba(233, 30, 99, 0.7);
+  color: white;
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+/* --- Right Pane (Chat) --- */
+.container.side-right {
+  flex: 1;
+  background: var(--glass);
+  backdrop-filter: blur(25px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 35px;
   padding: 25px;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
-  position: relative;
-  z-index: 10;
 }
 
+/* --- Chat Elements --- */
 h1 {
   font-family: 'Dancing Script', cursive;
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   text-align: center;
   color: var(--monika-dark);
-  margin: 0 0 20px 0;
-  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.5);
+  margin: 0 0 15px 0;
 }
 
-/* --- Chat Area Logic --- */
 .chat {
   flex: 1;
   overflow-y: auto;
@@ -86,65 +105,47 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  scrollbar-width: none;
-  scroll-behavior: smooth;
 }
-
-.chat::-webkit-scrollbar { display: none; }
 
 .bubble {
   max-width: 85%;
   padding: 14px 18px;
   font-size: 15px;
-  line-height: 1.6;
-  position: relative;
+  border-radius: 22px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-  animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.15);
-}
-
-@keyframes pop-in {
-  0% { transform: translateY(10px) scale(0.95); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 .bubble.user {
   background: var(--monika-pink);
   color: white;
   align-self: flex-end;
-  border-radius: 22px 22px 4px 22px;
-  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.2);
+  border-bottom-right-radius: 4px;
 }
 
 .bubble.monika {
   background: rgba(255, 255, 255, 0.9);
   color: #2c3e50;
   align-self: flex-start;
-  border-radius: 22px 22px 22px 4px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-bottom-left-radius: 4px;
 }
 
-/* --- Input Bar --- */
+/* --- Input Area --- */
 .input-area {
   display: flex;
   background: white;
   padding: 8px;
   border-radius: 50px;
-  margin-top: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  margin-top: 15px;
   align-items: center;
-  border: 1px solid rgba(233, 30, 99, 0.1);
 }
 
 input#question {
   flex: 1;
   border: none;
   padding: 10px 15px;
-  font-size: 15px;
   outline: none;
-  background: transparent;
 }
 
-/* --- Interaction Buttons --- */
 button#micButton, button#sendButton {
   width: 44px;
   height: 44px;
@@ -154,27 +155,18 @@ button#micButton, button#sendButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
 }
 
 button#micButton {
   background: transparent;
   color: var(--monika-pink);
   font-size: 1.4rem;
-  margin-right: 5px;
 }
 
 button#micButton.listening {
   background: #ff4d4d !important;
   color: white;
-  transform: scale(1.1);
   animation: mic-glow 1.5s infinite;
-}
-
-@keyframes mic-glow {
-  0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.6); }
-  70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
 }
 
 button#sendButton {
@@ -182,17 +174,11 @@ button#sendButton {
   color: white;
 }
 
-button#sendButton:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
-}
-
-/* --- Background Hearts Decor --- */
+/* --- Decor --- */
 .heart-container {
   position: fixed;
   width: 100%; height: 100%;
-  top: 0; left: 0;
-  pointer-events: none;
+  z-index: 1;
 }
 
 .heart {
@@ -204,6 +190,12 @@ button#sendButton:hover {
 }
 
 @keyframes float {
-  0% { transform: translateY(0) rotate(-45deg) scale(1); opacity: 0.3; }
-  100% { transform: translateY(-110vh) rotate(-45deg) scale(2); opacity: 0; }
+  0% { transform: translateY(0) rotate(-45deg); opacity: 0.3; }
+  100% { transform: translateY(-110vh) rotate(-45deg); opacity: 0; }
+}
+
+@keyframes mic-glow {
+  0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.6); }
+  70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
 }
