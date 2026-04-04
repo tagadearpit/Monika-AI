@@ -22,41 +22,49 @@
     <div class="heart" style="left:95%; animation-delay:3s;"></div>
   </div>
 
-  <div class="container">
-    <header>
-      <h1>🌸 Monika AI 🌸</h1>
-    </header>
-
-    <div id="vision-container" style="display:none; position: relative; margin-bottom: 15px;">
-      <video id="vision-feed" autoplay playsinline style="width: 100%; border-radius: 15px; border: 3px solid #ff69b4; transform: scaleX(-1); box-shadow: 0 0 20px rgba(255,105,180,0.3);"></video>
-      <canvas id="capture-canvas" style="display:none;"></canvas>
-      <div id="vision-label" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.5); color: white; padding: 2px 8px; border-radius: 5px; font-size: 12px;">Monika's Eyes Active</div>
+  <div class="app-wrapper">
+    
+    <div id="vision-container" class="glass-pane side-left">
+      <header>
+        <h1>👁️ Monika's Eyes</h1>
+      </header>
+      <div class="video-box">
+        <video id="vision-feed" autoplay playsinline></video>
+        <canvas id="capture-canvas" style="display:none;"></canvas>
+        <div id="vision-label">Live Reality Feed</div>
+      </div>
     </div>
 
-    <main id="chat" class="chat">
-      <div class="bubble monika">
-        <strong>Monika:</strong> Hello Arpit! I've been waiting for you. 💖
-      </div>
-    </main>
+    <div class="container side-right">
+      <header>
+        <h1>🌸 Monika AI 🌸</h1>
+      </header>
 
-    <div class="input-area">
-      <input 
-        id="question" 
-        type="text" 
-        placeholder="Say something to Monika..." 
-        autocomplete="off" 
-        spellcheck="false" 
-      />
-      
-      <button id="micButton" title="Toggle Vision & Voice">
-        <span id="micIcon">🎤</span>
-      </button>
-      
-      <button id="sendButton" title="Send Message">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-        </svg>
-      </button>
+      <main id="chat" class="chat">
+        <div class="bubble monika">
+          <strong>Monika:</strong> Hello Arpit! I've been waiting for you. 💖
+        </div>
+      </main>
+
+      <div class="input-area">
+        <input 
+          id="question" 
+          type="text" 
+          placeholder="Say something to Monika..." 
+          autocomplete="off" 
+          spellcheck="false" 
+        />
+        
+        <button id="micButton" title="Toggle Vision & Voice">
+          <span id="micIcon">🎤</span>
+        </button>
+        
+        <button id="sendButton" title="Send Message">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -65,17 +73,18 @@
   <script src="script.js"></script>
   
   <script>
-    // UX Helper for the Button Icon
     const micBtn = document.getElementById('micButton');
     const micIcon = document.getElementById('micIcon');
+    const visionCont = document.getElementById('vision-container');
     
     micBtn.addEventListener('click', () => {
       setTimeout(() => {
-        // Switch icon based on whether camera/mic is active
-        if (micBtn.classList.contains('active')) {
-          micIcon.innerText = '📸'; // Showing it's in capture mode
+        if (micBtn.classList.contains('listening')) {
+          micIcon.innerText = '📸';
+          visionCont.classList.add('active'); // Shows the left side
         } else {
           micIcon.innerText = '🎤';
+          visionCont.classList.remove('active'); // Hides the left side
         }
       }, 50);
     });
