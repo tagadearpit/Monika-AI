@@ -52,7 +52,7 @@ app.post("/ask", async (req, res) => {
 
     // B. INITIALIZE MODEL WITH SEARCH TOOLS (The Fix for the 400 Error)
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash-lite",
       tools: [{ googleSearchRetrieval: {} }] 
     });
 
