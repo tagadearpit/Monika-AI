@@ -1,107 +1,126 @@
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;600&display=swap');
 
 :root {
-  --bg-normal: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
-  --bg-happy: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
-  --bg-loving: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
-  --monika-pink: #e91e63;
-  --monika-dark: #c2185b;
-  --glass: rgba(255, 255, 255, 0.45);
+  --monika-pink: #ff4d94;
+  --monika-dark: #700b33;
+  --glass: rgba(255, 255, 255, 0.12);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
-  background: var(--bg-normal);
+  font-family: 'Poppins', sans-serif;
+  background: #0f0c29;
+  background: linear-gradient(135deg, #1a0624 0%, #4a0e2a 100%);
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  transition: background 1.5s ease-in-out;
+  color: white;
 }
 
-/* --- Layout Structure --- */
+/* --- Ambient Background Glow --- */
+.bg-glow {
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 80vw; height: 80vh;
+  background: radial-gradient(circle, rgba(255, 77, 148, 0.15) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  filter: blur(100px);
+  z-index: 0;
+  animation: pulse-bg 10s infinite alternate;
+}
+
+@keyframes pulse-bg {
+  0% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.2); }
+}
+
 .app-wrapper {
   display: flex;
   width: 100%;
   height: 100vh;
-  padding: 20px;
-  gap: 20px;
+  padding: 40px;
+  gap: 30px;
   align-items: stretch;
   z-index: 10;
   position: relative;
   box-sizing: border-box;
+  perspective: 1000px; /* For 3D effects */
 }
 
-/* --- Left Pane (Vision) --- */
+/* --- Glass Panels --- */
+.side-left, .side-right {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 40px;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+  transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
 .side-left {
-  flex: 0; 
+  flex: 0;
   width: 0;
-  overflow: hidden;
   opacity: 0;
+  overflow: hidden;
   pointer-events: none;
-  transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
   display: flex;
   flex-direction: column;
-  background: var(--glass);
-  backdrop-filter: blur(25px);
-  border-radius: 35px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .side-left.active {
-  flex: 1; 
+  flex: 1;
   opacity: 1;
-  padding: 25px;
+  padding: 30px;
   pointer-events: all;
-  margin-right: 0;
+}
+
+.side-right {
+  flex: 1.2;
+  padding: 35px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Visual Content --- */
+h1 {
+  font-family: 'Dancing Script', cursive;
+  font-size: 2.8rem;
+  text-align: center;
+  margin: 0 0 20px 0;
+  background: linear-gradient(to right, #fff, var(--monika-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(255, 77, 148, 0.5));
 }
 
 .video-box {
   flex: 1;
-  position: relative;
   background: #000;
-  border-radius: 20px;
+  border-radius: 25px;
   overflow: hidden;
-  border: 3px solid var(--monika-pink);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 #vision-feed {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   object-fit: cover;
-  transform: scaleX(-1);
+  filter: saturate(1.2);
 }
 
 #vision-label {
   position: absolute;
-  bottom: 15px;
-  left: 15px;
-  background: rgba(233, 30, 99, 0.8);
+  bottom: 20px; left: 20px;
+  background: var(--monika-pink);
   color: white;
-  padding: 6px 14px;
+  padding: 6px 15px;
   border-radius: 12px;
-  font-size: 13px;
-}
-
-/* --- Right Pane (Chat) --- */
-.container.side-right {
-  flex: 1.2;
-  background: var(--glass);
-  backdrop-filter: blur(25px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 35px;
-  padding: 25px;
-  display: flex;
-  flex-direction: column;
-}
-
-h1 {
-  font-family: 'Dancing Script', cursive;
-  font-size: 2.2rem;
-  text-align: center;
-  color: var(--monika-dark);
-  margin-bottom: 15px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .chat {
@@ -109,61 +128,91 @@ h1 {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 20px;
   scrollbar-width: none;
 }
 
+.chat::-webkit-scrollbar { display: none; }
+
 .bubble {
   max-width: 85%;
-  padding: 14px 18px;
-  border-radius: 22px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  padding: 16px 22px;
+  font-size: 15px;
+  line-height: 1.6;
+  border-radius: 25px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  animation: slide-up 0.4s ease-out;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .bubble.user {
-  background: var(--monika-pink);
+  background: linear-gradient(135deg, var(--monika-pink), #ff1a75);
   color: white;
   align-self: flex-end;
+  border-bottom-right-radius: 4px;
 }
 
 .bubble.monika {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
   align-self: flex-start;
+  border-bottom-left-radius: 4px;
 }
 
+/* --- Controls --- */
 .input-area {
   display: flex;
-  background: white;
-  padding: 8px;
-  border-radius: 50px;
-  margin-top: 15px;
-  align-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 10px 15px;
+  border-radius: 35px;
+  margin-top: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 input#question {
   flex: 1;
+  background: transparent;
   border: none;
-  padding: 12px 18px;
+  color: white;
+  padding: 10px;
   outline: none;
+  font-size: 16px;
 }
 
+button#micButton, button#sendButton {
+  width: 46px; height: 46px;
+  border: none; border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex; align-items: center; justify-content: center;
+}
+
+button#micButton { background: transparent; font-size: 1.5rem; }
 button#micButton.listening {
-  background: #ff4d4d !important;
-  color: white;
-  animation: mic-glow 1.5s infinite;
+  background: var(--monika-pink) !important;
+  box-shadow: 0 0 25px var(--monika-pink);
 }
 
-button#sendButton {
-  background: var(--monika-pink);
-  color: white;
-  border: none;
-  width: 44px;
-  height: 44px;
+button#sendButton { background: var(--monika-pink); color: white; margin-left: 10px; }
+button#sendButton:hover { transform: scale(1.1); }
+
+/* --- Decorative Floaties --- */
+.heart {
+  position: absolute;
+  width: 15px; height: 15px;
+  background: radial-gradient(circle, var(--monika-pink) 0%, transparent 80%);
   border-radius: 50%;
+  filter: blur(2px);
+  animation: float-up 15s infinite linear;
 }
 
-/* Hearts */
-.heart-container { position: fixed; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-.heart { position: absolute; bottom: -50px; width: 20px; height: 20px; background: rgba(233, 30, 99, 0.1); animation: float 12s linear infinite; }
-@keyframes float { to { transform: translateY(-110vh) rotate(-45deg); } }
-@keyframes mic-glow { 0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.6); } 70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } }
+@keyframes float-up {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  20% { opacity: 0.4; }
+  100% { transform: translateY(-110vh) scale(1.5); opacity: 0; }
+}
