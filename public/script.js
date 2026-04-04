@@ -2,11 +2,11 @@
 const baseUrl = "https://monika-ai-0jpf.onrender.com";
 let isLiveMode = false; 
 
-// Elements from your updated HTML
 const visionFeed = document.getElementById('vision-feed');
 const visionContainer = document.getElementById('vision-container');
 const canvas = document.getElementById('capture-canvas');
 const micBtn = document.getElementById('micButton');
+const micIcon = document.getElementById('micIcon');
 const inputField = document.getElementById("question");
 const chatBox = document.getElementById("chat");
 
@@ -34,7 +34,7 @@ async function startVision() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         visionFeed.srcObject = stream;
-        visionContainer.style.display = "block"; // Show the camera UI
+        visionContainer.classList.add('active'); // Use CSS class for transition
         console.log("Monika's eyes are open! 👁️");
     } catch (e) {
         console.warn("Camera access denied.");
@@ -45,7 +45,7 @@ async function startVision() {
 function stopVision() {
     if (visionFeed.srcObject) {
         visionFeed.srcObject.getTracks().forEach(track => track.stop());
-        visionContainer.style.display = "none"; // Hide the camera UI
+        visionContainer.classList.remove('active'); // Hide via CSS
     }
 }
 
@@ -55,7 +55,6 @@ async function captureVisionFrame() {
     canvas.height = visionFeed.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
-    // Returns Base64 without the prefix
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 }
 
@@ -66,8 +65,8 @@ function monikaSpeak(text, voiceEnabled = false) {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.pitch = 0.9; 
-    utterance.rate = 0.9; 
+    utterance.pitch = 0.9; // Optimized for stability
+    utterance.rate = 1.0; 
 
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(v => 
@@ -86,16 +85,14 @@ async function askMonika(isFromVoice = false) {
     const userInput = inputField.value.trim();
     if (!userInput && !isFromVoice) return;
 
-    // UI Feedback
     const pop = document.getElementById("popSound");
     if (pop) pop.play().catch(() => {});
     
-    appendMessage("Arpit", userInput || "<i>[Analyzing Image]</i>");
+    appendMessage("Arpit", userInput || "[Analyzing Image]");
     inputField.value = ""; 
     const loadingBubble = appendMessage("Monika", "...");
 
-    // Capture Vision if Camera is active
-    let imageBase64 = (visionContainer.style.display === "block") ? await captureVisionFrame() : null;
+    let imageBase64 = (visionContainer.classList.contains('active')) ? await captureVisionFrame() : null;
 
     try {
         const response = await fetch(`${baseUrl}/ask`, {
@@ -112,7 +109,7 @@ async function askMonika(isFromVoice = false) {
 
         const monikaReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Something went wrong... 💖";
         
-        // Mood Theme Logic
+        // Mood UI logic
         if (monikaReply.includes("[HAPPY]")) document.body.className = "mood-happy";
         else if (monikaReply.includes("[LOVING]")) document.body.className = "mood-loving";
         else document.body.className = "";
@@ -149,12 +146,12 @@ function startListening() {
     }
 }
 
-// Toggle Mic & Vision Mode
 micBtn.onclick = () => {
     if (!isLiveMode) {
         isLiveMode = true;
         micBtn.classList.add('listening');
-        startVision(); // Open camera preview
+        micIcon.innerText = '📸';
+        startVision();
         
         const greeting = "I'm looking and listening, Arpit! 🌸";
         const msg = appendMessage("Monika", "");
@@ -162,13 +159,13 @@ micBtn.onclick = () => {
     } else {
         isLiveMode = false;
         micBtn.classList.remove('listening');
-        stopVision(); // Close camera preview
+        micIcon.innerText = '🎤';
+        stopVision();
         if (recognition) recognition.stop();
         window.speechSynthesis.cancel();
     }
 };
 
-// --- 6. UI HELPERS ---
 function appendMessage(sender, text) {
     const msgDiv = document.createElement("div");
     msgDiv.className = `bubble ${sender === "Arpit" ? "user" : "monika"}`;
@@ -180,10 +177,5 @@ function appendMessage(sender, text) {
 
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
-document.getElementById("sendButton").addEventListener("click", () => {
-    askMonika(false);
-});
-
-inputField.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") askMonika(false);
-});
+document.getElementById("sendButton").addEventListener("click", () => askMonika(false));
+inputField.addEventListener("keydown", (e) => { if (e.key === "Enter") askMonika(false); });
