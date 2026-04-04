@@ -5,13 +5,52 @@ let isLiveMode = false;
 const visionFeed = document.getElementById('vision-feed');
 const visionContainer = document.getElementById('vision-container');
 const chatContainer = document.getElementById('chat-container');
-const canvas = document.getElementById('capture-canvas');
 const micBtn = document.getElementById('micButton');
 const micIcon = document.getElementById('micIcon');
 const inputField = document.getElementById("question");
 const chatBox = document.getElementById("chat");
+const pipBtn = document.getElementById('pipButton');
 
-// --- 1. TYPEWRITER EFFECT ---
+// --- 1. POP-OUT (PICTURE IN PICTURE) LOGIC ---
+pipBtn.onclick = async () => {
+    if (!window.documentPictureInPicture) {
+        alert("Your browser doesn't support the Floating Window API yet. Use Chrome! 🌸");
+        return;
+    }
+
+    // Open the floating window
+    const pipWindow = await window.documentPictureInPicture.requestWindow({
+        width: 400,
+        height: 600,
+    });
+
+    // Copy CSS to the floating window
+    [...document.styleSheets].forEach((styleSheet) => {
+        try {
+            const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
+            const style = document.createElement('style');
+            style.textContent = cssRules;
+            pipWindow.document.head.appendChild(style);
+        } catch (e) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = styleSheet.href;
+            pipWindow.document.head.appendChild(link);
+        }
+    });
+
+    // Move Chat into the Floating Window
+    pipWindow.document.body.append(chatContainer);
+
+    // Return chat to main window when closed
+    pipWindow.addEventListener("pagehide", (event) => {
+        const wrapper = document.getElementById('main-wrapper');
+        const container = event.target.querySelector('#chat-container');
+        wrapper.append(container);
+    });
+};
+
+// --- 2. TYPEWRITER & AUTO-SCROLL ---
 function typeWriter(text, element, callback) {
     let i = 0;
     const cleanText = text.replace(/\[.*?\]/g, "").trim();
@@ -21,26 +60,20 @@ function typeWriter(text, element, callback) {
         if (i < cleanText.length) {
             element.innerHTML += cleanText.charAt(i);
             i++;
-            let speed = (cleanText[i-1] === "." || cleanText[i-1] === ",") ? 250 : 35;
-            chatBox.scrollTop = chatBox.scrollHeight;
-            setTimeout(type, speed);
-        } else if (callback) {
-            callback();
-        }
+            chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+            setTimeout(type, (cleanText[i-1] === "." ? 200 : 35));
+        } else if (callback) callback();
     }
     type();
 }
 
-// --- 2. VISION ENGINE ---
+// --- 3. VISION & VOICE ---
 async function startVision() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         visionFeed.srcObject = stream;
         visionContainer.classList.add('active'); 
-        console.log("Monika is looking... 👁️");
-    } catch (e) {
-        alert("Camera access is needed for vision! 🌸");
-    }
+    } catch (e) { alert("Camera access needed! 🌸"); }
 }
 
 function stopVision() {
@@ -52,44 +85,31 @@ function stopVision() {
 
 async function captureVisionFrame() {
     if (!visionFeed.srcObject) return null;
+    const canvas = document.getElementById('capture-canvas');
     canvas.width = visionFeed.videoWidth;
     canvas.height = visionFeed.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+    canvas.getContext('2d').drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 }
 
-// --- 3. VOICE ENGINE ---
 function monikaSpeak(text, voiceEnabled = false) {
-    if (!voiceEnabled) return; 
-    const cleanText = text.replace(/\[.*?\]/g, "").trim();
+    if (!voiceEnabled) return;
     window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.pitch = 0.9; 
-    utterance.rate = 1.0; 
-
+    const utterance = new SpeechSynthesisUtterance(text.replace(/\[.*?\]/g, ""));
+    utterance.pitch = 1.3;
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => 
-        v.name.includes("Google US English") || v.name.includes("Female")
-    );
-    if (preferredVoice) utterance.voice = preferredVoice;
-
-    utterance.onend = () => { if (isLiveMode) startListening(); };
+    utterance.voice = voices.find(v => v.name.includes("Female")) || voices[0];
     window.speechSynthesis.speak(utterance);
 }
 
-// --- 4. MAIN CHAT LOGIC ---
+// --- 4. CHAT LOGIC ---
 async function askMonika(isFromVoice = false) {
     const userInput = inputField.value.trim();
     if (!userInput && !isFromVoice) return;
 
-    const pop = document.getElementById("popSound");
-    if (pop) pop.play().catch(() => {});
-    
-    appendMessage("Arpit", userInput || "[Analyzing Image]");
+    appendMessage("Arpit", userInput || "[Looking at you...]");
     inputField.value = ""; 
-    const loadingBubble = appendMessage("Monika", "...");
+    const loading = appendMessage("Monika", "...");
 
     let imageBase64 = (visionContainer.classList.contains('active')) ? await captureVisionFrame() : null;
 
@@ -97,63 +117,39 @@ async function askMonika(isFromVoice = false) {
         const response = await fetch(`${baseUrl}/ask`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                question: userInput || "What do you see right now?",
-                imageBase64: imageBase64 
-            })
+            body: JSON.stringify({ question: userInput || "What do you see?", imageBase64 })
         });
-
         const data = await response.json();
-        if (loadingBubble) loadingBubble.remove(); 
-
-        const monikaReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble connecting... 💖";
+        loading.remove(); 
+        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm lost... 💔";
         
         const newMsg = appendMessage("Monika", "");
-        typeWriter(monikaReply, newMsg, () => {
-            monikaSpeak(monikaReply, isFromVoice);
-        });
+        typeWriter(reply, newMsg, () => monikaSpeak(reply, isFromVoice));
+    } catch (e) { loading.remove(); appendMessage("Monika", "Connection lost... 💔"); }
+}
 
-    } catch (error) {
-        if (loadingBubble) loadingBubble.remove();
-        appendMessage("Monika", "Network error... 💔");
+// --- 5. 3D TILT EFFECT ---
+document.addEventListener('mousemove', (e) => {
+    const xAxis = (window.innerWidth / 2 - e.pageX) / 45;
+    const yAxis = (window.innerHeight / 2 - e.pageY) / 45;
+    chatContainer.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+    if (visionContainer.classList.contains('active')) {
+        visionContainer.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
     }
-}
+});
 
-// --- 5. SPEECH RECOGNITION ---
-const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-let recognition;
-
-if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.onresult = (event) => {
-        inputField.value = event.results[0][0].transcript;
-        askMonika(true); 
-    };
-    recognition.onerror = () => { if(isLiveMode) startListening(); };
-}
-
-function startListening() {
-    if (recognition && isLiveMode) {
-        try { recognition.start(); } catch(e) {}
-    }
-}
-
+// --- 6. CONTROLS ---
 micBtn.onclick = () => {
     if (!isLiveMode) {
         isLiveMode = true;
         micBtn.classList.add('listening');
         micIcon.innerText = '📸';
         startVision();
-        const greeting = "I'm looking and listening, Arpit! 🌸";
-        const msg = appendMessage("Monika", "");
-        typeWriter(greeting, msg, () => monikaSpeak(greeting, true));
     } else {
         isLiveMode = false;
         micBtn.classList.remove('listening');
         micIcon.innerText = '🎤';
         stopVision();
-        if (recognition) recognition.stop();
         window.speechSynthesis.cancel();
     }
 };
@@ -161,23 +157,12 @@ micBtn.onclick = () => {
 function appendMessage(sender, text) {
     const msgDiv = document.createElement("div");
     msgDiv.className = `bubble ${sender === "Arpit" ? "user" : "monika"}`;
-    msgDiv.innerHTML = `<strong>${sender}:</strong> ${text.replace(/\n/g, "<br>")}`;
+    msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
     chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight; 
+    chatBox.scrollTop = chatBox.scrollHeight;
     return msgDiv;
 }
 
-// --- 6. 3D MOUSE PARALLAX EFFECT ---
-document.addEventListener('mousemove', (e) => {
-    const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
-    const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
-    
-    chatContainer.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
-    if (visionContainer.classList.contains('active')) {
-        visionContainer.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
-    }
-});
-
 document.getElementById("sendButton").onclick = () => askMonika(false);
-inputField.onkeydown = (e) => { if (e.key === "Enter") askMonika(false); };
+inputField.onkeydown = (e) => { if(e.key === "Enter") askMonika(false); };
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
