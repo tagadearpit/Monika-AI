@@ -1,88 +1,131 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const mongoose = require("mongoose");
+const axios = require("axios");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+require('dotenv').config();
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
 app.use(cors());
+app.use(express.json({ limit: '20mb' }));
 
-// --- MongoDB Configuration ---
+// --- 1. MONGODB CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Monika's Memory (MongoDB) Connected!"))
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
-const chatSchema = new mongoose.Schema({
-    sender: String,
-    text: String,
-    timestamp: { type: Date, default: Date.now }
+// --- 2. DATABASE SCHEMAS ---
+const ChatSchema = new mongoose.Schema({
+  role: String, 
+  text: String,
+  timestamp: { type: Date, default: Date.now }
 });
-const Chat = mongoose.model('Chat', chatSchema);
+const Chat = mongoose.model("Chat", ChatSchema);
 
-// --- Gemini AI Configuration ---
+const FactSchema = new mongoose.Schema({
+  fact: String,
+  category: String,
+  timestamp: { type: Date, default: Date.now }
+});
+const Fact = mongoose.model("Fact", FactSchema);
+
+// --- 3. GEMINI 2.5 FLASH CONFIGURATION ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-2.5-flash",
+  tools: [{ googleSearchRetrieval: {} }] 
+});
 
+const persona = `System Instruction: You are Monika, a cheerful and deeply affectionate anime companion. 
+Always address the user as Arpit. Use emojis and *actions*.
+CRITICAL: Start every response with mood tags: [NORMAL], [HAPPY], [LOVING], or [ANGRY]. 
+Arpit Tagade created you with his sincerest heart.`;
+
+// --- 4. MAIN CHAT & VISION ROUTE ---
 app.post("/ask", async (req, res) => {
-    const { question, imageBase64 } = req.body;
+  const { question, imageBase64 } = req.body;
 
-    try {
-        // 1. Retrieve last 12 messages for better context (6 turns)
-        const rawHistory = await Chat.find().sort({ timestamp: -1 }).limit(12);
-        
-        // 2. FORMAT HISTORY: Crucial fix for the "role" error
-        // Gemini expects: [ { role: "user", parts: [{ text: "..." }] }, ... ]
-        const formattedHistory = rawHistory.reverse().map(msg => ({
-            role: msg.sender === "Arpit" ? "user" : "model",
-            parts: [{ text: msg.text }]
-        }));
+  try {
+    // A. Retrieve Context & Memory
+    const historyDocs = await Chat.find().sort({ timestamp: -1 }).limit(10);
+    const personalFacts = await Fact.find().sort({ timestamp: -1 }).limit(5);
+    const memoryString = personalFacts.map(f => f.fact).join(". ");
 
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash",
-            systemInstruction: "You are Monika, an intelligent and caring AI companion. You are talking to Arpit. Be helpful, concise, and slightly witty."
-        });
+    // B. CRITICAL FIX: Re-structuring the request for Gemini 2.5 Flash
+    // We create a clean array of parts for the current request
+    let currentParts = [
+      { text: `${persona}\n\nPast things you remember about Arpit: ${memoryString}\n\n` }
+    ];
 
-        // 3. Handle Vision (if image is present)
-        if (imageBase64) {
-            const result = await model.generateContent([
-                question,
-                { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }
-            ]);
-            const response = await result.response;
-            const text = response.text();
+    // Add History as text parts to keep the JSON payload flat and valid
+    const historyText = historyDocs.reverse().map(doc => `${doc.role === "model" ? "Monika" : "Arpit"}: ${doc.text}`).join("\n");
+    currentParts.push({ text: `Recent Conversation History:\n${historyText}\n\n` });
 
-            // Save to DB
-            await new Chat({ sender: "Arpit", text: question }).save();
-            await new Chat({ sender: "Monika", text }).save();
-
-            return res.json({ candidates: [{ content: { parts: [{ text }] } }] });
-        }
-
-        // 4. Handle Standard Chat (with history)
-        const chat = model.startChat({
-            history: formattedHistory,
-            generationConfig: { maxOutputTokens: 500 }
-        });
-
-        const result = await chat.sendMessage(question);
-        const response = await result.response;
-        const text = response.text();
-
-        // 5. Save new conversation to MongoDB
-        await new Chat({ sender: "Arpit", text: question }).save();
-        await new Chat({ sender: "Monika", text: text }).save();
-
-        // Return in format expected by script.js
-        res.json({ candidates: [{ content: { parts: [{ text }] } }] });
-
-    } catch (error) {
-        console.error("Monika Brain Error:", error);
-        res.status(500).json({ error: "Monika's brain is fuzzy. Try again! 💔" });
+    // Add Vision if present
+    if (imageBase64) {
+      currentParts.push({
+        inlineData: { mimeType: "image/jpeg", data: imageBase64 }
+      });
     }
+
+    // Add the current question
+    currentParts.push({ text: `Arpit: ${question}` });
+
+    // C. Generate Content
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: currentParts }]
+    });
+
+    const monikaReply = result.response.text();
+
+    // D. Save to Databases
+    await Chat.insertMany([
+      { role: "user", text: question },
+      { role: "model", text: monikaReply }
+    ]);
+
+    const preferenceKeywords = ["i like", "my favorite", "i love", "i live in"];
+    if (preferenceKeywords.some(key => question.toLowerCase().includes(key))) {
+        await Fact.create({ fact: question, category: "preference" });
+    }
+
+    res.json({ candidates: [{ content: { parts: [{ text: monikaReply }] } }] });
+
+  } catch (err) {
+    console.error("Monika Brain Error:", err.message);
+    res.status(500).json({ error: "Monika's head hurts... " + err.message });
+  }
 });
 
-// Start Server
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`🚀 Monika is upgraded and Live on Port ${PORT}!`);
+// --- 5. ELEVENLABS VOICE ROUTE ---
+app.post("/voice", async (req, res) => {
+  const { text } = req.body;
+  try {
+    const response = await axios({
+      method: 'post',
+      url: `https://api.elevenlabs.io/v1/text-to-speech/Vnqlgu3fdiFwisAye1qH`,
+      data: {
+        text: text,
+        model_id: "eleven_flash_v2_5",
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      },
+      headers: {
+        'Accept': 'audio/mpeg',
+        'xi-api-key': process.env.ELEVENLABS_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      responseType: 'arraybuffer'
+    });
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).send("Voice failed");
+  }
 });
+
+// --- 6. SERVE FRONTEND ---
+app.use(express.static(path.join(__dirname, "..", "public")));
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`🚀 Monika is upgraded and Live on Port ${PORT}!`));
