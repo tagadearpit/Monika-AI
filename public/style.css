@@ -273,3 +273,54 @@ button#sendButton:hover {
 
 /* --- PiP MODE FALLBACK --- */
 :where(body:empty) { background: #1a0624; }
+
+/* =========================================
+   📱 MOBILE RESPONSIVE DESIGN
+   ========================================= */
+@media (max-width: 768px) {
+  .app-wrapper {
+    flex-direction: column; /* Stacks the panels vertically */
+    padding: 10px;
+    gap: 10px;
+  }
+
+  /* Make the camera sit at the top when active */
+  .side-left.active {
+    flex: none;
+    height: 30vh; /* Takes up 30% of the screen */
+    padding: 10px;
+    border-radius: 20px;
+  }
+
+  /* Make chat take up the rest of the space */
+  .side-right {
+    flex: 1;
+    padding: 15px;
+    border-radius: 20px;
+  }
+
+  /* Shrink titles so they fit on small screens */
+  h1 { font-size: 1.8rem; }
+  
+  .chat-header, header { margin-bottom: 10px; padding-bottom: 10px; }
+
+  /* Widen chat bubbles for readability */
+  .bubble {
+    max-width: 90%; 
+    padding: 12px 16px;
+  }
+
+  /* Hide the PiP button on mobile */
+  #pipButton { display: none; }
+
+  /* Tighter input area for thumbs */
+  .input-area {
+    padding: 8px 10px 8px 15px;
+    margin-top: 10px;
+  }
+
+  button#micButton, button#camButton, button#sendButton {
+    width: 38px; height: 38px;
+    margin-left: 6px;
+  }
+}
