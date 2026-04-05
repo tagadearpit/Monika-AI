@@ -8,8 +8,8 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
-// 20MB limit to handle high-quality Vision images from Arpit's camera
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- 1. MONGODB CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
