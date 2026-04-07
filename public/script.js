@@ -86,8 +86,8 @@ function monikaSpeak(text) {
     window.speechSynthesis.cancel();
     const cleanText = text.replace(/\[.*?\]/g, "");
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.pitch = 1.3;
-    utterance.rate = 1.0;
+    utterance.pitch = 1.4;
+    utterance.rate = 1.15;
     
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
