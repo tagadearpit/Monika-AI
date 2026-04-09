@@ -18,11 +18,12 @@ const pipBtn = document.getElementById('pipButton');
 // --- 1. 3D AVATAR SETUP ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 20);
-camera.position.set(0, 1.4, 1.5); // Aim the camera at her face
+// FIX: Shifted the camera slightly right (0.4) so Monika appears on the left!
+camera.position.set(0.4, 1.4, 1.5); 
 
 const renderer = new THREE.WebGLRenderer({ 
     canvas: document.getElementById('avatar-canvas'), 
-    alpha: true, // Transparent background so the CSS glow shows through
+    alpha: true, 
     antialias: true 
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -45,12 +46,25 @@ loader.load('/monika.vrm', (gltf) => {
     console.log("🌸 Avatar Loaded successfully!");
 }, undefined, (error) => console.error("VRM Load Error:", error));
 
-// ANIMATION LOOP
+// ANIMATION LOOP (Now with idle swaying!)
 const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const deltaTime = clock.getDelta();
-    if (currentVrm) currentVrm.update(deltaTime);
+    const elapsedTime = clock.getElapsedTime();
+
+    if (currentVrm) {
+        currentVrm.update(deltaTime);
+        
+        // Gentle breathing and swaying movement
+        currentVrm.scene.rotation.y = Math.sin(elapsedTime * 0.5) * 0.05; 
+        
+        const head = currentVrm.humanoid.getNormalizedBoneNode('head');
+        if (head) {
+            head.rotation.x = Math.sin(elapsedTime) * 0.02;
+            head.rotation.y = Math.cos(elapsedTime * 0.8) * 0.05;
+        }
+    }
     renderer.render(scene, camera);
 }
 animate();
@@ -131,9 +145,32 @@ async function captureVisionFrame() {
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 }
 
-// --- 5. TEXT-TO-SPEECH & FACIAL EXPRESSIONS ---
+// --- 5. TEXT-TO-SPEECH, FACIAL EXPRESSIONS & LIP-SYNC ---
+let speakInterval;
+
+function startLipSync() {
+    if (!currentVrm) return;
+    const vowels = ['aa', 'ih', 'ou', 'ee', 'oh'];
+    // Randomly flap mouth shapes to simulate talking
+    speakInterval = setInterval(() => {
+        vowels.forEach(v => currentVrm.expressionManager.setValue(v, 0));
+        const randomVowel = vowels[Math.floor(Math.random() * vowels.length)];
+        currentVrm.expressionManager.setValue(randomVowel, Math.random() * 0.8 + 0.2);
+    }, 100); 
+}
+
+function stopLipSync() {
+    clearInterval(speakInterval);
+    if (currentVrm) {
+        const vowels = ['aa', 'ih', 'ou', 'ee', 'oh'];
+        vowels.forEach(v => currentVrm.expressionManager.setValue(v, 0));
+    }
+}
+
 function monikaSpeak(text) {
     window.speechSynthesis.cancel();
+    stopLipSync(); // Reset mouth just in case
+
     const utterance = new SpeechSynthesisUtterance();
     
     let currentPitch = 1.4; 
@@ -168,6 +205,10 @@ function monikaSpeak(text) {
         utterance.voice = voices.find(v => v.name.includes("Female") || v.name.includes("Google UK English Female")) || voices[0];
     }
     
+    // Hook up Lip-Sync!
+    utterance.onstart = () => startLipSync();
+    utterance.onend = () => stopLipSync();
+
     window.speechSynthesis.speak(utterance);
 }
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
@@ -255,6 +296,7 @@ camBtn.onclick = () => {
 micBtn.onclick = () => {
     if (recognition) {
         window.speechSynthesis.cancel(); 
+        stopLipSync();
         inputField.placeholder = "Monika is speaking...";
         
         const greeting = new SpeechSynthesisUtterance("What would you want to talk, Arpit?");
@@ -266,7 +308,13 @@ micBtn.onclick = () => {
             greeting.voice = voices.find(v => v.name.includes("Female") || v.name.includes("Google UK English Female")) || voices[0];
         }
 
-        greeting.onend = () => recognition.start();
+        // Make her lip-sync the greeting too!
+        greeting.onstart = () => startLipSync();
+        greeting.onend = () => {
+            stopLipSync();
+            recognition.start();
+        };
+
         window.speechSynthesis.speak(greeting);
         
     } else {
