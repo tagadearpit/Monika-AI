@@ -147,7 +147,19 @@ async function askMonika(speakResponse = false) {
         });
         const data = await response.json();
         loading.remove(); 
-        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I'm a bit confused... 💔";
+        
+        // Use the new payload structure sent by the backend
+        const reply = data.reply || "I'm a bit confused... 💔";
+        const actionCommand = data.action;
+
+        // Apply theme changes if Monika used her tool
+        if (actionCommand) {
+            document.body.className = ''; // Clear old themes
+            if (actionCommand !== 'default') {
+                document.body.classList.add(`theme-${actionCommand}`);
+            }
+        }
+
         const newMsg = appendMessage("Monika", "");
         
         // --- NEW BEHAVIOR: SPEAK IMMEDIATELY ---
