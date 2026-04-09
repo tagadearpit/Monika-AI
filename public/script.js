@@ -18,12 +18,11 @@ const pipBtn = document.getElementById('pipButton');
 // --- 1. 3D AVATAR SETUP ---
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 20);
-// FIX: Shifted the camera slightly right (0.4) so Monika appears on the left!
-camera.position.set(0.4, 1.4, 1.5); 
+camera.position.set(0.4, 1.4, 1.5); // Aim the camera at her face
 
 const renderer = new THREE.WebGLRenderer({ 
     canvas: document.getElementById('avatar-canvas'), 
-    alpha: true, 
+    alpha: true, // Transparent background so the CSS glow shows through
     antialias: true 
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,10 +42,23 @@ loader.load('/monika.vrm', (gltf) => {
     scene.add(vrm.scene);
     currentVrm = vrm;
     VRMUtils.rotateVRM0(vrm); 
+    
+    // --- FIX: T-POSE AND DIRECTION ---
+    // 1. Turn her around 180 degrees to face you!
+    vrm.scene.rotation.y = Math.PI; 
+
+    // 2. Relax her arms so she isn't stuck in a T-Pose
+    const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm');
+    const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
+    
+    // Rotate the shoulder joints down
+    if (leftArm) leftArm.rotation.z = 1.2;  
+    if (rightArm) rightArm.rotation.z = -1.2; 
+    
     console.log("🌸 Avatar Loaded successfully!");
 }, undefined, (error) => console.error("VRM Load Error:", error));
 
-// ANIMATION LOOP (Now with idle swaying!)
+// ANIMATION LOOP
 const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
@@ -57,7 +69,7 @@ function animate() {
         currentVrm.update(deltaTime);
         
         // Gentle breathing and swaying movement
-        currentVrm.scene.rotation.y = Math.sin(elapsedTime * 0.5) * 0.05; 
+        currentVrm.scene.rotation.y = Math.sin(elapsedTime * 0.5) * 0.05 + Math.PI; // Added Math.PI so she stays facing forward while swaying
         
         const head = currentVrm.humanoid.getNormalizedBoneNode('head');
         if (head) {
