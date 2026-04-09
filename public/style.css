@@ -324,3 +324,31 @@ button#sendButton:hover {
     margin-left: 6px;
   }
 }
+
+/* --- MONIKA'S THEMES (FUNCTION CALLING) --- */
+body.theme-dark {
+  background: #000000;
+  color: #a0a0a0;
+}
+body.theme-dark .app-wrapper .side-left, 
+body.theme-dark .app-wrapper .side-right {
+  background: rgba(20, 20, 20, 0.8);
+  border-color: #333;
+}
+body.theme-dark h1 { background: none; color: #fff; -webkit-text-fill-color: #fff; }
+
+body.theme-hacker {
+  background: #051405;
+  color: #00ff00;
+  font-family: 'Courier New', Courier, monospace;
+}
+body.theme-hacker .bg-glow { display: none; }
+body.theme-hacker .app-wrapper .side-left, 
+body.theme-hacker .app-wrapper .side-right {
+  background: rgba(0, 20, 0, 0.9);
+  border-color: #00ff00;
+  border-radius: 0;
+}
+body.theme-hacker h1 { font-family: 'Courier New', monospace; background: none; color: #00ff00; -webkit-text-fill-color: #00ff00; }
+body.theme-hacker .bubble.user { background: #004400; color: #00ff00; }
+body.theme-hacker .bubble.monika strong { color: #fff; }
