@@ -3,6 +3,13 @@ const baseUrl = "";
 let isVisionActive = false; 
 let isMonikaBusy = false; 
 
+// --- NEW: SESSION MANAGEMENT ---
+let sessionId = localStorage.getItem('monika_session');
+if (!sessionId) {
+    sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('monika_session', sessionId);
+}
+
 const visionFeed = document.getElementById('vision-feed');
 const visionContainer = document.getElementById('vision-container');
 const chatContainer = document.getElementById('chat-container');
@@ -92,7 +99,6 @@ function monikaSpeak(text) {
     let currentPitch = 1.4; 
     let currentRate = 1.15;
 
-    // Trigger Audio adjustments based on mood tags
     if (text.includes("[ANGRY]")) {
         currentPitch = 1.6; currentRate = 1.35;
     } else if (text.includes("[SAD]")) {
@@ -157,7 +163,6 @@ async function askMonika(speakResponse = false) {
     if (!userInput && isVisionActive) userInput = "What do you see right now, Monika?";
     if (!userInput) return;
 
-    // --- LOCK THE UI ---
     isMonikaBusy = true;
     inputField.disabled = true;
     document.getElementById("sendButton").style.opacity = "0.5";
@@ -174,7 +179,7 @@ async function askMonika(speakResponse = false) {
         const response = await fetch(`${baseUrl}/ask`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: userInput, imageBase64 })
+            body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId })
         });
         const data = await response.json();
         loading.remove(); 
