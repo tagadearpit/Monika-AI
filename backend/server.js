@@ -98,9 +98,8 @@ app.post("/ask", async (req, res) => {
     ];
 
     const historyText = historyDocs.reverse()
-      .map(doc => `${doc.role === "model" ? "Monika" : "Arpit"}: ${doc.text}`)
-      .join("\n");
-    
+    .map(doc => `${doc.role === "model" ? "Monika" : "User"}: ${doc.text}`)      
+    .join("\n");
     currentParts.push({ text: `Recent Conversation:\n${historyText}\n\n` });
 
     if (imageBase64) {
