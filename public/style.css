@@ -38,21 +38,9 @@ body {
   100% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
 }
 
-/* --- 3D AVATAR CANVAS --- */
-#avatar-canvas {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1; 
-  pointer-events: none; 
-}
-
 /* --- MAIN LAYOUT --- */
 .app-wrapper {
   display: flex; 
-  justify-content: flex-end; /* FIX: Pushes the chat box to the right! */
   width: 100%; 
   max-width: 1400px; 
   margin: 0 auto;
@@ -84,8 +72,7 @@ body {
 }
 
 .side-right { 
-  flex: 0 0 450px; /* FIX: Gives the chat a max width so it doesn't block her */
-  max-width: 450px; 
+  flex: 1.5; 
   padding: 30px; 
   display: flex; 
   flex-direction: column; 
@@ -318,7 +305,7 @@ body.theme-hacker .bubble.monika strong { color: #fff; }
 @media (max-width: 768px) {
   .app-wrapper { flex-direction: column; padding: 10px; gap: 10px; }
   .side-left.active { flex: none; height: 30vh; padding: 10px; border-radius: 20px; }
-  .side-right { flex: 1; padding: 15px; border-radius: 20px; max-width: 100%; }
+  .side-right { flex: 1; padding: 15px; border-radius: 20px; }
   h1 { font-size: 1.8rem; }
   .chat-header, header { margin-bottom: 10px; padding-bottom: 10px; }
   .bubble { max-width: 90%; padding: 12px 16px; }
