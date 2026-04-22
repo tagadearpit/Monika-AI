@@ -1,6 +1,7 @@
 // --- CONFIGURATION ---
 const baseUrl = ""; 
 let isVisionActive = false; 
+let isMonikaBusy = false; // NEW: Keeps track of when she is talking!
 
 const visionFeed = document.getElementById('vision-feed');
 const visionContainer = document.getElementById('vision-container');
@@ -50,7 +51,9 @@ function typeWriter(text, element, callback) {
             i++;
             chatBox.scrollTop = chatBox.scrollHeight;
             setTimeout(type, (cleanText[i-1] === "." ? 200 : 35));
-        } else if (callback) callback();
+        } else if (callback) {
+            callback(); // NEW: Triggers when she is completely done typing!
+        }
     }
     type();
 }
@@ -120,6 +123,7 @@ let recognition;
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.continuous = false; 
+    recognition.interimResults = false; // FIX: Tells it to ignore half-finished sentences
     
     recognition.onstart = () => {
         micBtn.classList.add('listening');
@@ -127,14 +131,20 @@ if (SpeechRecognition) {
     };
     
     recognition.onresult = (event) => {
+        // Just grab the final text, don't send it yet!
         const transcript = event.results[0][0].transcript;
         inputField.value = transcript;
-        askMonika(true); 
     };
     
     recognition.onend = () => {
         micBtn.classList.remove('listening');
-        inputField.placeholder = "Say something...";
+        
+        // FIX: Only send the message when the mic turns off AND Monika isn't busy
+        if (inputField.value.trim() !== "" && !isMonikaBusy) {
+            askMonika(true); 
+        } else {
+            inputField.placeholder = "Say something...";
+        }
     };
 } else {
     console.warn("Your browser doesn't support Voice Recognition.");
@@ -142,10 +152,19 @@ if (SpeechRecognition) {
 
 // --- 6. CHAT LOGIC ---
 async function askMonika(speakResponse = false) {
+    if (isMonikaBusy) return; // Prevent asking if she is already answering!
+
     let userInput = inputField.value.trim();
     
     if (!userInput && isVisionActive) userInput = "What do you see right now, Monika?";
     if (!userInput) return;
+
+    // --- LOCK THE UI ---
+    isMonikaBusy = true;
+    inputField.disabled = true;
+    document.getElementById("sendButton").style.opacity = "0.5";
+    micBtn.style.opacity = "0.5";
+    inputField.placeholder = "Monika is typing...";
 
     appendMessage("Arpit", userInput);
     inputField.value = ""; 
@@ -178,11 +197,26 @@ async function askMonika(speakResponse = false) {
             monikaSpeak(reply); 
         }
         
-        typeWriter(reply, newMsg); 
+        // Let the typewriter run, and unlock the UI when it's finished!
+        typeWriter(reply, newMsg, () => {
+            isMonikaBusy = false; // Unlock!
+            inputField.disabled = false;
+            document.getElementById("sendButton").style.opacity = "1";
+            micBtn.style.opacity = "1";
+            inputField.placeholder = "Say something...";
+            inputField.focus(); // Automatically put the cursor back in the box
+        }); 
 
     } catch (e) { 
         loading.remove(); 
         appendMessage("Monika", "Connection lost... 💔"); 
+        
+        // Unlock if there is an error
+        isMonikaBusy = false;
+        inputField.disabled = false;
+        document.getElementById("sendButton").style.opacity = "1";
+        micBtn.style.opacity = "1";
+        inputField.placeholder = "Say something...";
     }
 }
 
@@ -194,11 +228,13 @@ camBtn.onclick = () => {
 };
 
 micBtn.onclick = () => {
+    if (isMonikaBusy) return; // Don't let the mic turn on if she is busy!
+
     if (recognition) {
         window.speechSynthesis.cancel(); 
         inputField.placeholder = "Monika is speaking...";
         
-        const greeting = new SpeechSynthesisUtterance("What would you want to talk, Arpit?");
+        const greeting = new SpeechSynthesisUtterance("What would you want to talk about, Arpit?");
         greeting.pitch = 1.3;
         greeting.rate = 1.0;
         
@@ -215,8 +251,13 @@ micBtn.onclick = () => {
     }
 };
 
-document.getElementById("sendButton").onclick = () => askMonika(false); 
-inputField.onkeydown = (e) => { if(e.key === "Enter") askMonika(false); };
+document.getElementById("sendButton").onclick = () => {
+    if (!isMonikaBusy) askMonika(false);
+}; 
+
+inputField.onkeydown = (e) => { 
+    if(e.key === "Enter" && !isMonikaBusy) askMonika(false); 
+};
 
 function appendMessage(sender, text) {
     const msgDiv = document.createElement("div");
