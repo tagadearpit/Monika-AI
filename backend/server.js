@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
-// --- BUG FIX #8: ENVIRONMENT VARIABLE VALIDATION ---
 if (!process.env.GEMINI_API_KEY || !process.env.MONGO_URI) {
   console.error("❌ CRITICAL ERROR: GEMINI_API_KEY or MONGO_URI is missing from environment variables!");
   process.exit(1);
@@ -13,7 +12,6 @@ if (!process.env.GEMINI_API_KEY || !process.env.MONGO_URI) {
 
 const app = express();
 
-// --- BUG FIX #6: CORS SECURITY ---
 app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
     credentials: true
