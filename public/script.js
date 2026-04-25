@@ -5,19 +5,6 @@ let isMonikaBusy = false;
 let isListening = false; 
 let lastSpeechTime = 0; 
 
-// --- SESSION & THEME MANAGEMENT ---
-let sessionId = localStorage.getItem('monika_session');
-if (!sessionId) {
-    sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('monika_session', sessionId);
-}
-
-// Load saved theme
-const savedTheme = localStorage.getItem('monika_theme') || 'default';
-if (savedTheme !== 'default') {
-    document.body.classList.add(`theme-${savedTheme}`);
-}
-
 const visionFeed = document.getElementById('vision-feed');
 const visionContainer = document.getElementById('vision-container');
 const chatContainer = document.getElementById('chat-container');
@@ -26,8 +13,68 @@ const camBtn = document.getElementById('camButton');
 const inputField = document.getElementById("question");
 const chatBox = document.getElementById("chat");
 const pipBtn = document.getElementById('pipButton');
+const loginOverlay = document.getElementById('login-overlay');
 
 const globalUtterance = new SpeechSynthesisUtterance();
+
+// --- SESSION & GOOGLE LOGIN MANAGEMENT ---
+let sessionId = localStorage.getItem('monika_session');
+
+window.onload = async function () {
+    try {
+        // 1. Ask the backend for the Google Client ID
+        const configResponse = await fetch(`${baseUrl}/api/config`);
+        const configData = await configResponse.json();
+
+        // 2. Initialize Google Identity Services
+        google.accounts.id.initialize({
+            client_id: configData.googleClientId, 
+            callback: handleGoogleLogin
+        });
+
+        // 3. Check if user is already logged in
+        if (!sessionId) {
+            // Show login gate and render the Google Button
+            loginOverlay.style.display = 'flex';
+            google.accounts.id.renderButton(
+                document.getElementById("googleButton"),
+                { theme: "outline", size: "large", shape: "pill" }
+            );
+        } else {
+            // User is logged in, hide gate
+            loginOverlay.style.display = 'none';
+            appendMessage("System", `Securely connected to memory: ${sessionId}`);
+        }
+    } catch (error) {
+        console.error("Failed to load configuration:", error);
+        appendMessage("System", "Error: Could not connect to authentication server.");
+    }
+};
+
+function handleGoogleLogin(response) {
+    // Google sends back a secure JWT token. Decode it to get user details
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    
+    // Use Google Email as permanent Database Memory ID!
+    sessionId = payload.email; 
+    localStorage.setItem('monika_session', sessionId);
+    
+    loginOverlay.style.display = 'none';
+    
+    monikaSpeak(`Welcome back, ${payload.given_name}.`);
+    appendMessage("System", `Google Auth Success. Welcome, ${payload.name}!`);
+}
+
+document.getElementById('logoutBtn').onclick = () => {
+    localStorage.removeItem('monika_session');
+    location.reload(); 
+};
+
+// --- THEME MANAGEMENT ---
+const savedTheme = localStorage.getItem('monika_theme') || 'default';
+if (savedTheme !== 'default') {
+    document.body.classList.add(`theme-${savedTheme}`);
+}
 
 // --- 1. POP-OUT LOGIC ---
 pipBtn.onclick = async () => {
@@ -176,7 +223,7 @@ if (SpeechRecognition) {
     console.warn("Your browser doesn't support Voice Recognition.");
 }
 
-// --- UI HELPERS (NEW UX UPDATES) ---
+// --- UI HELPERS ---
 function showTypingIndicator() {
     const msgDiv = document.createElement("div");
     msgDiv.className = "bubble monika";
@@ -224,7 +271,6 @@ async function askMonika(speakResponse = false) {
     appendMessage("You", userInput);
     inputField.value = ""; 
     
-    // NEW UX: Animated typing dots!
     const loading = showTypingIndicator(); 
 
     let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
