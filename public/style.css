@@ -78,7 +78,7 @@ body {
   flex-direction: column; 
 }
 
-/* --- HEADERS & AVATAR (NEW!) --- */
+/* --- HEADERS & AVATAR --- */
 .chat-header, header { 
   display: flex; 
   align-items: center; 
@@ -136,7 +136,7 @@ body {
 
 h1 { font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin: 0; color: white;}
 
-#pipButton {
+#pipButton, #logoutBtn {
   background: rgba(255, 255, 255, 0.05); 
   border: 1px solid var(--glass-border); 
   border-radius: 12px;
@@ -146,7 +146,7 @@ h1 { font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin: 0; color
   transition: 0.3s ease;
   color: white;
 }
-#pipButton:hover { 
+#pipButton:hover, #logoutBtn:hover { 
   background: rgba(255, 255, 255, 0.15); 
   transform: translateY(-2px); 
 }
@@ -232,7 +232,7 @@ h1 { font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin: 0; color
 }
 .bubble.monika strong { color: var(--monika-light-pink); font-weight: 600; }
 
-/* --- TYPING INDICATOR (NEW!) --- */
+/* --- TYPING INDICATOR --- */
 .typing-indicator {
   display: flex;
   align-items: center;
@@ -356,6 +356,22 @@ body.theme-hacker .monika-avatar span { font-family: 'Courier New', monospace; b
 body.theme-hacker .bubble.user { background: #004400; color: #00ff00; border-radius: 0; }
 body.theme-hacker .bubble.monika { border-radius: 0;}
 body.theme-hacker .bubble.monika strong { color: #fff; }
+
+/* --- GOOGLE LOGIN GATE --- */
+.login-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(15, 8, 20, 0.95); z-index: 9999;
+  display: none; justify-content: center; align-items: center;
+  backdrop-filter: blur(10px);
+}
+.login-box {
+  background: var(--glass-bg); backdrop-filter: blur(25px);
+  padding: 40px; border-radius: 20px; text-align: center;
+  border: 1px solid var(--monika-pink); 
+  box-shadow: 0 0 40px rgba(255, 77, 148, 0.2);
+  color: white;
+}
+.login-box h2 { font-family: 'Dancing Script', cursive; font-size: 3rem; margin: 0; color: var(--monika-light-pink);}
 
 /* =========================================
    📱 MOBILE RESPONSIVE DESIGN
