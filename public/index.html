@@ -9,14 +9,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 </head>
 <body>
     <div id="login-overlay" class="login-overlay">
         <div class="login-box">
             <h2 class="title-gradient" style="font-size: 3rem; margin-bottom: 10px;">Monika AI</h2>
-            <p style="color: white; margin-bottom: 20px;">Please sign in to access your companion.</p>
-            <div id="googleButton" style="display: flex; justify-content: center;"></div>
+            <p style="color: white; margin-bottom: 20px;">Connect your phone to access your companion.</p>
+            
+            <div id="phone-input-section">
+                <input type="tel" id="phoneNumber" placeholder="+1234567890" style="padding: 10px; border-radius: 20px; border: none; outline: none; width: 80%; margin-bottom: 15px; font-family: 'Poppins'; text-align: center;">
+                <button id="sendCodeBtn" class="quick-btn action-btn" style="width: 80%;">Send Code</button>
+            </div>
+
+            <div id="otp-input-section" style="display: none;">
+                <p style="color: #ff6b9d; margin-bottom: 10px; font-size: 0.9rem;">Code sent! 🌸</p>
+                <input type="number" id="verificationCode" placeholder="Enter 6-digit code" style="padding: 10px; border-radius: 20px; border: none; outline: none; width: 80%; margin-bottom: 15px; font-family: 'Poppins'; text-align: center; letter-spacing: 2px;">
+                <button id="verifyCodeBtn" class="quick-btn action-btn" style="width: 80%; background: linear-gradient(45deg, #4ade80, #3b82f6);">Verify</button>
+            </div>
+
+            <div id="recaptcha-container" style="margin-top: 15px;"></div>
         </div>
     </div>
 
