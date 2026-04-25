@@ -417,3 +417,62 @@ body {
         align-items: center;
     }
 }
+
+/* =========================================
+   🤖 AI INTEGRATION & GOOGLE LOGIN CSS
+   ========================================= */
+
+/* --- GOOGLE LOGIN GATE --- */
+.login-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(20, 10, 30, 0.95); z-index: 9999;
+    display: none; justify-content: center; align-items: center;
+    backdrop-filter: blur(15px);
+}
+.login-box {
+    background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(25px);
+    padding: 40px; border-radius: 20px; text-align: center;
+    border: 1px solid rgba(255, 107, 157, 0.5); 
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+}
+
+/* --- VISION CAMERA UI --- */
+.video-box { 
+    background: #000; border-radius: 20px; overflow: hidden; position: relative; 
+    border: 2px solid rgba(255, 255, 255, 0.2); width: 100%; max-width: 800px; margin: 0 auto 20px auto;
+}
+#vision-feed { width: 100%; height: 100%; object-fit: cover; }
+#vision-label { 
+    position: absolute; bottom: 15px; left: 15px; 
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+    padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; color: #ff6b9d;
+    border: 1px solid rgba(255, 107, 157, 0.4); animation: visionPulse 2s infinite;
+}
+@keyframes visionPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+/* --- TYPING INDICATOR (AI TEMPLATE) --- */
+.typing-indicator .message-content {
+    display: flex; flex-direction: column; justify-content: center;
+}
+.typing-dots { display: flex; gap: 4px; padding: 5px 0; }
+.typing-dots span {
+    width: 8px; height: 8px; background: #ff6b9d; border-radius: 50%;
+    animation: typingDot 1.4s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingDot { 0%, 60%, 100% { transform: scale(1); } 30% { transform: scale(1.5); } }
+
+/* --- AI THEMES (FUNCTION CALLING) --- */
+body.theme-dark { background: #0f0f0f !important; }
+body.theme-hacker { background: #001100 !important; font-family: monospace; }
+body.theme-hacker .message-content { background: #002200; color: #00ff00; border: 1px solid #00ff00; }
+
+/* --- EASTER EGG (Rainbow Fallback) --- */
+:root[style*="--rainbow-mode: true"] .title-gradient,
+:root[style*="--rainbow-mode: true"] .send-btn {
+    animation: rainbow 0.5s linear infinite !important;
+    background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet) !important;
+    background-size: 400% 400% !important;
+}
+@keyframes rainbow { 0% { background-position: 0% 50%; } 100% { background-position: 400% 50%; } }
