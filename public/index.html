@@ -10,8 +10,21 @@
   
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
+  
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-box">
+      <div class="face" style="margin: 0 auto 20px auto; width: 60px; height: 60px;">
+        <div class="eyes" style="top: 25px;"><div class="eye left"></div><div class="eye right"></div></div>
+      </div>
+      <h2>Monika AI</h2>
+      <p>Please sign in to access your companion.</p>
+      <div id="googleButton" style="display: flex; justify-content: center; margin-top: 20px;"></div>
+    </div>
+  </div>
 
   <div class="bg-glow"></div>
   <div class="particles"></div>
@@ -39,7 +52,10 @@
           </div>
           <span>Monika AI</span>
         </div>
-        <button id="pipButton" title="Pop-out Chat">🖼️</button>
+        <div style="display: flex; gap: 10px;">
+          <button id="logoutBtn" title="Disconnect Session" style="background: rgba(255,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; color: white; padding: 8px 12px; cursor: pointer; transition: 0.3s ease;">Logout</button>
+          <button id="pipButton" title="Pop-out Chat">🖼️</button>
+        </div>
       </header>
 
       <main id="chat" class="chat">
