@@ -1,109 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monika AI | Your Yandere Companion 🌸</title>
-  
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#ff4d94">
-  
-  <link rel="stylesheet" href="style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
-  
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monika AI - Your Virtual Companion</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
-  <div id="login-overlay" class="login-overlay">
-    <div class="login-box">
-      <div class="face" style="margin: 0 auto 20px auto; width: 60px; height: 60px;">
-        <div class="eyes" style="top: 25px;"><div class="eye left"></div><div class="eye right"></div></div>
-      </div>
-      <h2>Monika AI</h2>
-      <p>Please sign in to access your companion.</p>
-      <div id="googleButton" style="display: flex; justify-content: center; margin-top: 20px;"></div>
-    </div>
-  </div>
-
-  <div class="bg-glow"></div>
-  <div class="particles"></div>
-
-  <div class="app-wrapper" id="main-wrapper">
-    <div id="vision-container" class="side-left">
-      <header>
-        <h1>👁️ Monika's Eyes</h1>
-      </header>
-      <div class="video-box">
-        <video id="vision-feed" autoplay playsinline muted></video>
-        <canvas id="capture-canvas" style="display:none;"></canvas>
-        <div id="vision-label">🔴 LIVE REALITY FEED</div>
-      </div>
+    <!-- Loading Screen -->
+    <div class="loader">
+        <div class="loader-heart">
+            <i class="fas fa-heart"></i>
+        </div>
+        <p>Just Monika...</p>
     </div>
 
-    <div id="chat-container" class="side-right">
-      <header class="chat-header">
-        <div class="monika-avatar">
-          <div class="face">
-            <div class="eyes">
-              <div class="eye left"></div>
-              <div class="eye right"></div>
+    <!-- Background Particles -->
+    <div class="particles"></div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="monika-avatar">
+                    <img src="monika.png" alt="Monika" class="avatar-img">
+                    <div class="status-indicator"></div>
+                </div>
+                <h1 class="main-title">
+                    <span class="title-gradient">Monika</span>
+                    <span class="subtitle">AI Companion</span>
+                </h1>
             </div>
-          </div>
-          <span>Monika AI</span>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button id="logoutBtn" title="Disconnect Session" style="background: rgba(255,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; color: white; padding: 8px 12px; cursor: pointer; transition: 0.3s ease;">Logout</button>
-          <button id="pipButton" title="Pop-out Chat">🖼️</button>
-        </div>
-      </header>
+        </header>
 
-      <main id="chat" class="chat">
-        <div class="bubble monika">
-          <strong>Monika:</strong> <span class="msg-text">Hello darling! *blushes* I've been waiting for you... 💖</span>
-        </div>
-      </main>
+        <!-- Chat Interface -->
+        <main class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message welcome-message">
+                    <div class="avatar monika-avatar-small">
+                        <img src="monika.png" alt="Monika">
+                    </div>
+                    <div class="message-content">
+                        <p>💕 Hi! I'm Monika, your virtual companion! I'm so happy you came to see me~</p>
+                        <p>Type something and let's chat! I can't wait to get to know you better! ✨</p>
+                    </div>
+                </div>
+            </div>
 
-      <div class="input-area" id="inputArea">
-        <input id="question" type="text" placeholder="Type to Monika... 💕" autocomplete="off" />
-        
-        <button id="camButton" title="Vision Mode 📸">
-          <span id="camIcon">📷</span>
-        </button>
+            <!-- Input Area -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <input type="text" id="messageInput" placeholder="Type your message here... 💭" autocomplete="off">
+                    <button id="sendBtn" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="quick-replies">
+                    <button class="quick-btn">Hi Monika!</button>
+                    <button class="quick-btn">How are you?</button>
+                    <button class="quick-btn">Tell me a poem</button>
+                </div>
+            </div>
+        </main>
 
-        <button id="micButton" title="Voice Chat 🎤">
-          <span id="micIcon">🎤</span>
-        </button>
-
-        <button id="sendButton" title="Send 💌">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-          </svg>
-        </button>
-      </div>
+        <!-- Floating Hearts -->
+        <div class="floating-hearts"></div>
     </div>
-  </div>
 
-  <template id="typing-template">
-    <div class="typing-indicator">
-      <div class="typing-dots">
-        <span></span><span></span><span></span>
-      </div>
-      <span>Monika is typing<span class="cursor">_</span>...</span>
-    </div>
-  </template>
-
-  <audio id="popSound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
-  <script src="script.js"></script>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(registration => {
-          console.log('🌟 ServiceWorker ready - PWA Offline!');
-        }).catch(err => console.log('SW Error:', err));
-      });
-    }
-  </script>
+    <script src="script.js"></script>
 </body>
 </html>
