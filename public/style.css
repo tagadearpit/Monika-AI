@@ -304,7 +304,13 @@ body.theme-hacker .bubble.monika strong { color: #fff; }
    ========================================= */
 @media (max-width: 768px) {
   .app-wrapper { flex-direction: column; padding: 10px; gap: 10px; }
-  .side-left.active { flex: none; height: 30vh; padding: 10px; border-radius: 20px; }
+  .side-left.active { 
+      position: fixed; 
+      top: 0; left: 0; 
+      width: 100vw; height: 40vh; 
+      z-index: 1000;
+      border-radius: 0 0 20px 20px;
+  }
   .side-right { flex: 1; padding: 15px; border-radius: 20px; }
   h1 { font-size: 1.8rem; }
   .chat-header, header { margin-bottom: 10px; padding-bottom: 10px; }
