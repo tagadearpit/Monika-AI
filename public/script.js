@@ -23,7 +23,7 @@ const pipBtn = document.getElementById('pipButton');
 const globalUtterance = new SpeechSynthesisUtterance();
 
 // ==========================================
-// 🔥 FIREBASE PHONE AUTHENTICATION 🔥
+// 🔐 DUAL AUTHENTICATION SYSTEM 
 // ==========================================
 let auth;
 let confirmationResult; 
@@ -34,13 +34,23 @@ window.onload = async function () {
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
-        // Initialize Firebase
+        // 1. Initialize Firebase
         firebase.initializeApp(configData.firebaseConfig);
         auth = firebase.auth();
 
+        // 2. Initialize Google Login
+        google.accounts.id.initialize({
+            client_id: configData.googleClientId, 
+            callback: handleGoogleLogin
+        });
+
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
-            setupRecaptcha(); // Initialize recaptcha for SMS protection
+            setupRecaptcha(); // For SMS protection
+            google.accounts.id.renderButton(
+                document.getElementById("googleButton"),
+                { theme: "outline", size: "large", shape: "pill" }
+            );
         } else {
             loginOverlay.style.display = 'none';
             loadChatHistory(sessionId);
@@ -50,16 +60,24 @@ window.onload = async function () {
     }
 };
 
+// --- OPTION A: GOOGLE LOGIN FLOW ---
+function handleGoogleLogin(response) {
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    sessionId = payload.email; 
+    localStorage.setItem('monika_session', sessionId);
+    loginOverlay.style.display = 'none';
+    loadChatHistory(sessionId);
+    addMessage(`Google Auth Success. Welcome back, ${payload.given_name}! 🌸`, 'system');
+}
+
+// --- OPTION B: FIREBASE SMS FLOW ---
 function setupRecaptcha() {
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
         'size': 'invisible',
-        'callback': (response) => {
-            // reCAPTCHA solved
-        }
+        'callback': (response) => { /* reCAPTCHA solved */ }
     });
 }
 
-// 1. Send SMS
 if (document.getElementById('sendCodeBtn')) {
     document.getElementById('sendCodeBtn').onclick = () => {
         const phoneNumber = document.getElementById('phoneNumber').value.trim();
@@ -78,13 +96,12 @@ if (document.getElementById('sendCodeBtn')) {
                 console.error("SMS Error:", error);
                 alert("Error sending SMS: " + error.message);
                 document.getElementById('sendCodeBtn').disabled = false;
-                document.getElementById('sendCodeBtn').innerText = "Send Code";
+                document.getElementById('sendCodeBtn').innerText = "Login with Phone";
                 if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
             });
     };
 }
 
-// 2. Verify OTP
 if (document.getElementById('verifyCodeBtn')) {
     document.getElementById('verifyCodeBtn').onclick = () => {
         const code = document.getElementById('verificationCode').value.trim();
@@ -111,9 +128,10 @@ if (document.getElementById('verifyCodeBtn')) {
     };
 }
 
+// --- LOGOUT ROUTING ---
 if (document.getElementById('logoutBtn')) {
     document.getElementById('logoutBtn').onclick = () => {
-        if (auth) {
+        if (auth && auth.currentUser) {
             auth.signOut().then(() => {
                 localStorage.removeItem('monika_session');
                 location.reload(); 
@@ -128,9 +146,9 @@ if (document.getElementById('logoutBtn')) {
 // ==========================================
 // --- CHAT HISTORY ---
 // ==========================================
-async function loadChatHistory(phoneOrEmail) {
+async function loadChatHistory(identifier) {
     try {
-        const response = await fetch(`${baseUrl}/api/history/${encodeURIComponent(phoneOrEmail)}`);
+        const response = await fetch(`${baseUrl}/api/history/${encodeURIComponent(identifier)}`);
         const history = await response.json();
         
         if (history && history.length > 0) {
