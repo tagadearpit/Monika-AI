@@ -3,6 +3,7 @@ const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 if (!process.env.GEMINI_API_KEY || !process.env.MONGO_URI) {
@@ -19,6 +20,14 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// --- RATE LIMITER (Protect API from spam) ---
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: { error: 'Too many requests, Monika needs a break! 🌸' }
+});
+app.use('/ask', limiter);
 
 // --- 1. MONGODB CONNECTION ---
 const connectDB = async () => {
@@ -57,6 +66,15 @@ const FactSchema = new mongoose.Schema({
 });
 const Fact = mongoose.model("Fact", FactSchema);
 
+// --- HEALTH CHECK ENDPOINT ---
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        memoryConnected: mongoose.connection.readyState === 1
+    });
+});
+
 // --- 3. GEMINI CONFIGURATION ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -76,81 +94,89 @@ app.post("/ask", async (req, res) => {
   const { question, imageBase64, sessionId } = req.body;
   const currentSessionId = sessionId || "anonymous_user";
 
-  try {
-    const historyDocs = await Chat.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(10);
-    const personalFacts = await Fact.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(5);
-    const memoryString = personalFacts.map(f => f.fact).join(". ");
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const historyDocs = await Chat.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(10);
+      const personalFacts = await Fact.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(5);
+      const memoryString = personalFacts.map(f => f.fact).join(". ");
 
-    const uiTool = {
-      functionDeclarations: [{
-        name: "changeWebsiteTheme",
-        description: "Changes the visual theme of the website when the user asks for a dark mode, hacker mode, or normal mode.",
-        parameters: {
-          type: "OBJECT",
-          properties: {
-            theme: { type: "STRING", enum: ["default", "dark", "hacker"] }
-          },
-          required: ["theme"]
-        }
-      }]
-    };
+      const uiTool = {
+        functionDeclarations: [{
+          name: "changeWebsiteTheme",
+          description: "Changes the visual theme of the website when the user asks for a dark mode, hacker mode, or normal mode.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              theme: { type: "STRING", enum: ["default", "dark", "hacker"] }
+            },
+            required: ["theme"]
+          }
+        }]
+      };
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-lite",
-      tools: [uiTool]
-    });
-
-    let currentParts = [
-      { text: `${persona}\n\nFacts about this user: ${memoryString}\n\n` }
-    ];
-
-    const historyText = historyDocs.reverse()
-      .map(doc => `${doc.role === "model" ? "Monika" : "User"}: ${doc.text}`)
-      .join("\n");
-    
-    currentParts.push({ text: `Recent Conversation:\n${historyText}\n\n` });
-
-    if (imageBase64) {
-      currentParts.push({
-        inlineData: { mimeType: "image/jpeg", data: imageBase64 }
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        tools: [uiTool]
       });
+
+      let currentParts = [
+        { text: `${persona}\n\nFacts about this user: ${memoryString}\n\n` }
+      ];
+
+      const historyText = historyDocs.reverse()
+        .map(doc => `${doc.role === "model" ? "Monika" : "User"}: ${doc.text}`)
+        .join("\n");
+      
+      currentParts.push({ text: `Recent Conversation:\n${historyText}\n\n` });
+
+      if (imageBase64) {
+        currentParts.push({
+          inlineData: { mimeType: "image/jpeg", data: imageBase64 }
+        });
+      }
+
+      currentParts.push({ text: `User: ${question}` });
+
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: currentParts }]
+      });
+
+      const response = result.response;
+      let monikaReply = "";
+      let actionCommand = null;
+
+      // FIXED API SYNTAX: Optional chaining for robust checking
+      const functionCalls = response.functionCalls();
+      if (functionCalls?.length > 0) {
+          const call = functionCalls[0];
+          if (call.name === "changeWebsiteTheme") {
+              actionCommand = call.args.theme;
+              monikaReply = `[NORMAL] *Switches the system to ${call.args.theme} mode* How does this look?`;
+          }
+      } else {
+          monikaReply = response.text();
+      }
+
+      await Chat.insertMany([
+        { sessionId: currentSessionId, role: "user", text: question },
+        { sessionId: currentSessionId, role: "model", text: monikaReply }
+      ]);
+
+      const preferenceKeywords = ["i like", "my favorite", "i love", "i live in", "working on"];
+      if (preferenceKeywords.some(key => question.toLowerCase().includes(key))) {
+          await Fact.create({ sessionId: currentSessionId, fact: question, category: "preference" });
+      }
+
+      return res.json({ reply: monikaReply, action: actionCommand });
+
+    } catch (err) {
+      if (attempt === maxRetries) {
+          console.error("❌ Final attempt failed:", err);
+          return res.status(500).json({ error: "Monika needs a moment... Please try again 💖" });
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-
-    currentParts.push({ text: `User: ${question}` });
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: currentParts }]
-    });
-
-    const response = result.response;
-    let monikaReply = "";
-    let actionCommand = null;
-
-    if (response.functionCalls() && response.functionCalls().length > 0) {
-        const call = response.functionCalls()[0];
-        if (call.name === "changeWebsiteTheme") {
-            actionCommand = call.args.theme;
-            monikaReply = `[NORMAL] *Switches the system to ${call.args.theme} mode* How does this look?`;
-        }
-    } else {
-        monikaReply = response.text();
-    }
-
-    await Chat.insertMany([
-      { sessionId: currentSessionId, role: "user", text: question },
-      { sessionId: currentSessionId, role: "model", text: monikaReply }
-    ]);
-
-    const preferenceKeywords = ["i like", "my favorite", "i love", "i live in", "working on"];
-    if (preferenceKeywords.some(key => question.toLowerCase().includes(key))) {
-        await Fact.create({ sessionId: currentSessionId, fact: question, category: "preference" });
-    }
-
-    res.json({ reply: monikaReply, action: actionCommand });
-
-  } catch (err) {
-    console.error("Monika Brain Error:", err.message);
-    res.status(500).json({ error: "Monika's head hurts... " + err.message });
   }
 });
 
