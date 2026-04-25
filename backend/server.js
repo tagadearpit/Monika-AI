@@ -71,8 +71,10 @@ app.get('/health', (req, res) => {
     res.json({ status: 'healthy', memoryConnected: mongoose.connection.readyState === 1 });
 });
 
+// 🔥 DUAL AUTH BRIDGE: Serving both Google and Firebase keys safely
 app.get('/api/config', (req, res) => {
     res.json({ 
+        googleClientId: process.env.GOOGLE_CLIENT_ID, // <-- Google is back!
         firebaseConfig: {
             apiKey: process.env.FIREBASE_API_KEY,
             authDomain: process.env.FIREBASE_AUTH_DOMAIN,
