@@ -3,7 +3,7 @@ const baseUrl = "";
 let isVisionActive = false; 
 let isMonikaBusy = false; 
 let isListening = false; 
-let lastSpeechTime = 0; // BUG FIX #4: Mic Debounce Timer
+let lastSpeechTime = 0; 
 
 // --- SESSION & THEME MANAGEMENT ---
 let sessionId = localStorage.getItem('monika_session');
@@ -92,7 +92,6 @@ function stopVision() {
     }
 }
 
-// BUG FIX #1: Canvas Memory Leak Clear
 async function captureVisionFrame() {
     if (!visionFeed.srcObject) return null;
     if (!visionFeed.videoWidth || !visionFeed.videoHeight) return null;
@@ -103,7 +102,7 @@ async function captureVisionFrame() {
     canvas.width = visionFeed.videoWidth;
     canvas.height = visionFeed.videoHeight;
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Safely clear old frames
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
     ctx.drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
     
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
@@ -161,7 +160,6 @@ if (SpeechRecognition) {
         }
     };
     
-    // BUG FIX #4: Mic Double-Trigger Debounce
     recognition.onend = () => {
         isListening = false;
         micBtn.classList.remove('listening');
@@ -171,11 +169,41 @@ if (SpeechRecognition) {
             lastSpeechTime = now;
             askMonika(true); 
         } else {
-            inputField.placeholder = "Say something...";
+            inputField.placeholder = "Type to Monika... 💕";
         }
     };
 } else {
     console.warn("Your browser doesn't support Voice Recognition.");
+}
+
+// --- UI HELPERS (NEW UX UPDATES) ---
+function showTypingIndicator() {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "bubble monika";
+    const template = document.getElementById('typing-template');
+    const clone = template.content.cloneNode(true);
+    msgDiv.appendChild(clone);
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return msgDiv;
+}
+
+function appendMessage(sender, text) {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = `bubble ${sender === "You" ? "user" : "monika"}`;
+    
+    const strongTag = document.createElement("strong");
+    strongTag.textContent = `${sender}: `;
+    msgDiv.appendChild(strongTag);
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "msg-text";
+    textSpan.textContent = text || ""; 
+    msgDiv.appendChild(textSpan);
+
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return msgDiv;
 }
 
 // --- 6. CHAT LOGIC ---
@@ -195,7 +223,9 @@ async function askMonika(speakResponse = false) {
 
     appendMessage("You", userInput);
     inputField.value = ""; 
-    const loading = appendMessage("Monika", ""); 
+    
+    // NEW UX: Animated typing dots!
+    const loading = showTypingIndicator(); 
 
     let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
 
@@ -214,7 +244,6 @@ async function askMonika(speakResponse = false) {
         const reply = data.reply || "I'm a bit confused... 💔";
         const actionCommand = data.action;
 
-        // BUG FIX #3: Cleaner Theme Reset
         if (actionCommand) {
             document.body.className = actionCommand === 'default' ? '' : `theme-${actionCommand}`;
             localStorage.setItem('monika_theme', actionCommand); 
@@ -231,7 +260,7 @@ async function askMonika(speakResponse = false) {
             inputField.disabled = false;
             document.getElementById("sendButton").style.opacity = "1";
             micBtn.style.opacity = "1";
-            inputField.placeholder = "Say something...";
+            inputField.placeholder = "Type to Monika... 💕";
             inputField.focus(); 
         }); 
 
@@ -244,7 +273,7 @@ async function askMonika(speakResponse = false) {
         inputField.disabled = false;
         document.getElementById("sendButton").style.opacity = "1";
         micBtn.style.opacity = "1";
-        inputField.placeholder = "Say something...";
+        inputField.placeholder = "Type to Monika... 💕";
     }
 }
 
@@ -268,7 +297,7 @@ micBtn.onclick = () => {
         recognition.stop();
     } else {
         window.speechSynthesis.cancel(); 
-        inputField.placeholder = "Monika is speaking...";
+        inputField.placeholder = "Monika is listening...";
         
         globalUtterance.text = "What would you want to talk about?";
         globalUtterance.pitch = 1.3;
@@ -293,22 +322,3 @@ document.getElementById("sendButton").onclick = () => {
 inputField.onkeydown = (e) => { 
     if(e.key === "Enter" && !isMonikaBusy) askMonika(false); 
 };
-
-// --- XSS SECURITY PATCH ---
-function appendMessage(sender, text) {
-    const msgDiv = document.createElement("div");
-    msgDiv.className = `bubble ${sender === "You" ? "user" : "monika"}`;
-    
-    const strongTag = document.createElement("strong");
-    strongTag.textContent = `${sender}: `;
-    msgDiv.appendChild(strongTag);
-
-    const textSpan = document.createElement("span");
-    textSpan.className = "msg-text";
-    textSpan.textContent = text || (sender === "Monika" && !text ? "..." : ""); 
-    msgDiv.appendChild(textSpan);
-
-    chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return msgDiv;
-}
