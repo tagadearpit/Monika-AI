@@ -75,6 +75,13 @@ app.get('/health', (req, res) => {
     });
 });
 
+// --- CONFIG ENDPOINT (Bridge to Frontend for Google Login) ---
+app.get('/api/config', (req, res) => {
+    res.json({ 
+        googleClientId: process.env.GOOGLE_CLIENT_ID 
+    });
+});
+
 // --- 3. GEMINI CONFIGURATION ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
