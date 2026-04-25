@@ -12,7 +12,7 @@ if (!process.env.GEMINI_API_KEY || !process.env.MONGO_URI) {
 }
 
 const app = express();
-
+app.set('trust proxy', 1);
 app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
     credentials: true
