@@ -22,26 +22,21 @@ let sessionId = localStorage.getItem('monika_session');
 
 window.onload = async function () {
     try {
-        // 1. Ask the backend for the Google Client ID
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
-        // 2. Initialize Google Identity Services
         google.accounts.id.initialize({
             client_id: configData.googleClientId, 
             callback: handleGoogleLogin
         });
 
-        // 3. Check if user is already logged in
         if (!sessionId) {
-            // Show login gate and render the Google Button
             loginOverlay.style.display = 'flex';
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
                 { theme: "outline", size: "large", shape: "pill" }
             );
         } else {
-            // User is logged in, hide gate
             loginOverlay.style.display = 'none';
             appendMessage("System", `Securely connected to memory: ${sessionId}`);
         }
@@ -52,10 +47,8 @@ window.onload = async function () {
 };
 
 function handleGoogleLogin(response) {
-    // Google sends back a secure JWT token. Decode it to get user details
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
     
-    // Use Google Email as permanent Database Memory ID!
     sessionId = payload.email; 
     localStorage.setItem('monika_session', sessionId);
     
