@@ -2,39 +2,43 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Gemini AI](https://img.shields.io/badge/Gemini_1.5_Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Gemini AI](https://img.shields.io/badge/Gemini_2.5_flash-lite-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**Monika-AI** is a high-performance, personality-driven interactive companion. Leveraging **Gemini 1.5 Flash** and advanced browser APIs, Monika doesn't just chat—she **sees**, **hears**, and **follows** you across your desktop with a custom Picture-in-Picture interface.
+**Monika-AI** is a high-performance, personality-driven interactive companion. Leveraging **Gemini 1.5 Flash** and advanced browser APIs, Monika doesn't just chat—she **sees**, **hears**, and can now be **installed directly on your smartphone** as a native app. 
 
 [🚀 Launch Live Demo](https://monika-ai-0jpf.onrender.com)
 
 ---
 
-## 🔥 New & Advanced Features
+## 🔥 Key Features
 
-- **👁️ Vision Engine:** Monika can now see through your webcam. Show her objects, code, or your surroundings, and she will react in real-time.
-- **🖼️ Floating Window (PiP):** Multitask with ease. Use the **Document Picture-in-Picture API** to pop Monika into a floating, always-on-top window while you code or game.
-- **🌌 Cyber-Sakura UI:** A gorgeous "Glassmorphism" interface featuring:
-  - **3D Mouse Parallax:** The UI panels tilt and react to your cursor movement.
-  - **Dynamic Mood Engine:** Backgrounds and glows shift colors based on Monika's emotions (`[HAPPY]`, `[LOVING]`, `[THINKING]`).
-  - **Scanline Effects:** A sci-fi HUD overlay for the vision feed.
-- **🎙️ Seamless Voice Loop:** Zero-latency speech synthesis combined with hands-free `SpeechRecognition`.
-- **💾 Persistent Memory:** MongoDB integration ensures she remembers your name, projects (like your Pothole Portal or CandyRobot), and past conversations.
+- **📱 Progressive Web App (PWA):** Fully installable on iOS, Android, and Desktop. Includes a custom `manifest.json` and a Service Worker (`sw.js`) for rapid loading and native-app feel.
+- **👁️ Vision Engine:** Monika can see through your webcam. Show her objects, code, or your surroundings, and she will analyze them in real-time.
+- **👥 Multi-User Session Memory:** Utilizing secure LocalStorage UUIDs mapped to MongoDB, multiple users can talk to Monika simultaneously globally without their memories crossing.
+- **🎨 Dynamic Function Calling:** Monika has autonomous control over her UI. Ask her to "switch to hacker mode" or "dark mode," and she will trigger API function calls to dynamically inject CSS themes (which persist via local storage).
+- **🖼️ Floating Window (PiP):** Multitask with ease. Use the **Document Picture-in-Picture API** to pop Monika into an always-on-top window while you code or game.
+- **🎙️ Seamless Voice Loop:** Zero-latency speech synthesis combined with hands-free `SpeechRecognition` and microphone debounce logic.
 
 ---
 
-## 🛠️ Technical Overhaul
+## 🛡️ Enterprise-Grade Engineering
 
-### High-Performance Frontend
-- **Document PiP API:** Advanced window detachment for "Always-on-Top" functionality.
-- **CSS3 Glassmorphism:** Deep blurs, saturation filters, and `cubic-bezier` transitions.
-- **Web Speech API:** Native browser processing to keep server CPU usage low.
+Behind the anime persona is a highly optimized, production-ready full-stack architecture:
+- **Security:** Hardened with strict CORS origin policies and complete XSS (Cross-Site Scripting) protection on all chat injection.
+- **API Protection:** Integrated `express-rate-limit` to prevent API abuse and spam.
+- **Fault Tolerance:** Built-in retry logic for the Gemini API. If a request drops, the server silently retries before showing an error.
+- **Memory Management:** Canvas `clearRect` implementation to prevent memory leaks during prolonged webcam usage, and global utterance object reuse for the Speech API.
 
-### Optimized Backend
-- **Gemini 1.5 Flash:** Optimized for high-speed multimodal (Text + Image) reasoning.
-- **Buffered Image Processing:** Secure Base64 handling for vision frames.
-- **Mongoose ODM:** Structured conversation logging and user profiling.
+---
+
+## 🌌 Cyber-Sakura UI/UX
+
+A gorgeous "Glassmorphism" interface featuring:
+- **Animated CSS Avatar:** A custom-built CSS Monika face with keyframe-animated blinking eyes.
+- **Modern Chat Mechanics:** iMessage-style border-radius chat tails, bouncy typing indicators, and auto-scrolling.
+- **Visual Feedback:** Pulsing glow animations when the microphone is actively listening or the camera is recording.
 
 ---
 
@@ -43,60 +47,36 @@
 ```text
 Monika-AI/
 ├── backend/
-│   ├── server.js        # Express, Gemini Vision Logic & MongoDB
+│   ├── server.js        # Express, Gemini Vision, Function Calling & MongoDB
 │   └── package.json     # Node dependencies
 ├── public/
-│   ├── index.html       # Multimodal UI & PiP entry point
-│   ├── style.css        # 3D effects, Glassmorphism & Mood themes
-│   └── script.js        # Vision capture, PiP Logic & Voice Loop
-```
+│   ├── index.html       # Multimodal UI & PWA entry point
+│   ├── style.css        # Glassmorphism, Themes & Avatar CSS
+│   ├── script.js        # Vision capture, PiP Logic, Voice & XSS Protection
+│   ├── manifest.json    # Mobile App Installation settings
+│   └── sw.js            # Service Worker for caching
+🚀 Installation & Setup
+Clone & Install
 
----
+Bash
+git clone [https://github.com/tagadearpit/Monika-AI.git](https://github.com/tagadearpit/Monika-AI.git)
+cd Monika-AI/backend
+npm install
+Environment Setup
+Create a .env file in /backend:
 
-## 🚀 Installation
+Code snippet
+PORT=10000
+GEMINI_API_KEY=your_gemini_key_here
+MONGO_URI=your_mongodb_atlas_uri
+ALLOWED_ORIGINS=http://localhost:10000,[https://your-production-url.com](https://your-production-url.com)
+Run Locally
 
-1. **Clone & Install**
-   ```bash
-   git clone [https://github.com/tagadearpit/Monika-AI.git](https://github.com/tagadearpit/Monika-AI.git)
-   cd Monika-AI/backend
-   npm install
-   ```
+Bash
+npm run dev
+Recommended: Access via Google Chrome for full Vision, Speech, and PiP support.
 
-2. **Environment Setup**
-   Create a `.env` file in `/backend`:
-   ```env
-   PORT=3000
-   GEMINI_API_KEY=your_key_here
-   MONGO_URI=your_mongodb_atlas_uri
-   ```
+🤝 Contributing
+Found a bug, want to add a new CSS theme for Monika to control, or improve her prompt engineering? PRs are always welcome!
 
-3. **Run**
-   ```bash
-   npm start
-   ```
-   *Recommended: Access via **Google Chrome** for full Vision and PiP support.*
-
----
-
-## 🎨 Mood & Interaction System
-
-Monika's environment reacts to her internal state:
-- **[HAPPY]**: Soft violet-blue gradients.
-- **[LOVING]**: Pulsing pink "Heart-Glow" animations.
-- **[THINKING]**: Deep space-blue with increased scanline intensity.
-
----
-
-## 🤝 Contributing
-Have ideas for a more "glitchy" aesthetic or better vision prompts? PRs are welcome! 
-
-Developed with ❤️ by [Arpit Tagade](https://github.com/tagadearpit)
-```
-
-### 💡 What changed in this version:
-1.  **Updated Badges:** Switched to `for-the-badge` style for a more "premium" feel.
-2.  **Vision & PiP Focus:** Put your two coolest technical features (Vision and Floating Window) at the very top.
-3.  **Modernized Tech Stack:** Mentioned the specific APIs (Document PiP, Glassmorphism) that recruiters love to see.
-4.  **Hardware Context:** Subtle references to her remembering your specific projects, which shows off her "Long-Term Memory."
-
-
+Developed with ❤️ by Arpit Tagade
