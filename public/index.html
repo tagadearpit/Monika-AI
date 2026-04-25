@@ -13,14 +13,10 @@
 </head>
 <body>
 
-  <!-- Enhanced Background -->
   <div class="bg-glow"></div>
   <div class="particles"></div>
 
-  <!-- Old hearts → New particles system in JS -->
-
   <div class="app-wrapper" id="main-wrapper">
-    <!-- Vision Panel -->
     <div id="vision-container" class="side-left">
       <header>
         <h1>👁️ Monika's Eyes</h1>
@@ -32,32 +28,26 @@
       </div>
     </div>
 
-    <!-- Chat Panel -->
     <div id="chat-container" class="side-right">
       <header class="chat-header">
-        <!-- ANIMATED MONIKA AVATAR -->
         <div class="monika-avatar">
           <div class="face">
             <div class="eyes">
               <div class="eye left"></div>
               <div class="eye right"></div>
             </div>
-            <div class="mouth"></div>
           </div>
-          <span>Monika</span>
+          <span>Monika AI</span>
         </div>
         <button id="pipButton" title="Pop-out Chat">🖼️</button>
       </header>
 
       <main id="chat" class="chat">
-        <div class="welcome-message">
-          <div class="bubble monika">
-            <strong>Monika:</strong> <span class="msg-text">Hello darling! *blushes* I've been waiting for you... 💖</span>
-          </div>
+        <div class="bubble monika">
+          <strong>Monika:</strong> <span class="msg-text">Hello darling! *blushes* I've been waiting for you... 💖</span>
         </div>
       </main>
 
-      <!-- MAGIC INPUT BAR -->
       <div class="input-area" id="inputArea">
         <input id="question" type="text" placeholder="Type to Monika... 💕" autocomplete="off" />
         
@@ -78,7 +68,6 @@
     </div>
   </div>
 
-  <!-- Typing Indicator Template -->
   <template id="typing-template">
     <div class="typing-indicator">
       <div class="typing-dots">
