@@ -38,6 +38,7 @@ window.onload = async function () {
             );
         } else {
             loginOverlay.style.display = 'none';
+            // Load the history automatically if already logged in!
             loadChatHistory(sessionId);
         }
     } catch (error) {
@@ -54,6 +55,7 @@ function handleGoogleLogin(response) {
     
     loginOverlay.style.display = 'none';
     
+    // Load history right after successful login
     loadChatHistory(sessionId);
     monikaSpeak(`Welcome back, ${payload.given_name}.`);
 }
@@ -63,18 +65,25 @@ document.getElementById('logoutBtn').onclick = () => {
     location.reload(); 
 };
 
-// --- NEW UPGRADE: LOAD CHAT HISTORY UI ---
+// --- UPGRADE: LOAD CHAT HISTORY UI (WITH MOOD TAG FIX) ---
 async function loadChatHistory(email) {
     try {
         const response = await fetch(`${baseUrl}/api/history/${email}`);
         const history = await response.json();
         
         if (history && history.length > 0) {
+            // Clear the default hardcoded greeting
             chatBox.innerHTML = ""; 
             
             history.forEach(msg => {
                 const sender = msg.role === "user" ? "You" : "Monika";
                 
+                // 🛠️ FIX: Strip the secret [MOOD] tags out of the saved memory text!
+                const cleanText = (msg.text || "").replace(/\[.*?\]/g, "").trim();
+                
+                // Skip completely empty messages
+                if (!cleanText) return;
+
                 const msgDiv = document.createElement("div");
                 msgDiv.className = `bubble ${sender === "You" ? "user" : "monika"}`;
                 
@@ -84,7 +93,7 @@ async function loadChatHistory(email) {
 
                 const textSpan = document.createElement("span");
                 textSpan.className = "msg-text";
-                textSpan.textContent = msg.text || ""; 
+                textSpan.textContent = cleanText; 
                 msgDiv.appendChild(textSpan);
 
                 chatBox.appendChild(msgDiv);
