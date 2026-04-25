@@ -38,7 +38,7 @@ window.onload = async function () {
             );
         } else {
             loginOverlay.style.display = 'none';
-            appendMessage("System", `Securely connected to memory: ${sessionId}`);
+            loadChatHistory(sessionId);
         }
     } catch (error) {
         console.error("Failed to load configuration:", error);
@@ -54,14 +54,48 @@ function handleGoogleLogin(response) {
     
     loginOverlay.style.display = 'none';
     
+    loadChatHistory(sessionId);
     monikaSpeak(`Welcome back, ${payload.given_name}.`);
-    appendMessage("System", `Google Auth Success. Welcome, ${payload.name}!`);
 }
 
 document.getElementById('logoutBtn').onclick = () => {
     localStorage.removeItem('monika_session');
     location.reload(); 
 };
+
+// --- NEW UPGRADE: LOAD CHAT HISTORY UI ---
+async function loadChatHistory(email) {
+    try {
+        const response = await fetch(`${baseUrl}/api/history/${email}`);
+        const history = await response.json();
+        
+        if (history && history.length > 0) {
+            chatBox.innerHTML = ""; 
+            
+            history.forEach(msg => {
+                const sender = msg.role === "user" ? "You" : "Monika";
+                
+                const msgDiv = document.createElement("div");
+                msgDiv.className = `bubble ${sender === "You" ? "user" : "monika"}`;
+                
+                const strongTag = document.createElement("strong");
+                strongTag.textContent = `${sender}: `;
+                msgDiv.appendChild(strongTag);
+
+                const textSpan = document.createElement("span");
+                textSpan.className = "msg-text";
+                textSpan.textContent = msg.text || ""; 
+                msgDiv.appendChild(textSpan);
+
+                chatBox.appendChild(msgDiv);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+            appendMessage("System", "Previous chat memory restored successfully. 🌸");
+        }
+    } catch (error) {
+        console.error("Could not load history:", error);
+    }
+}
 
 // --- THEME MANAGEMENT ---
 const savedTheme = localStorage.getItem('monika_theme') || 'default';
