@@ -78,29 +78,65 @@ body {
   flex-direction: column; 
 }
 
-/* --- HEADERS --- */
+/* --- HEADERS & AVATAR (NEW!) --- */
 .chat-header, header { 
   display: flex; 
   align-items: center; 
-  justify-content: center; 
+  justify-content: space-between; 
   position: relative; 
   margin-bottom: 20px; 
   padding-bottom: 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-h1 {
+.monika-avatar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.monika-avatar span {
   font-family: 'Dancing Script', cursive; 
-  font-size: 2.5rem; 
-  margin: 0;
+  font-size: 2.2rem; 
   background: linear-gradient(135deg, #ffffff 20%, var(--monika-light-pink) 100%);
   -webkit-background-clip: text; 
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0px 2px 4px rgba(255, 77, 148, 0.3));
 }
 
+.face {
+  width: 45px; height: 45px;
+  background: linear-gradient(135deg, var(--monika-pink), #e6005c);
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 15px rgba(255, 77, 148, 0.6);
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.eyes {
+  position: absolute;
+  top: 18px;
+  display: flex;
+  gap: 8px;
+}
+
+.eye {
+  width: 6px; height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: blink 4s infinite ease-in-out;
+}
+
+@keyframes blink {
+  0%, 96%, 98%, 100% { transform: scaleY(1); }
+  97% { transform: scaleY(0.1); }
+}
+
+h1 { font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin: 0; color: white;}
+
 #pipButton {
-  position: absolute; right: 0; 
   background: rgba(255, 255, 255, 0.05); 
   border: 1px solid var(--glass-border); 
   border-radius: 12px;
@@ -108,6 +144,7 @@ h1 {
   font-size: 1.2rem; 
   cursor: pointer; 
   transition: 0.3s ease;
+  color: white;
 }
 #pipButton:hover { 
   background: rgba(255, 255, 255, 0.15); 
@@ -137,28 +174,40 @@ h1 {
   letter-spacing: 1.5px; 
   color: var(--monika-light-pink);
   border: 1px solid rgba(255, 77, 148, 0.3);
+  animation: pulse-record 2s infinite;
 }
 
-/* --- CHAT AREA --- */
+@keyframes pulse-record {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* --- CHAT AREA (Custom Scrollbar) --- */
 .chat { 
   flex: 1; 
   overflow-y: auto; 
   display: flex; 
   flex-direction: column; 
   gap: 20px; 
-  scrollbar-width: none; 
-  padding-right: 10px;
+  padding-right: 15px;
 }
-.chat::-webkit-scrollbar { display: none; }
+.chat::-webkit-scrollbar { width: 6px; }
+.chat::-webkit-scrollbar-track { background: transparent; }
+.chat::-webkit-scrollbar-thumb { 
+  background: rgba(255, 77, 148, 0.3); 
+  border-radius: 10px; 
+}
+.chat::-webkit-scrollbar-thumb:hover { background: rgba(255, 77, 148, 0.6); }
 
+/* --- BUBBLES (iMessage Tails) --- */
 .bubble { 
   max-width: 75%; 
   padding: 14px 20px; 
-  border-radius: 20px; 
   font-size: 0.95rem; 
   line-height: 1.5;
   animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
 }
 
 @keyframes pop-in {
@@ -170,7 +219,7 @@ h1 {
   background: linear-gradient(135deg, var(--monika-pink), #ff1a75); 
   color: white; 
   align-self: flex-end; 
-  border-bottom-right-radius: 4px; 
+  border-radius: 20px 20px 4px 20px; /* Tail on right */
 }
 
 .bubble.monika { 
@@ -178,13 +227,39 @@ h1 {
   backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.1); 
   align-self: flex-start; 
-  border-bottom-left-radius: 4px; 
+  border-radius: 20px 20px 20px 4px; /* Tail on left */
   color: var(--text-muted);
 }
-.bubble.monika strong {
-  color: var(--monika-light-pink);
-  font-weight: 600;
+.bubble.monika strong { color: var(--monika-light-pink); font-weight: 600; }
+
+/* --- TYPING INDICATOR (NEW!) --- */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 6px; height: 6px;
+  background: var(--monika-light-pink);
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.cursor { animation: blink 1s step-end infinite; }
 
 /* --- FLOATING INPUT AREA --- */
 .input-area { 
@@ -197,11 +272,11 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.15); 
   align-items: center; 
   box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  transition: border-color 0.3s;
+  transition: all 0.3s ease;
 }
 .input-area:focus-within {
-  border-color: rgba(255, 77, 148, 0.5);
-  box-shadow: 0 10px 30px rgba(255, 77, 148, 0.15);
+  border-color: rgba(255, 77, 148, 0.6);
+  box-shadow: 0 10px 30px rgba(255, 77, 148, 0.25);
 }
 
 input#question { 
@@ -213,7 +288,8 @@ input#question {
   outline: none; 
   font-family: 'Poppins', sans-serif;
 }
-input#question::placeholder { color: rgba(255, 255, 255, 0.4); }
+input#question::placeholder { color: rgba(255, 255, 255, 0.4); transition: color 0.3s; }
+input#question:focus::placeholder { color: rgba(255, 255, 255, 0.1); }
 
 /* --- INTERACTIVE BUTTONS --- */
 button#micButton, button#camButton, button#sendButton { 
@@ -222,7 +298,7 @@ button#micButton, button#camButton, button#sendButton {
   border-radius: 50%; 
   cursor: pointer; 
   display: flex; align-items: center; justify-content: center; 
-  transition: all 0.3s ease; 
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
   margin-left: 10px;
 }
 button#micButton, button#camButton { 
@@ -232,15 +308,28 @@ button#micButton, button#camButton {
 }
 
 button#micButton:hover, button#camButton:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   transform: translateY(-2px);
 }
 
-button#micButton.listening, button#camButton.active { 
+button#micButton.listening { 
   background: var(--monika-pink) !important; 
   color: white;
   box-shadow: 0 0 20px var(--monika-pink); 
-  transform: scale(1.05);
+  transform: scale(1.1);
+  animation: pulse-ring 1.5s infinite;
+}
+
+button#camButton.active {
+  background: rgba(255, 255, 255, 0.2) !important; 
+  border-color: var(--monika-pink);
+  box-shadow: inset 0 0 10px rgba(255, 77, 148, 0.5); 
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 77, 148, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 77, 148, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 77, 148, 0); }
 }
 
 button#sendButton { 
@@ -253,50 +342,19 @@ button#sendButton:hover {
   box-shadow: 0 6px 20px rgba(255, 77, 148, 0.6);
 }
 
-/* --- FLOATING PARTICLES --- */
-.heart-container { position: absolute; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 0; }
-.heart { 
-  position: absolute; 
-  bottom: -20px;
-  width: 15px; height: 15px; 
-  background: rgba(255, 77, 148, 0.3); 
-  border-radius: 50%; 
-  filter: blur(3px); 
-  animation: float-up 12s infinite linear; 
-}
-@keyframes float-up { 
-  0% { transform: translateY(0) scale(1); opacity: 0; } 
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translateY(-110vh) scale(1.5); opacity: 0; } 
-}
-
 /* --- MONIKA'S THEMES (FUNCTION CALLING) --- */
-body.theme-dark {
-  background: #000000;
-  color: #a0a0a0;
-}
+body.theme-dark { background: #000000; color: #a0a0a0; }
 body.theme-dark .app-wrapper .side-left, 
-body.theme-dark .app-wrapper .side-right {
-  background: rgba(20, 20, 20, 0.8);
-  border-color: #333;
-}
-body.theme-dark h1 { background: none; color: #fff; -webkit-text-fill-color: #fff; }
+body.theme-dark .app-wrapper .side-right { background: rgba(20, 20, 20, 0.8); border-color: #333; }
+body.theme-dark .monika-avatar span { background: none; color: #fff; -webkit-text-fill-color: #fff; }
 
-body.theme-hacker {
-  background: #051405;
-  color: #00ff00;
-  font-family: 'Courier New', Courier, monospace;
-}
+body.theme-hacker { background: #051405; color: #00ff00; font-family: 'Courier New', Courier, monospace; }
 body.theme-hacker .bg-glow { display: none; }
 body.theme-hacker .app-wrapper .side-left, 
-body.theme-hacker .app-wrapper .side-right {
-  background: rgba(0, 20, 0, 0.9);
-  border-color: #00ff00;
-  border-radius: 0;
-}
-body.theme-hacker h1 { font-family: 'Courier New', monospace; background: none; color: #00ff00; -webkit-text-fill-color: #00ff00; }
-body.theme-hacker .bubble.user { background: #004400; color: #00ff00; }
+body.theme-hacker .app-wrapper .side-right { background: rgba(0, 20, 0, 0.9); border-color: #00ff00; border-radius: 0; }
+body.theme-hacker .monika-avatar span { font-family: 'Courier New', monospace; background: none; color: #00ff00; -webkit-text-fill-color: #00ff00; }
+body.theme-hacker .bubble.user { background: #004400; color: #00ff00; border-radius: 0; }
+body.theme-hacker .bubble.monika { border-radius: 0;}
 body.theme-hacker .bubble.monika strong { color: #fff; }
 
 /* =========================================
@@ -312,7 +370,7 @@ body.theme-hacker .bubble.monika strong { color: #fff; }
       border-radius: 0 0 20px 20px;
   }
   .side-right { flex: 1; padding: 15px; border-radius: 20px; }
-  h1 { font-size: 1.8rem; }
+  .monika-avatar span { font-size: 1.8rem; }
   .chat-header, header { margin-bottom: 10px; padding-bottom: 10px; }
   .bubble { max-width: 90%; padding: 12px 16px; }
   #pipButton { display: none; }
