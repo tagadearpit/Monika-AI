@@ -3,6 +3,7 @@ const baseUrl = "";
 let isVisionActive = false; 
 let isMonikaBusy = false; 
 let isListening = false; 
+let lastSpeechTime = 0; // BUG FIX #4: Mic Debounce Timer
 
 // --- SESSION & THEME MANAGEMENT ---
 let sessionId = localStorage.getItem('monika_session');
@@ -91,16 +92,18 @@ function stopVision() {
     }
 }
 
+// BUG FIX #1: Canvas Memory Leak Clear
 async function captureVisionFrame() {
     if (!visionFeed.srcObject) return null;
     if (!visionFeed.videoWidth || !visionFeed.videoHeight) return null;
 
     const canvas = document.getElementById('capture-canvas');
+    const ctx = canvas.getContext('2d');
+    
     canvas.width = visionFeed.videoWidth;
     canvas.height = visionFeed.videoHeight;
     
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear to prevent artifacts
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Safely clear old frames
     ctx.drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
     
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
@@ -158,11 +161,14 @@ if (SpeechRecognition) {
         }
     };
     
+    // BUG FIX #4: Mic Double-Trigger Debounce
     recognition.onend = () => {
         isListening = false;
         micBtn.classList.remove('listening');
         
-        if (inputField.value.trim() !== "" && !isMonikaBusy) {
+        const now = Date.now();
+        if (now - lastSpeechTime > 500 && inputField.value.trim() !== "" && !isMonikaBusy) {
+            lastSpeechTime = now;
             askMonika(true); 
         } else {
             inputField.placeholder = "Say something...";
@@ -201,20 +207,17 @@ async function askMonika(speakResponse = false) {
         });
         
         const data = await response.json();
-        if (data.error) throw new Error(data.error); // Catch rate limit or server errors
+        if (data.error) throw new Error(data.error); 
         
         loading.remove(); 
         
         const reply = data.reply || "I'm a bit confused... 💔";
         const actionCommand = data.action;
 
-        // Apply and save Theme
+        // BUG FIX #3: Cleaner Theme Reset
         if (actionCommand) {
-            document.body.className = ''; 
-            if (actionCommand !== 'default') {
-                document.body.classList.add(`theme-${actionCommand}`);
-            }
-            localStorage.setItem('monika_theme', actionCommand); // Theme Persists!
+            document.body.className = actionCommand === 'default' ? '' : `theme-${actionCommand}`;
+            localStorage.setItem('monika_theme', actionCommand); 
         }
 
         const newMsg = appendMessage("Monika", "");
