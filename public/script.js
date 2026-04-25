@@ -23,18 +23,18 @@ const pipBtn = document.getElementById('pipButton');
 const globalUtterance = new SpeechSynthesisUtterance();
 
 // ==========================================
-// 🔐 DUAL AUTHENTICATION SYSTEM 
+// 🔐 UNIVERSAL AUTH SYSTEM (Google, Phone, Email)
 // ==========================================
 let auth;
 let confirmationResult; 
 
 window.onload = async function () {
     try {
-        // Fetch keys from backend
+        // Fetch keys from backend bridge
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
-        // 1. Initialize Firebase
+        // 1. Initialize Firebase (For Phone Login)
         firebase.initializeApp(configData.firebaseConfig);
         auth = firebase.auth();
 
@@ -46,7 +46,7 @@ window.onload = async function () {
 
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
-            setupRecaptcha(); // For SMS protection
+            setupRecaptcha(); // Initialize invisible protection
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
                 { theme: "outline", size: "large", shape: "pill" }
@@ -60,17 +60,13 @@ window.onload = async function () {
     }
 };
 
-// --- OPTION A: GOOGLE LOGIN FLOW ---
+// --- OPTION A: GOOGLE LOGIN ---
 function handleGoogleLogin(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    sessionId = payload.email; 
-    localStorage.setItem('monika_session', sessionId);
-    loginOverlay.style.display = 'none';
-    loadChatHistory(sessionId);
-    addMessage(`Google Auth Success. Welcome back, ${payload.given_name}! 🌸`, 'system');
+    loginSuccess(payload.email, `Google Auth Success. Welcome, ${payload.given_name}! 🌸`);
 }
 
-// --- OPTION B: FIREBASE SMS FLOW ---
+// --- OPTION B & C: PHONE AND EMAIL LOGIC ---
 function setupRecaptcha() {
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
         'size': 'invisible',
@@ -78,54 +74,100 @@ function setupRecaptcha() {
     });
 }
 
+// SHARED "SEND CODE" BUTTON
 if (document.getElementById('sendCodeBtn')) {
-    document.getElementById('sendCodeBtn').onclick = () => {
-        const phoneNumber = document.getElementById('phoneNumber').value.trim();
-        if (!phoneNumber || phoneNumber.length < 10) return alert("Please enter a valid phone number with country code (e.g., +1234567890).");
+    document.getElementById('sendCodeBtn').onclick = async () => {
+        const userInput = document.getElementById('phoneNumber').value.trim();
+        if (!userInput) return alert("Please enter an email or phone number!");
 
-        const appVerifier = window.recaptchaVerifier;
-        document.getElementById('sendCodeBtn').disabled = true;
-        document.getElementById('sendCodeBtn').innerText = "Sending...";
+        const btn = document.getElementById('sendCodeBtn');
+        btn.disabled = true;
+        btn.innerText = "Processing...";
 
-        auth.signInWithPhoneNumber(phoneNumber, appVerifier)
-            .then((result) => {
-                confirmationResult = result;
-                document.getElementById('phone-input-section').style.display = 'none';
-                document.getElementById('otp-input-section').style.display = 'block';
-            }).catch((error) => {
-                console.error("SMS Error:", error);
-                alert("Error sending SMS: " + error.message);
-                document.getElementById('sendCodeBtn').disabled = false;
-                document.getElementById('sendCodeBtn').innerText = "Login with Phone";
-                if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
-            });
+        if (userInput.includes("@")) {
+            // FLOW: EMAIL OTP (Brevo)
+            try {
+                const res = await fetch("/api/auth/send-otp", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: userInput })
+                });
+                if (res.ok) {
+                    showOtpSection();
+                } else {
+                    alert("Email failed. Please check server logs.");
+                    btn.disabled = false;
+                    btn.innerText = "Login";
+                }
+            } catch (e) { alert("Server connection error."); }
+        } else {
+            // FLOW: FIREBASE PHONE SMS
+            const appVerifier = window.recaptchaVerifier;
+            auth.signInWithPhoneNumber(userInput, appVerifier)
+                .then((result) => {
+                    confirmationResult = result;
+                    showOtpSection();
+                }).catch((error) => {
+                    console.error("SMS Error:", error);
+                    alert("SMS Error: " + error.message);
+                    btn.disabled = false;
+                    btn.innerText = "Login";
+                    if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
+                });
+        }
     };
 }
 
+// SHARED "VERIFY" BUTTON
 if (document.getElementById('verifyCodeBtn')) {
-    document.getElementById('verifyCodeBtn').onclick = () => {
+    document.getElementById('verifyCodeBtn').onclick = async () => {
+        const userInput = document.getElementById('phoneNumber').value.trim();
         const code = document.getElementById('verificationCode').value.trim();
         if (!code || code.length !== 6) return alert("Please enter the 6-digit code.");
 
-        document.getElementById('verifyCodeBtn').disabled = true;
-        document.getElementById('verifyCodeBtn').innerText = "Verifying...";
+        const btn = document.getElementById('verifyCodeBtn');
+        btn.disabled = true;
+        btn.innerText = "Verifying...";
 
-        confirmationResult.confirm(code).then((result) => {
-            const user = result.user;
-            sessionId = user.phoneNumber; 
-            localStorage.setItem('monika_session', sessionId);
-            
-            loginOverlay.style.display = 'none';
-            loadChatHistory(sessionId);
-            addMessage(`Phone Auth Success. Welcome back! 🌸`, 'system');
-
-        }).catch((error) => {
-            console.error("Verification Error:", error);
-            alert("Invalid code. Please try again.");
-            document.getElementById('verifyCodeBtn').disabled = false;
-            document.getElementById('verifyCodeBtn').innerText = "Verify";
-        });
+        if (userInput.includes("@")) {
+            // VERIFY EMAIL via Backend
+            const res = await fetch("/api/auth/verify-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: userInput, code })
+            });
+            if (res.ok) {
+                loginSuccess(userInput, "Email verified! Welcome back. 🌸");
+            } else {
+                alert("Invalid or expired code.");
+                btn.disabled = false;
+                btn.innerText = "Verify";
+            }
+        } else {
+            // VERIFY PHONE via Firebase
+            confirmationResult.confirm(code).then((result) => {
+                loginSuccess(result.user.phoneNumber, "Phone verified! Welcome back. 🌸");
+            }).catch((error) => {
+                alert("Invalid SMS code.");
+                btn.disabled = false;
+                btn.innerText = "Verify";
+            });
+        }
     };
+}
+
+// HELPERS
+function showOtpSection() {
+    document.getElementById('phone-input-section').style.display = 'none';
+    document.getElementById('otp-input-section').style.display = 'block';
+}
+
+function loginSuccess(id, welcomeMsg) {
+    sessionId = id;
+    localStorage.setItem('monika_session', sessionId);
+    loginOverlay.style.display = 'none';
+    loadChatHistory(sessionId);
+    addMessage(welcomeMsg, 'system');
 }
 
 // --- LOGOUT ROUTING ---
@@ -158,7 +200,7 @@ async function loadChatHistory(identifier) {
                 const cleanText = (msg.text || "").replace(/\[.*?\]/g, "").trim();
                 if (cleanText) addMessage(cleanText, sender, false);
             });
-            addMessage("Previous chat memory restored successfully. 🌸", 'system', false);
+            addMessage("Previous memories restored successfully. 🌸", 'system', false);
         }
     } catch (error) { console.error("History load error:", error); }
 }
@@ -252,7 +294,6 @@ function hideTypingIndicator() {
     }
 }
 
-// --- ACTUAL AI LOGIC ---
 async function sendMessage() {
     let userInput = messageInput.value.trim();
     if (!userInput && isVisionActive) userInput = "What do you see right now?";
@@ -366,7 +407,6 @@ function monikaSpeak(text) {
 }
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
-// --- POP-OUT PIP ---
 pipBtn.onclick = async () => {
     if (!window.documentPictureInPicture) return alert("Use Chrome for PiP!");
     const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 400, height: 600 });
