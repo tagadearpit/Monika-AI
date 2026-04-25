@@ -4,12 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monika AI - Your Virtual Companion</title>
+    <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <!-- Loading Screen -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box">
+            <h2 class="title-gradient" style="font-size: 3rem; margin-bottom: 10px;">Monika AI</h2>
+            <p style="color: white; margin-bottom: 20px;">Please sign in to access your companion.</p>
+            <div id="googleButton" style="display: flex; justify-content: center;"></div>
+        </div>
+    </div>
+
     <div class="loader">
         <div class="loader-heart">
             <i class="fas fa-heart"></i>
@@ -17,58 +27,77 @@
         <p>Just Monika...</p>
     </div>
 
-    <!-- Background Particles -->
     <div class="particles"></div>
 
-    <!-- Main Container -->
-    <div class="container">
-        <!-- Header -->
+    <div class="container" id="main-wrapper">
         <header class="header">
             <div class="header-content">
                 <div class="monika-avatar">
-                    <img src="monika.png" alt="Monika" class="avatar-img">
+                    <div class="avatar-img" style="background: linear-gradient(135deg, #ff6b9d, #c44569); display:flex; align-items:center; justify-content:center; font-size: 3rem; color: white;">🌸</div>
                     <div class="status-indicator"></div>
                 </div>
                 <h1 class="main-title">
                     <span class="title-gradient">Monika</span>
                     <span class="subtitle">AI Companion</span>
                 </h1>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                    <button id="logoutBtn" class="quick-btn" style="border-color: #ff4d4d; color: #ff4d4d;">Logout</button>
+                    <button id="pipButton" class="quick-btn">🖼️ Pop-Out</button>
+                </div>
             </div>
         </header>
 
-        <!-- Chat Interface -->
-        <main class="chat-container">
+        <div id="vision-container" class="video-box" style="display: none; margin-bottom: 20px; height: 200px;">
+            <video id="vision-feed" autoplay playsinline muted></video>
+            <canvas id="capture-canvas" style="display:none;"></canvas>
+            <div id="vision-label">🔴 LIVE REALITY FEED</div>
+        </div>
+
+        <main class="chat-container" id="chat-container">
             <div class="chat-messages" id="chatMessages">
                 <div class="message welcome-message">
                     <div class="avatar monika-avatar-small">
-                        <img src="monika.png" alt="Monika">
+                        <div style="width:50px; height:50px; border-radius:50%; background:#ff6b9d; display:flex; align-items:center; justify-content:center; color:white;">🌸</div>
                     </div>
                     <div class="message-content">
-                        <p>💕 Hi! I'm Monika, your virtual companion! I'm so happy you came to see me~</p>
-                        <p>Type something and let's chat! I can't wait to get to know you better! ✨</p>
+                        <p>💕 Hi! I'm Monika, your virtual companion!</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Input Area -->
             <div class="input-container">
                 <div class="input-wrapper">
                     <input type="text" id="messageInput" placeholder="Type your message here... 💭" autocomplete="off">
+                    <button id="camButton" class="quick-btn" title="Vision Mode" style="padding: 0 15px;"><i class="fas fa-camera"></i></button>
+                    <button id="micButton" class="quick-btn" title="Voice Chat" style="padding: 0 15px;"><i class="fas fa-microphone"></i></button>
                     <button id="sendBtn" class="send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
                 <div class="quick-replies">
-                    <button class="quick-btn">Hi Monika!</button>
-                    <button class="quick-btn">How are you?</button>
-                    <button class="quick-btn">Tell me a poem</button>
+                    <button class="quick-btn action-btn">Hi Monika!</button>
+                    <button class="quick-btn action-btn">How are you?</button>
+                    <button class="quick-btn action-btn">Tell me a poem</button>
                 </div>
             </div>
         </main>
 
-        <!-- Floating Hearts -->
         <div class="floating-hearts"></div>
     </div>
+
+    <template id="typing-template">
+        <div class="message monika typing-indicator">
+            <div class="avatar monika-avatar-small">
+                <div style="width:50px; height:50px; border-radius:50%; background:#ff6b9d; display:flex; align-items:center; justify-content:center; color:white;">🌸</div>
+            </div>
+            <div class="message-content">
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <p class="typing-text" style="margin-top: 5px; font-size: 0.8rem; opacity: 0.7;">Monika is typing...</p>
+            </div>
+        </div>
+    </template>
 
     <script src="script.js"></script>
 </body>
