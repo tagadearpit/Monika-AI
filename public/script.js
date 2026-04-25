@@ -4,11 +4,17 @@ let isVisionActive = false;
 let isMonikaBusy = false; 
 let isListening = false; 
 
-// --- SESSION MANAGEMENT ---
+// --- SESSION & THEME MANAGEMENT ---
 let sessionId = localStorage.getItem('monika_session');
 if (!sessionId) {
     sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('monika_session', sessionId);
+}
+
+// Load saved theme
+const savedTheme = localStorage.getItem('monika_theme') || 'default';
+if (savedTheme !== 'default') {
+    document.body.classList.add(`theme-${savedTheme}`);
 }
 
 const visionFeed = document.getElementById('vision-feed');
@@ -87,13 +93,16 @@ function stopVision() {
 
 async function captureVisionFrame() {
     if (!visionFeed.srcObject) return null;
-    
     if (!visionFeed.videoWidth || !visionFeed.videoHeight) return null;
 
     const canvas = document.getElementById('capture-canvas');
     canvas.width = visionFeed.videoWidth;
     canvas.height = visionFeed.videoHeight;
-    canvas.getContext('2d').drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear to prevent artifacts
+    ctx.drawImage(visionFeed, 0, 0, canvas.width, canvas.height);
+    
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 }
 
@@ -190,17 +199,22 @@ async function askMonika(speakResponse = false) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId })
         });
+        
         const data = await response.json();
+        if (data.error) throw new Error(data.error); // Catch rate limit or server errors
+        
         loading.remove(); 
         
         const reply = data.reply || "I'm a bit confused... 💔";
         const actionCommand = data.action;
 
+        // Apply and save Theme
         if (actionCommand) {
             document.body.className = ''; 
             if (actionCommand !== 'default') {
                 document.body.classList.add(`theme-${actionCommand}`);
             }
+            localStorage.setItem('monika_theme', actionCommand); // Theme Persists!
         }
 
         const newMsg = appendMessage("Monika", "");
@@ -221,7 +235,7 @@ async function askMonika(speakResponse = false) {
     } catch (e) { 
         console.error("Monika Fetch Error:", e); 
         loading.remove(); 
-        appendMessage("Monika", "Connection lost... 💔"); 
+        appendMessage("Monika", e.message || "Connection lost... 💔"); 
         
         isMonikaBusy = false;
         inputField.disabled = false;
@@ -239,9 +253,17 @@ camBtn.onclick = () => {
 };
 
 micBtn.onclick = () => {
-    if (isMonikaBusy || isListening) return; 
+    if (isMonikaBusy) return; 
 
-    if (recognition) {
+    if (!recognition) {
+        monikaSpeak("What would you like to talk about, darling?");
+        setTimeout(() => inputField.focus(), 2000);
+        return;
+    }
+
+    if (isListening) {
+        recognition.stop();
+    } else {
         window.speechSynthesis.cancel(); 
         inputField.placeholder = "Monika is speaking...";
         
@@ -258,9 +280,6 @@ micBtn.onclick = () => {
             if(!isListening) recognition.start();
         };
         window.speechSynthesis.speak(globalUtterance);
-        
-    } else {
-        alert("Voice recognition is not supported in this browser.");
     }
 };
 
