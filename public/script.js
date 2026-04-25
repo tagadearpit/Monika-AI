@@ -22,23 +22,25 @@ const pipBtn = document.getElementById('pipButton');
 
 const globalUtterance = new SpeechSynthesisUtterance();
 
-// --- GOOGLE LOGIN & INITIALIZATION ---
+// ==========================================
+// 🔥 FIREBASE PHONE AUTHENTICATION 🔥
+// ==========================================
+let auth;
+let confirmationResult; 
+
 window.onload = async function () {
     try {
+        // Fetch keys from backend
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
-        google.accounts.id.initialize({
-            client_id: configData.googleClientId, 
-            callback: handleGoogleLogin
-        });
+        // Initialize Firebase
+        firebase.initializeApp(configData.firebaseConfig);
+        auth = firebase.auth();
 
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
-            google.accounts.id.renderButton(
-                document.getElementById("googleButton"),
-                { theme: "outline", size: "large", shape: "pill" }
-            );
+            setupRecaptcha(); // Initialize recaptcha for SMS protection
         } else {
             loginOverlay.style.display = 'none';
             loadChatHistory(sessionId);
@@ -48,26 +50,87 @@ window.onload = async function () {
     }
 };
 
-function handleGoogleLogin(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    sessionId = payload.email; 
-    localStorage.setItem('monika_session', sessionId);
-    loginOverlay.style.display = 'none';
-    loadChatHistory(sessionId);
-    addMessage(`Google Auth Success. Welcome back, ${payload.given_name}!`, 'system');
+function setupRecaptcha() {
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'invisible',
+        'callback': (response) => {
+            // reCAPTCHA solved
+        }
+    });
+}
+
+// 1. Send SMS
+if (document.getElementById('sendCodeBtn')) {
+    document.getElementById('sendCodeBtn').onclick = () => {
+        const phoneNumber = document.getElementById('phoneNumber').value.trim();
+        if (!phoneNumber || phoneNumber.length < 10) return alert("Please enter a valid phone number with country code (e.g., +1234567890).");
+
+        const appVerifier = window.recaptchaVerifier;
+        document.getElementById('sendCodeBtn').disabled = true;
+        document.getElementById('sendCodeBtn').innerText = "Sending...";
+
+        auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+            .then((result) => {
+                confirmationResult = result;
+                document.getElementById('phone-input-section').style.display = 'none';
+                document.getElementById('otp-input-section').style.display = 'block';
+            }).catch((error) => {
+                console.error("SMS Error:", error);
+                alert("Error sending SMS: " + error.message);
+                document.getElementById('sendCodeBtn').disabled = false;
+                document.getElementById('sendCodeBtn').innerText = "Send Code";
+                if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
+            });
+    };
+}
+
+// 2. Verify OTP
+if (document.getElementById('verifyCodeBtn')) {
+    document.getElementById('verifyCodeBtn').onclick = () => {
+        const code = document.getElementById('verificationCode').value.trim();
+        if (!code || code.length !== 6) return alert("Please enter the 6-digit code.");
+
+        document.getElementById('verifyCodeBtn').disabled = true;
+        document.getElementById('verifyCodeBtn').innerText = "Verifying...";
+
+        confirmationResult.confirm(code).then((result) => {
+            const user = result.user;
+            sessionId = user.phoneNumber; 
+            localStorage.setItem('monika_session', sessionId);
+            
+            loginOverlay.style.display = 'none';
+            loadChatHistory(sessionId);
+            addMessage(`Phone Auth Success. Welcome back! 🌸`, 'system');
+
+        }).catch((error) => {
+            console.error("Verification Error:", error);
+            alert("Invalid code. Please try again.");
+            document.getElementById('verifyCodeBtn').disabled = false;
+            document.getElementById('verifyCodeBtn').innerText = "Verify";
+        });
+    };
 }
 
 if (document.getElementById('logoutBtn')) {
     document.getElementById('logoutBtn').onclick = () => {
-        localStorage.removeItem('monika_session');
-        location.reload(); 
+        if (auth) {
+            auth.signOut().then(() => {
+                localStorage.removeItem('monika_session');
+                location.reload(); 
+            });
+        } else {
+            localStorage.removeItem('monika_session');
+            location.reload(); 
+        }
     };
 }
 
+// ==========================================
 // --- CHAT HISTORY ---
-async function loadChatHistory(email) {
+// ==========================================
+async function loadChatHistory(phoneOrEmail) {
     try {
-        const response = await fetch(`${baseUrl}/api/history/${email}`);
+        const response = await fetch(`${baseUrl}/api/history/${encodeURIComponent(phoneOrEmail)}`);
         const history = await response.json();
         
         if (history && history.length > 0) {
@@ -82,7 +145,9 @@ async function loadChatHistory(email) {
     } catch (error) { console.error("History load error:", error); }
 }
 
-// --- UI ANIMATIONS ---
+// ==========================================
+// --- UI ANIMATIONS & LOGIC ---
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         loader.style.opacity = '0';
