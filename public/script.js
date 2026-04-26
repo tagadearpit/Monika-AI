@@ -211,7 +211,7 @@ async function addMessage(text, sender, typewrite = false) {
         prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
     }
 
-    // THIS IS THE FIX: Changed to "message-content" so it gets the dark background
+    // Ensures the dark background box appears perfectly using "message-content"
     messageDiv.innerHTML = `<div class="message-content">${prefix}<span class="chat-text"></span></div>`;
     const textSpan = messageDiv.querySelector('.chat-text');
     
@@ -279,15 +279,14 @@ async function sendMessage(isVoiceChat = false) {
         const reply = data.reply || "I'm a bit confused... 💔";
         const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
 
-        // Voice vs Text Logic
+        // 🧠 Voice vs Text Logic: Typewriter runs ALWAYS. 
         if (isVoiceChat) {
-            // Spoken -> Show text instantly & Speak aloud
-            addMessage(cleanReply, 'monika', false);
+            // Spoken -> Speak aloud instantly alongside the typewriter effect
             monikaSpeak(reply); 
-        } else {
-            // Typed -> Typewriter effect & NO speech
-            await addMessage(cleanReply, 'monika', true);
         }
+        
+        // Typewriter effect runs for BOTH text and voice input!
+        await addMessage(cleanReply, 'monika', true);
 
     } catch (e) {
         hideTypingIndicator();
@@ -340,7 +339,7 @@ if (SpeechRecognition) {
         micBtn.classList.remove('active');
         if (Date.now() - lastSpeechTime > 500 && messageInput.value && !isMonikaBusy) {
             lastSpeechTime = Date.now(); 
-            sendMessage(true); 
+            sendMessage(true); // Triggers voice response
         }
         messageInput.placeholder = "Type to Monika... 💕";
     };
