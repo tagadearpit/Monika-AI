@@ -23,7 +23,7 @@ const pipBtn = document.getElementById('pipButton');
 const globalUtterance = new SpeechSynthesisUtterance();
 
 // ==========================================
-// 🔐 UNIVERSAL AUTH SYSTEM (Google, Phone, Email)
+// 🔐 UNIVERSAL AUTH SYSTEM
 // ==========================================
 let auth;
 let confirmationResult; 
@@ -33,12 +33,10 @@ window.onload = async function () {
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
-        // 1. Initialize Firebase
         firebase.initializeApp(configData.firebaseConfig);
         auth = firebase.auth();
         setupRecaptcha();
 
-        // 2. Initialize Google
         google.accounts.id.initialize({
             client_id: configData.googleClientId, 
             callback: handleGoogleLogin
@@ -79,11 +77,11 @@ document.getElementById('sendCodeBtn').onclick = async () => {
             body: JSON.stringify({ email: val })
         });
         if (res.ok) showOtpSection();
-        else { alert("Email failed. Check SMTP!"); btn.disabled = false; btn.innerText = "Login"; }
+        else { alert("Email failed. Check SMTP!"); btn.disabled = false; btn.innerText = "Send Login Code"; }
     } else {
         auth.signInWithPhoneNumber(val, window.recaptchaVerifier).then((result) => {
             confirmationResult = result; showOtpSection();
-        }).catch((err) => { alert(err.message); btn.disabled = false; btn.innerText = "Login"; });
+        }).catch((err) => { alert(err.message); btn.disabled = false; btn.innerText = "Send Login Code"; });
     }
 };
 
@@ -146,7 +144,8 @@ async function sendMessage() {
         hideTypingIndicator();
         
         const reply = data.reply || "I'm a bit confused... 💔";
-        // Remove tags for clean text
+        
+        // Remove the [MOOD] tags so the UI looks clean and natural
         const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
 
         addMessage(cleanReply, 'monika');
@@ -362,7 +361,13 @@ async function loadChatHistory(id) {
     const history = await res.json();
     if (history.length > 0) {
         chatMessages.innerHTML = "";
-        history.forEach(msg => addMessage(msg.text, msg.role === "user" ? "user" : "monika", false));
+        history.forEach(msg => {
+            // Ensure previous history also strips mood tags
+            const cleanText = (msg.text || "").replace(/\[.*?\]/g, "").trim();
+            if (cleanText) {
+                addMessage(cleanText, msg.role === "user" ? "user" : "monika", false);
+            }
+        });
     }
 }
 
