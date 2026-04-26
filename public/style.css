@@ -8,7 +8,8 @@
 }
 
 body {
-    background: #1a0b16; /* Deep dark background */
+    /* Softer "low-darker" background */
+    background: #281523; 
     color: #ffffff;
     min-height: 100vh;
     overflow-x: hidden;
@@ -18,11 +19,11 @@ body {
 }
 
 /* =========================================
-   🔥 WIDESCREEN HEADER (Logo Left, Buttons Right)
+   🔥 WIDESCREEN HEADER & CONTAINER
    ========================================= */
 .container {
-    width: 100%;
-    max-width: 1000px;
+    width: 95%;
+    max-width: 1300px; /* Made much wider as requested */
     margin: 0 auto;
     padding: 2vh 20px;
     display: flex;
@@ -40,26 +41,15 @@ body {
     animation: slideInDown 0.8s ease-out both;
 }
 
-.logo-area {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
+.logo-area { display: flex; align-items: center; gap: 15px; }
+.action-area { display: flex; align-items: center; gap: 10px; }
 
-.action-area {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.monika-avatar { 
-    position: relative; 
-}
+.monika-avatar { position: relative; }
 
 .avatar-img {
     border-radius: 50%;
     border: 2px solid #ff1493;
-    box-shadow: 0 0 10px rgba(255, 20, 147, 0.4);
+    box-shadow: 0 0 15px rgba(255, 20, 147, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -67,14 +57,7 @@ body {
     transition: all 0.3s ease;
 }
 
-.status-indicator {
-    position: absolute;
-    background: #4ade80;
-    border-radius: 50%;
-    border: 2px solid #1a0b16;
-}
-
-/* Cursive Monika AI Logo */
+/* Font color gradient perfectly intact */
 .title-gradient {
     font-family: 'Dancing Script', cursive;
     color: #ff99bb;
@@ -88,19 +71,17 @@ body {
     animation: gradientShift 3s ease infinite;
 }
 
-@keyframes gradientShift { 
-    0%, 100% { background-position: 0% 50%; } 
-    50% { background-position: 100% 50%; } 
-}
+@keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
 /* =========================================
-   💬 EXPANDED CHAT PANEL
+   💬 EXPANDED WIDE CHAT PANEL
    ========================================= */
 .chat-container {
-    background: #2b1c24; /* Dark brownish-purple panel */
+    /* Softer dark panel to match the new body background */
+    background: #362231; 
     border-radius: 24px;
-    box-shadow: 0 15px 50px rgba(0,0,0,0.6);
-    flex: 1; /* This makes the chat box stretch to fill the screen */
+    box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+    flex: 1; 
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -124,7 +105,6 @@ body {
 /* =========================================
    🗨️ CHAT BUBBLES
    ========================================= */
-/* Hides the bulky avatars from the chat area */
 .message .avatar { display: none !important; }
 
 .message { display: flex; width: 100%; animation: popIn 0.3s ease-out; }
@@ -139,153 +119,80 @@ body {
     line-height: 1.5; 
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-
 .message-content p { margin: 0; }
 
-/* User = Hot Pink Bubble */
-.message.user .message-content { 
-    background: #ff1493; 
-    color: white; 
-    border-bottom-right-radius: 5px; 
-}
-
-/* Monika = Translucent Dark Bubble */
-.message.monika .message-content { 
-    background: rgba(255, 255, 255, 0.08); 
-    color: #e0e0e0; 
-    border-bottom-left-radius: 5px; 
-}
-
-/* System Messages */
-.message.system .message-content { 
-    background: rgba(0, 0, 0, 0.4); 
-    color: #ff99bb; 
-    font-size: 0.85rem; 
-    padding: 8px 15px; 
-    border-radius: 12px; 
-}
+.message.user .message-content { background: #ff1493; color: white; border-bottom-right-radius: 5px; }
+.message.monika .message-content { background: rgba(255, 255, 255, 0.05); color: #e0e0e0; border-bottom-left-radius: 5px; border: 1px solid rgba(255,255,255,0.05); }
+.message.system .message-content { background: rgba(0, 0, 0, 0.3); color: #ff99bb; font-size: 0.85rem; padding: 8px 15px; border-radius: 12px; }
 
 /* =========================================
-   ⌨️ INPUT AREA
+   ⌨️ INPUT AREA (Icons & Send Button Fixed)
    ========================================= */
-.input-container { 
-    padding: 15px 20px 20px; 
-    background: transparent; 
-}
+.input-container { padding: 15px 20px 20px; background: transparent; }
 
 .input-wrapper {
-    display: flex; 
-    align-items: center; 
-    background: #1a0b16; /* Matches main background for a seamless look */
-    border-radius: 30px; 
-    padding: 5px 10px; 
-    gap: 10px;
+    display: flex; align-items: center; 
+    background: #1c0e18; /* Dark pill for the input bar */
+    border-radius: 30px; padding: 6px 12px; gap: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
 }
 
 #messageInput {
-    flex: 1; 
-    background: transparent; 
-    border: none; 
-    outline: none;
-    color: white; 
-    padding: 10px 15px; 
-    font-size: 0.95rem;
+    flex: 1; background: transparent; border: none; outline: none;
+    color: white; padding: 10px 15px; font-size: 0.95rem;
 }
 
-.quick-btn {
-    background: transparent; 
-    border: 1px solid rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.6); 
-    cursor: pointer; 
-    border-radius: 15px;
-    padding: 8px; 
-    font-size: 1.1rem; 
-    transition: 0.2s;
+/* Gray, borderless icons for Mic and Camera */
+.tool-btn {
+    background: transparent; border: none; outline: none;
+    color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 15px;
+    padding: 8px; font-size: 1.1rem; transition: 0.2s;
 }
+.tool-btn:hover { color: white; }
 
-.quick-btn:hover { 
-    color: white; 
-    background: rgba(255,255,255,0.1); 
-}
-
+/* Pink Send Button */
 .send-btn {
-    background: #ff1493; 
-    border: none; 
-    color: white; 
-    width: 40px; 
-    height: 40px;
-    border-radius: 50%; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    cursor: pointer;
-    box-shadow: 0 0 10px rgba(255, 20, 147, 0.4); 
-    transition: 0.2s;
+    background: #ff1493; border: none; color: white; width: 42px; height: 42px;
+    border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 20, 147, 0.4); transition: 0.2s;
 }
-
 .send-btn:hover { transform: scale(1.05); }
 
+/* FIXES THE 45 DEGREE ROTATION (Points straight right!) */
+.send-btn i {
+    transform: rotate(45deg);
+    margin-right: 4px; /* Adjusts so it looks centered inside the circle */
+}
+
 /* =========================================
-   🔐 LOGIN OVERLAY
+   🔐 BUTTONS & OVERLAYS
    ========================================= */
+.quick-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.6); cursor: pointer; border-radius: 15px;
+    padding: 8px; font-size: 1rem; transition: 0.2s;
+}
+.quick-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
 .login-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(26, 11, 22, 0.95); 
-    z-index: 9999; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    backdrop-filter: blur(10px);
+    background: rgba(40, 21, 35, 0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(10px);
 }
 
 .login-box {
-    background: rgba(255, 255, 255, 0.03); 
-    padding: 40px; 
-    border-radius: 20px; 
-    text-align: center; 
-    border: 1px solid rgba(255, 107, 157, 0.2); 
-    width: 90%; 
-    max-width: 400px; 
-    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    background: rgba(255, 255, 255, 0.03); padding: 40px; border-radius: 20px; text-align: center; border: 1px solid rgba(255, 107, 157, 0.2); width: 90%; max-width: 400px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
 }
 
-.login-box input { 
-    width: 100%; 
-    padding: 12px; 
-    border-radius: 10px; 
-    border: none; 
-    background: rgba(0,0,0,0.5); 
-    color: white; 
-    margin-bottom: 15px; 
-    outline: none; 
-}
-
+.login-box input { width: 100%; padding: 12px; border-radius: 10px; border: none; background: rgba(0,0,0,0.5); color: white; margin-bottom: 15px; outline: none; }
 .login-box input:focus { border: 1px solid #ff1493; }
-
-.login-box button.action-btn { 
-    width: 100%; 
-    padding: 12px; 
-    border-radius: 10px; 
-    border: none; 
-    background: rgba(255,255,255,0.1); 
-    color: white; 
-    border: 1px solid rgba(255,255,255,0.2); 
-    margin-top: 10px;
-}
-
+.login-box button.action-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); margin-top: 10px;}
 #verifyCodeBtn { background: #ff1493; border: none; }
 
 /* =========================================
    ✨ ANIMATIONS & EXTRAS
    ========================================= */
 .typing-dots { display: flex; gap: 4px; padding: 5px 0; }
-.typing-dots span { 
-    width: 6px; 
-    height: 6px; 
-    background: #ff6b9d; 
-    border-radius: 50%; 
-    animation: typingDot 1.4s infinite ease-in-out; 
-}
+.typing-dots span { width: 6px; height: 6px; background: #ff6b9d; border-radius: 50%; animation: typingDot 1.4s infinite ease-in-out; }
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
@@ -297,18 +204,3 @@ body {
 .video-box { border-radius: 15px; overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,0.1); }
 #vision-feed { width: 100%; height: 100%; object-fit: cover; }
 #vision-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 5px; font-size: 0.7rem; color: #ff6b9d; }
-
-.floating-hearts { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-.heart { position: absolute; font-size: 1.2rem; color: #ff1493; animation: heartFloat 4s ease-out forwards; opacity: 0.6; }
-
-@keyframes heartFloat { 
-    0% { transform: translateY(100vh) scale(0); opacity: 1; } 
-    100% { transform: translateY(-100px) scale(1.5); opacity: 0; } 
-}
-
-/* Responsive constraints */
-@media (max-width: 768px) {
-    .title-gradient { font-size: 2rem; }
-    .app-header { flex-direction: row; gap: 10px;}
-    .message-content { max-width: 85%; }
-}
