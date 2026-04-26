@@ -109,7 +109,96 @@
                 <div style="width:50px; height:50px; border-radius:50%; background:#ff6b9d; display:flex; align-items:center; justify-content:center; color:white;">🌸</div>
             </div>
             <div class="message-content">
-                <div class="typing-dots">
+                <div class="typing-dots"><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monika AI</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box">
+            <h2 class="brand-title">Monika AI</h2>
+            <p class="brand-sub">Connect to chat.</p>
+            
+            <div id="googleButton" class="google-btn-wrapper"></div>
+            
+            <div class="divider">— OR —</div>
+            
+            <div id="phone-input-section">
+                <input type="text" id="phoneNumber" placeholder="Email or Phone (+123...)" class="auth-input">
+                <button id="sendCodeBtn" class="auth-btn">Send Login Code</button>
+            </div>
+
+            <div id="otp-input-section" style="display: none;">
+                <p class="otp-msg">Check your Inbox or SMS! 🌸</p>
+                <input type="number" id="verificationCode" placeholder="Enter 6-digit code" class="auth-input">
+                <button id="verifyCodeBtn" class="auth-btn highlight-btn">Verify & Enter</button>
+            </div>
+            
+            <div id="recaptcha-container"></div>
+        </div>
+    </div>
+
+    <div class="app-container" id="main-wrapper">
+        
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="glowing-icon">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+                <h1>Monika AI</h1>
+            </div>
+            <div class="action-area">
+                <button id="logoutBtn" class="header-btn">Logout</button>
+                <button id="pipButton" class="header-btn icon-btn"><i class="fas fa-image"></i></button>
+            </div>
+        </header>
+
+        <div id="vision-container" class="video-box" style="display: none;">
+            <video id="vision-feed" autoplay playsinline muted></video>
+            <canvas id="capture-canvas" style="display:none;"></canvas>
+        </div>
+
+        <div class="chat-area" id="chatMessages">
+            </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <input type="text" id="messageInput" placeholder="Type to Monika... 💕" autocomplete="off">
+                <button id="camButton" class="tool-btn"><i class="fas fa-camera"></i></button>
+                <button id="micButton" class="tool-btn"><i class="fas fa-microphone"></i></button>
+                <button id="sendBtn" class="send-btn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            
+            <div class="quick-replies">
+                <button class="quick-btn action-btn">Hi Monika!</button>
+                <button class="quick-btn action-btn">How are you?</button>
+                <button class="quick-btn action-btn">Tell me a poem</button>
+            </div>
+        </div>
+    </div>
+
+    <template id="typing-template">
+        <div class="message monika typing-indicator">
+            <div class="msg-bubble">
+                <span style="color:#ff6b9d; font-weight:bold;">Monika:</span> typing...
+            </div>
+        </div>
+    </template>
+
+    <script src="script.js"></script>
+</body>
+</html>
                     <span></span><span></span><span></span>
                 </div>
                 <p class="typing-text" style="margin-top: 5px; font-size: 0.8rem; opacity: 0.7;">Monika is typing...</p>
