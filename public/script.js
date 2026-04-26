@@ -62,7 +62,7 @@ function handleGoogleLogin(response) {
 function setupRecaptcha() {
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
         'size': 'invisible',
-        'callback': (response) => {  }
+        'callback': (response) => { /* reCAPTCHA solved */ }
     });
 }
 
@@ -192,10 +192,12 @@ async function loadChatHistory(identifier) {
 // --- UI ANIMATIONS & LOGIC ---
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Pass false to indicate these are text inputs
     if (sendBtn) sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(false); });
     if (messageInput) messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !isMonikaBusy) sendMessage(false); });
 });
 
+// Upgraded addMessage with Typewriter Support & FIXED CSS class
 async function addMessage(text, sender, typewrite = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
@@ -209,7 +211,8 @@ async function addMessage(text, sender, typewrite = false) {
         prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
     }
 
-    messageDiv.innerHTML = `<div class="msg-bubble">${prefix}<span class="chat-text"></span></div>`;
+    // THIS IS THE FIX: Changed to "message-content" so it gets the dark background
+    messageDiv.innerHTML = `<div class="message-content">${prefix}<span class="chat-text"></span></div>`;
     const textSpan = messageDiv.querySelector('.chat-text');
     
     chatMessages.appendChild(messageDiv);
@@ -276,11 +279,13 @@ async function sendMessage(isVoiceChat = false) {
         const reply = data.reply || "I'm a bit confused... 💔";
         const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
 
-        // 🧠 Voice vs Text Logic:
+        // Voice vs Text Logic
         if (isVoiceChat) {
+            // Spoken -> Show text instantly & Speak aloud
             addMessage(cleanReply, 'monika', false);
             monikaSpeak(reply); 
         } else {
+            // Typed -> Typewriter effect & NO speech
             await addMessage(cleanReply, 'monika', true);
         }
 
@@ -335,7 +340,8 @@ if (SpeechRecognition) {
         micBtn.classList.remove('active');
         if (Date.now() - lastSpeechTime > 500 && messageInput.value && !isMonikaBusy) {
             lastSpeechTime = Date.now(); 
-            sendMessage(true);         }
+            sendMessage(true); 
+        }
         messageInput.placeholder = "Type to Monika... 💕";
     };
 }
