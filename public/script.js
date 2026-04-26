@@ -30,7 +30,6 @@ let confirmationResult;
 
 window.onload = async function () {
     try {
-        // Fetch keys from backend bridge
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
@@ -46,7 +45,7 @@ window.onload = async function () {
 
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
-            setupRecaptcha(); // Initialize invisible protection
+            setupRecaptcha(); 
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
                 { theme: "outline", size: "large", shape: "pill" }
@@ -74,7 +73,6 @@ function setupRecaptcha() {
     });
 }
 
-// SHARED "SEND CODE" BUTTON
 if (document.getElementById('sendCodeBtn')) {
     document.getElementById('sendCodeBtn').onclick = async () => {
         const userInput = document.getElementById('phoneNumber').value.trim();
@@ -85,7 +83,7 @@ if (document.getElementById('sendCodeBtn')) {
         btn.innerText = "Processing...";
 
         if (userInput.includes("@")) {
-            // FLOW: EMAIL OTP (Brevo)
+            // FLOW: EMAIL OTP 
             try {
                 const res = await fetch("/api/auth/send-otp", {
                     method: "POST",
@@ -97,7 +95,7 @@ if (document.getElementById('sendCodeBtn')) {
                 } else {
                     alert("Email failed. Please check server logs.");
                     btn.disabled = false;
-                    btn.innerText = "Login";
+                    btn.innerText = "Send Login Code";
                 }
             } catch (e) { alert("Server connection error."); }
         } else {
@@ -111,14 +109,13 @@ if (document.getElementById('sendCodeBtn')) {
                     console.error("SMS Error:", error);
                     alert("SMS Error: " + error.message);
                     btn.disabled = false;
-                    btn.innerText = "Login";
+                    btn.innerText = "Send Login Code";
                     if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
                 });
         }
     };
 }
 
-// SHARED "VERIFY" BUTTON
 if (document.getElementById('verifyCodeBtn')) {
     document.getElementById('verifyCodeBtn').onclick = async () => {
         const userInput = document.getElementById('phoneNumber').value.trim();
@@ -130,7 +127,7 @@ if (document.getElementById('verifyCodeBtn')) {
         btn.innerText = "Verifying...";
 
         if (userInput.includes("@")) {
-            // VERIFY EMAIL via Backend
+            // VERIFY EMAIL
             const res = await fetch("/api/auth/verify-otp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -141,16 +138,16 @@ if (document.getElementById('verifyCodeBtn')) {
             } else {
                 alert("Invalid or expired code.");
                 btn.disabled = false;
-                btn.innerText = "Verify";
+                btn.innerText = "Verify & Enter";
             }
         } else {
-            // VERIFY PHONE via Firebase
+            // VERIFY PHONE
             confirmationResult.confirm(code).then((result) => {
                 loginSuccess(result.user.phoneNumber, "Phone verified! Welcome back. 🌸");
             }).catch((error) => {
                 alert("Invalid SMS code.");
                 btn.disabled = false;
-                btn.innerText = "Verify";
+                btn.innerText = "Verify & Enter";
             });
         }
     };
@@ -210,12 +207,12 @@ async function loadChatHistory(identifier) {
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
-        loader.style.opacity = '0';
+        if (loader) loader.style.opacity = '0';
         setTimeout(() => {
-            loader.style.display = 'none';
+            if (loader) loader.style.display = 'none';
             initAnimations();
         }, 500);
-    }, 3000);
+    }, 1500);
 
     sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(); });
     messageInput.addEventListener('keypress', (e) => {
@@ -233,20 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEasterEggs();
     createParticles();
     createFloatingHearts();
-    startBackgroundAnimation();
 });
 
 function addMessage(text, sender, animate = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
     
+    // The CSS will automatically hide the .avatar div to match your sleek theme
     if (sender === 'user') {
         messageDiv.innerHTML = `
             <div class="avatar"><div class="user-avatar"><i class="fas fa-user"></i></div></div>
             <div class="message-content"><p>${text}</p></div>
         `;
     } else if (sender === 'system') {
-        messageDiv.innerHTML = `<div class="message-content" style="background: rgba(0,0,0,0.5); color: #4ade80;"><p>${text}</p></div>`;
+        messageDiv.innerHTML = `<div class="message-content"><p>${text}</p></div>`;
     } else {
         messageDiv.innerHTML = `
             <div class="avatar monika-avatar-small"><div style="width:40px; height:40px; border-radius:50%; background:#ff6b9d; display:flex; align-items:center; justify-content:center; color:white;">🌸</div></div>
@@ -444,10 +441,6 @@ function playSparkleEffect() {
             document.body.appendChild(s); setTimeout(() => s.remove(), 1000);
         }, i * 100);
     }
-}
-function startBackgroundAnimation() {
-    let hue = 240;
-    setInterval(() => { hue = (hue + 1) % 360; document.body.style.background = `linear-gradient(135deg, hsl(${hue}, 60%, 60%), hsl(${hue + 30}, 60%, 50%))`; }, 5000);
 }
 function initAnimations() {
     const obs = new IntersectionObserver((entries) => {
