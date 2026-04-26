@@ -34,9 +34,9 @@ app.use('/ask', limiter);
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
-        console.log("✅ Monika's Memory (MongoDB) Connected!");
+        console.log("✅ Monika's Memory (MongoDB) Connected Successfully!");
     } catch (err) {
-        console.error("❌ MongoDB Connection Failed:", err.message);
+        console.error("❌ Monika's Memory Connection Failed:", err.message);
         process.exit(1);
     }
 };
@@ -62,8 +62,8 @@ const transporter = nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
     port: 587,
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+        user: process.env.SMTP_USER, // Keep this as your Brevo login ID
+        pass: process.env.SMTP_PASS  // Keep this as your Brevo SMTP Key
     }
 });
 
@@ -84,14 +84,17 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-// NEW: Send Email OTP
+// Send Email OTP
 app.post("/api/auth/send-otp", async (req, res) => {
     const { email } = req.body;
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     try {
+        // Save to DB
         await Otp.findOneAndUpdate({ email }, { code: otpCode }, { upsert: true });
+        
+        // --- UPDATED SENDER ADDRESS ---
         await transporter.sendMail({
-            from: `"Monika AI" <${process.env.SMTP_USER}>`,
+            from: `"Monika AI" <arpittagade5@gmail.com>`, // This must be your verified Brevo sender!
             to: email,
             subject: "Your Monika AI Login Code 🌸",
             html: `<div style="text-align:center; border:2px solid #ff6b9d; padding:20px; border-radius:15px; font-family: sans-serif;">
@@ -102,10 +105,13 @@ app.post("/api/auth/send-otp", async (req, res) => {
                    </div>`
         });
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Email failed" }); }
+    } catch (err) { 
+        console.error("Email Error:", err);
+        res.status(500).json({ error: "Email failed" }); 
+    }
 });
 
-// NEW: Verify Email OTP
+// Verify Email OTP
 app.post("/api/auth/verify-otp", async (req, res) => {
     const { email, code } = req.body;
     const record = await Otp.findOne({ email, code });
