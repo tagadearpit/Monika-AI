@@ -20,7 +20,6 @@
             <p style="color: white; margin-bottom: 20px;">Choose how you want to connect.</p>
             
             <div id="googleButton" style="display: flex; justify-content: center; margin-bottom: 15px;"></div>
-
             <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 15px;">— OR —</div>
             
             <div id="phone-input-section">
@@ -33,7 +32,6 @@
                 <input type="number" id="verificationCode" placeholder="Enter 6-digit code" style="padding: 10px; border-radius: 20px; border: none; outline: none; width: 80%; margin-bottom: 15px; font-family: 'Poppins'; text-align: center; letter-spacing: 2px;">
                 <button id="verifyCodeBtn" class="quick-btn action-btn" style="width: 80%; background: linear-gradient(45deg, #4ade80, #3b82f6);">Verify & Enter</button>
             </div>
-
             <div id="recaptcha-container" style="margin-top: 15px;"></div>
         </div>
     </div>
@@ -44,8 +42,7 @@
             <div class="logo-area">
                 <div class="monika-avatar" style="animation: none;">
                     <div class="avatar-img" style="width: 45px; height: 45px; font-size: 1.2rem; border-width: 2px;">🌸</div>
-                    <div class="status-indicator" style="width: 12px; height: 12px; border-width: 2px; bottom: 0; right: 0;"></div>
-                </div>
+                    </div>
                 <h1 class="title-gradient" style="font-size: 2.2rem; margin: 0;">Monika AI</h1>
             </div>
             
@@ -67,29 +64,23 @@
 
             <div class="input-container">
                 <div class="input-wrapper" style="margin-bottom: 0;">
-                    <input type="text" id="messageInput" placeholder="Type your message here... 💭" autocomplete="off">
-                    <button id="camButton" class="quick-btn" title="Vision Mode" style="padding: 0 15px;"><i class="fas fa-camera"></i></button>
-                    <button id="micButton" class="quick-btn" title="Voice Chat" style="padding: 0 15px;"><i class="fas fa-microphone"></i></button>
+                    <input type="text" id="messageInput" placeholder="Type to Monika... 💕" autocomplete="off">
+                    <button id="camButton" class="tool-btn" title="Vision Mode"><i class="fas fa-camera"></i></button>
+                    <button id="micButton" class="tool-btn" title="Voice Chat"><i class="fas fa-microphone"></i></button>
                     <button id="sendBtn" class="send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
         </main>
-
-        <div class="floating-hearts"></div>
     </div>
 
     <template id="typing-template">
         <div class="message monika typing-indicator">
-            <div class="avatar monika-avatar-small">
-                <div style="width:50px; height:50px; border-radius:50%; background:#ff6b9d; display:flex; align-items:center; justify-content:center; color:white;">🌸</div>
-            </div>
-            <div class="message-content">
+            <div class="message-content" style="background: rgba(255, 255, 255, 0.08); border-bottom-left-radius: 5px;">
                 <div class="typing-dots">
                     <span></span><span></span><span></span>
                 </div>
-                <p class="typing-text" style="margin-top: 5px; font-size: 0.8rem; opacity: 0.7;">Monika is typing...</p>
             </div>
         </div>
     </template>
