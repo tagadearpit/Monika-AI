@@ -30,15 +30,15 @@ let confirmationResult;
 
 window.onload = async function () {
     try {
-        // Fetch keys from backend bridge
         const configResponse = await fetch(`${baseUrl}/api/config`);
         const configData = await configResponse.json();
 
-        // 1. Initialize Firebase (For Phone Login)
+        // 1. Initialize Firebase
         firebase.initializeApp(configData.firebaseConfig);
         auth = firebase.auth();
+        setupRecaptcha();
 
-        // 2. Initialize Google Login
+        // 2. Initialize Google
         google.accounts.id.initialize({
             client_id: configData.googleClientId, 
             callback: handleGoogleLogin
@@ -46,7 +46,6 @@ window.onload = async function () {
 
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
-            setupRecaptcha(); // Initialize invisible protection
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
                 { theme: "outline", size: "large", shape: "pill" }
@@ -55,187 +54,121 @@ window.onload = async function () {
             loginOverlay.style.display = 'none';
             loadChatHistory(sessionId);
         }
-    } catch (error) {
-        console.error("Auth config error:", error);
-    }
+    } catch (error) { console.error("Auth config error:", error); }
 };
 
-// --- OPTION A: GOOGLE LOGIN ---
 function handleGoogleLogin(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
     loginSuccess(payload.email, `Google Auth Success. Welcome, ${payload.given_name}! 🌸`);
 }
 
-// --- OPTION B & C: PHONE AND EMAIL LOGIC ---
 function setupRecaptcha() {
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response) => { /* reCAPTCHA solved */ }
-    });
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { 'size': 'invisible' });
 }
 
-// SHARED "SEND CODE" BUTTON
-if (document.getElementById('sendCodeBtn')) {
-    document.getElementById('sendCodeBtn').onclick = async () => {
-        const userInput = document.getElementById('phoneNumber').value.trim();
-        if (!userInput) return alert("Please enter an email or phone number!");
+document.getElementById('sendCodeBtn').onclick = async () => {
+    const val = document.getElementById('phoneNumber').value.trim();
+    if (!val) return alert("Enter an email or phone number!");
+    const btn = document.getElementById('sendCodeBtn');
+    btn.disabled = true; btn.innerText = "Processing...";
 
-        const btn = document.getElementById('sendCodeBtn');
-        btn.disabled = true;
-        btn.innerText = "Processing...";
+    if (val.includes("@")) {
+        const res = await fetch("/api/auth/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: val })
+        });
+        if (res.ok) showOtpSection();
+        else { alert("Email failed. Check SMTP!"); btn.disabled = false; btn.innerText = "Login"; }
+    } else {
+        auth.signInWithPhoneNumber(val, window.recaptchaVerifier).then((result) => {
+            confirmationResult = result; showOtpSection();
+        }).catch((err) => { alert(err.message); btn.disabled = false; btn.innerText = "Login"; });
+    }
+};
 
-        if (userInput.includes("@")) {
-            // FLOW: EMAIL OTP (Brevo)
-            try {
-                const res = await fetch("/api/auth/send-otp", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: userInput })
-                });
-                if (res.ok) {
-                    showOtpSection();
-                } else {
-                    alert("Email failed. Please check server logs.");
-                    btn.disabled = false;
-                    btn.innerText = "Login";
-                }
-            } catch (e) { alert("Server connection error."); }
-        } else {
-            // FLOW: FIREBASE PHONE SMS
-            const appVerifier = window.recaptchaVerifier;
-            auth.signInWithPhoneNumber(userInput, appVerifier)
-                .then((result) => {
-                    confirmationResult = result;
-                    showOtpSection();
-                }).catch((error) => {
-                    console.error("SMS Error:", error);
-                    alert("SMS Error: " + error.message);
-                    btn.disabled = false;
-                    btn.innerText = "Login";
-                    if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
-                });
-        }
-    };
-}
+document.getElementById('verifyCodeBtn').onclick = async () => {
+    const val = document.getElementById('phoneNumber').value.trim();
+    const code = document.getElementById('verificationCode').value.trim();
+    if (val.includes("@")) {
+        const res = await fetch("/api/auth/verify-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: val, code })
+        });
+        if (res.ok) loginSuccess(val, "Email Verified! 🌸");
+        else alert("Invalid Code!");
+    } else {
+        confirmationResult.confirm(code).then(() => loginSuccess(val, "Phone Verified! 🌸")).catch(() => alert("Invalid SMS Code!"));
+    }
+};
 
-// SHARED "VERIFY" BUTTON
-if (document.getElementById('verifyCodeBtn')) {
-    document.getElementById('verifyCodeBtn').onclick = async () => {
-        const userInput = document.getElementById('phoneNumber').value.trim();
-        const code = document.getElementById('verificationCode').value.trim();
-        if (!code || code.length !== 6) return alert("Please enter the 6-digit code.");
-
-        const btn = document.getElementById('verifyCodeBtn');
-        btn.disabled = true;
-        btn.innerText = "Verifying...";
-
-        if (userInput.includes("@")) {
-            // VERIFY EMAIL via Backend
-            const res = await fetch("/api/auth/verify-otp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: userInput, code })
-            });
-            if (res.ok) {
-                loginSuccess(userInput, "Email verified! Welcome back. 🌸");
-            } else {
-                alert("Invalid or expired code.");
-                btn.disabled = false;
-                btn.innerText = "Verify";
-            }
-        } else {
-            // VERIFY PHONE via Firebase
-            confirmationResult.confirm(code).then((result) => {
-                loginSuccess(result.user.phoneNumber, "Phone verified! Welcome back. 🌸");
-            }).catch((error) => {
-                alert("Invalid SMS code.");
-                btn.disabled = false;
-                btn.innerText = "Verify";
-            });
-        }
-    };
-}
-
-// HELPERS
 function showOtpSection() {
     document.getElementById('phone-input-section').style.display = 'none';
     document.getElementById('otp-input-section').style.display = 'block';
 }
 
-function loginSuccess(id, welcomeMsg) {
+function loginSuccess(id, msg) {
     sessionId = id;
     localStorage.setItem('monika_session', sessionId);
     loginOverlay.style.display = 'none';
     loadChatHistory(sessionId);
-    addMessage(welcomeMsg, 'system');
-}
-
-// --- LOGOUT ROUTING ---
-if (document.getElementById('logoutBtn')) {
-    document.getElementById('logoutBtn').onclick = () => {
-        if (auth && auth.currentUser) {
-            auth.signOut().then(() => {
-                localStorage.removeItem('monika_session');
-                location.reload(); 
-            });
-        } else {
-            localStorage.removeItem('monika_session');
-            location.reload(); 
-        }
-    };
+    addMessage(msg, 'system');
 }
 
 // ==========================================
-// --- CHAT HISTORY ---
+// --- AI & CHAT LOGIC ---
 // ==========================================
-async function loadChatHistory(identifier) {
+async function sendMessage() {
+    let userInput = messageInput.value.trim();
+    if (!userInput && isVisionActive) userInput = "What do you see right now?";
+    if (!userInput) return;
+
+    isMonikaBusy = true;
+    messageInput.disabled = true;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fas fa-heart"></i>';
+
+    addMessage(userInput, 'user');
+    messageInput.value = '';
+    showTypingIndicator();
+
+    let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
+
     try {
-        const response = await fetch(`${baseUrl}/api/history/${encodeURIComponent(identifier)}`);
-        const history = await response.json();
+        const response = await fetch(`${baseUrl}/ask`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId })
+        });
         
-        if (history && history.length > 0) {
-            chatMessages.innerHTML = ""; 
-            history.forEach(msg => {
-                const sender = msg.role === "user" ? "user" : "monika";
-                const cleanText = (msg.text || "").replace(/\[.*?\]/g, "").trim();
-                if (cleanText) addMessage(cleanText, sender, false);
-            });
-            addMessage("Previous memories restored successfully. 🌸", 'system', false);
-        }
-    } catch (error) { console.error("History load error:", error); }
+        const data = await response.json();
+        hideTypingIndicator();
+        
+        const reply = data.reply || "I'm a bit confused... 💔";
+        // Remove tags for clean text
+        const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
+
+        addMessage(cleanReply, 'monika');
+        monikaSpeak(reply); 
+        createHeartBurst();
+        playSparkleEffect();
+
+    } catch (e) {
+        hideTypingIndicator();
+        addMessage("Connection lost... 💔", 'monika');
+    } finally {
+        isMonikaBusy = false;
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        messageInput.focus();
+    }
 }
 
 // ==========================================
-// --- UI ANIMATIONS & LOGIC ---
+// --- UI & MESSAGING ENGINE ---
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        loader.style.opacity = '0';
-        setTimeout(() => {
-            loader.style.display = 'none';
-            initAnimations();
-        }, 500);
-    }, 3000);
-
-    sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(); });
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !isMonikaBusy) sendMessage();
-    });
-    
-    quickBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (isMonikaBusy) return;
-            messageInput.value = btn.textContent;
-            sendMessage();
-        });
-    });
-
-    setupEasterEggs();
-    createParticles();
-    createFloatingHearts();
-    startBackgroundAnimation();
-});
-
 function addMessage(text, sender, animate = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
@@ -294,59 +227,7 @@ function hideTypingIndicator() {
     }
 }
 
-async function sendMessage() {
-    let userInput = messageInput.value.trim();
-    if (!userInput && isVisionActive) userInput = "What do you see right now?";
-    if (!userInput) return;
-
-    isMonikaBusy = true;
-    messageInput.disabled = true;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<i class="fas fa-heart"></i>';
-
-    addMessage(userInput, 'user');
-    messageInput.value = '';
-    showTypingIndicator();
-
-    let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
-
-    try {
-        const response = await fetch(`${baseUrl}/ask`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId })
-        });
-        
-        const data = await response.json();
-        hideTypingIndicator();
-        
-        const reply = data.reply || "I'm a bit confused... 💔";
-        const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
-
-        if (data.action) {
-            document.body.className = data.action === 'default' ? '' : `theme-${data.action}`;
-            localStorage.setItem('monika_theme', data.action); 
-        }
-
-        addMessage(cleanReply, 'monika');
-        monikaSpeak(reply); 
-        
-        createHeartBurst();
-        playSparkleEffect();
-
-    } catch (e) {
-        hideTypingIndicator();
-        addMessage("Connection lost... 💔", 'monika');
-    } finally {
-        isMonikaBusy = false;
-        messageInput.disabled = false;
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-        messageInput.focus();
-    }
-}
-
-// --- VISION & SPEECH SYSTEM ---
+// --- VISION SYSTEM ---
 camBtn.onclick = async () => {
     isVisionActive = !isVisionActive;
     if (isVisionActive) {
@@ -371,6 +252,7 @@ async function captureVisionFrame() {
     return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 }
 
+// --- VOICE SYSTEM ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 if (SpeechRecognition) {
@@ -394,28 +276,17 @@ micBtn.onclick = () => {
 
 function monikaSpeak(text) {
     window.speechSynthesis.cancel();
-    globalUtterance.pitch = text.includes("[ANGRY]") ? 1.6 : text.includes("[SAD]") ? 1.1 : 1.3;
-    globalUtterance.rate = text.includes("[ANGRY]") ? 1.35 : text.includes("[SAD]") ? 0.9 : 1.05;
     globalUtterance.text = text.replace(/\[.*?\]/g, "");
-    
+    globalUtterance.pitch = 1.3;
+    globalUtterance.rate = 1.05;
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
         globalUtterance.voice = voices.find(v => v.name.includes("Female") || v.name.includes("Google UK English Female")) || voices[0];
     }
-    
     window.speechSynthesis.speak(globalUtterance);
 }
-window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
-pipBtn.onclick = async () => {
-    if (!window.documentPictureInPicture) return alert("Use Chrome for PiP!");
-    const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 400, height: 600 });
-    [...document.styleSheets].forEach(s => pipWindow.document.head.appendChild(s.ownerNode.cloneNode(true)));
-    pipWindow.document.body.append(document.getElementById('chat-container'));
-    pipWindow.addEventListener("pagehide", e => document.getElementById('main-wrapper').append(e.target.querySelector('#chat-container')));
-};
-
-// --- VISUAL EFFECTS FUNCTIONS ---
+// --- VISUAL EFFECTS ---
 function createParticles() {
     setInterval(() => {
         if (Math.random() > 0.7) {
@@ -427,7 +298,9 @@ function createParticles() {
         }
     }, 300);
 }
+
 function createFloatingHearts() { setInterval(() => { if (Math.random() > 0.8) createHeart(); }, 4000); }
+
 function createHeart() {
     const h = document.createElement('div'); h.className = 'heart';
     h.innerHTML = ['💖', '💕', '💗', '🌸', '✨'][Math.floor(Math.random() * 5)];
@@ -435,7 +308,9 @@ function createHeart() {
     h.style.fontSize = (Math.random() * 0.8 + 1) + 'rem';
     floatingHeartsContainer.appendChild(h); setTimeout(() => h.remove(), 7000);
 }
+
 function createHeartBurst() { for (let i = 0; i < 8; i++) setTimeout(() => createHeart(), i * 200); }
+
 function playSparkleEffect() {
     for (let i = 0; i < 12; i++) {
         setTimeout(() => {
@@ -445,10 +320,12 @@ function playSparkleEffect() {
         }, i * 100);
     }
 }
+
 function startBackgroundAnimation() {
     let hue = 240;
     setInterval(() => { hue = (hue + 1) % 360; document.body.style.background = `linear-gradient(135deg, hsl(${hue}, 60%, 60%), hsl(${hue + 30}, 60%, 50%))`; }, 5000);
 }
+
 function initAnimations() {
     const obs = new IntersectionObserver((entries) => {
         entries.forEach(e => { if (e.isIntersecting) { e.target.style.opacity = '1'; e.target.style.transform = 'translateY(0)'; }});
@@ -457,17 +334,44 @@ function initAnimations() {
         el.style.opacity = '0'; el.style.transform = 'translateY(30px)'; el.style.transition = 'all 0.8s ease-out'; obs.observe(el);
     });
 }
-function setupEasterEggs() {
-    let code = []; const konami = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65];
-    document.addEventListener('keydown', (e) => {
-        code.push(e.keyCode); if (code.length > konami.length) code.shift();
-        if (code.toString() === konami.toString()) {
-            document.documentElement.style.setProperty('--rainbow-mode', 'true');
-            addMessage("🌈🎉 KONAMI CODE DETECTED! Rainbow mode! 💖", 'system');
-            setTimeout(() => document.documentElement.style.setProperty('--rainbow-mode', 'false'), 10000);
-            code = [];
-        }
+
+// --- BOILERPLATE LISTENERS ---
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        loader.style.opacity = '0';
+        setTimeout(() => { loader.style.display = 'none'; initAnimations(); }, 500);
+    }, 3000);
+
+    sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(); });
+    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !isMonikaBusy) sendMessage(); });
+    quickBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (isMonikaBusy) return;
+            messageInput.value = btn.textContent;
+            sendMessage();
+        });
     });
+
+    createParticles();
+    createFloatingHearts();
+    startBackgroundAnimation();
+});
+
+async function loadChatHistory(id) {
+    const res = await fetch(`${baseUrl}/api/history/${encodeURIComponent(id)}`);
+    const history = await res.json();
+    if (history.length > 0) {
+        chatMessages.innerHTML = "";
+        history.forEach(msg => addMessage(msg.text, msg.role === "user" ? "user" : "monika", false));
+    }
 }
 
-chatMessages.addEventListener('scroll', () => { chatMessages.style.scrollBehavior = 'smooth'; });
+document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('monika_session'); location.reload(); };
+
+pipBtn.onclick = async () => {
+    if (!window.documentPictureInPicture) return alert("Use Chrome for PiP!");
+    const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 400, height: 600 });
+    [...document.styleSheets].forEach(s => pipWindow.document.head.appendChild(s.ownerNode.cloneNode(true)));
+    pipWindow.document.body.append(document.getElementById('chat-container'));
+    pipWindow.addEventListener("pagehide", e => document.getElementById('main-wrapper').append(e.target.querySelector('#chat-container')));
+};
