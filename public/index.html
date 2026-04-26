@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monika AI - Your Virtual Companion</title>
+    <title>Monika AI</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -38,30 +38,20 @@
         </div>
     </div>
 
-    <div class="loader">
-        <div class="loader-heart">
-            <i class="fas fa-heart"></i>
-        </div>
-        <p>Just Monika...</p>
-    </div>
-
-    <div class="particles"></div>
-
     <div class="container" id="main-wrapper">
-        <header class="header">
-            <div class="header-content">
-                <div class="monika-avatar">
-                    <div class="avatar-img" style="background: linear-gradient(135deg, #ff6b9d, #c44569); display:flex; align-items:center; justify-content:center; font-size: 3rem; color: white;">🌸</div>
-                    <div class="status-indicator"></div>
+        
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="monika-avatar" style="animation: none;">
+                    <div class="avatar-img" style="width: 45px; height: 45px; font-size: 1.2rem; border-width: 2px;">🌸</div>
+                    <div class="status-indicator" style="width: 12px; height: 12px; border-width: 2px; bottom: 0; right: 0;"></div>
                 </div>
-                <h1 class="main-title">
-                    <span class="title-gradient">Monika</span>
-                    <span class="subtitle">AI Companion</span>
-                </h1>
-                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
-                    <button id="logoutBtn" class="quick-btn" style="border-color: #ff4d4d; color: #ff4d4d;">Logout</button>
-                    <button id="pipButton" class="quick-btn">🖼️ Pop-Out</button>
-                </div>
+                <h1 class="title-gradient" style="font-size: 2.2rem; margin: 0;">Monika AI</h1>
+            </div>
+            
+            <div class="action-area">
+                <button id="logoutBtn" class="quick-btn" style="border-color: #ff4d4d; color: #ff4d4d; padding: 6px 15px;">Logout</button>
+                <button id="pipButton" class="quick-btn" style="padding: 6px 12px;" title="Pop-Out Window"><i class="fas fa-external-link-alt"></i></button>
             </div>
         </header>
 
@@ -76,18 +66,13 @@
                 </div>
 
             <div class="input-container">
-                <div class="input-wrapper">
+                <div class="input-wrapper" style="margin-bottom: 0;">
                     <input type="text" id="messageInput" placeholder="Type your message here... 💭" autocomplete="off">
                     <button id="camButton" class="quick-btn" title="Vision Mode" style="padding: 0 15px;"><i class="fas fa-camera"></i></button>
                     <button id="micButton" class="quick-btn" title="Voice Chat" style="padding: 0 15px;"><i class="fas fa-microphone"></i></button>
                     <button id="sendBtn" class="send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
-                </div>
-                <div class="quick-replies">
-                    <button class="quick-btn action-btn">Hi Monika!</button>
-                    <button class="quick-btn action-btn">How are you?</button>
-                    <button class="quick-btn action-btn">Tell me a poem</button>
                 </div>
             </div>
         </main>
