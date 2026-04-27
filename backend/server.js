@@ -84,11 +84,18 @@ app.get('/api/config', (req, res) => {
 
 app.post("/api/auth/send-otp", async (req, res) => {
     const { email } = req.body;
+    
+    // Basic validation to ensure email is a string
+    if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: "Invalid email" });
+    }
+
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     try {
         await Otp.findOneAndUpdate({ email }, { code: otpCode }, { upsert: true });
         await transporter.sendMail({
-            from: `"Monika AI" <arpittagade5@gmail.com>`, // Your verified sender
+            // 🛡️ SECURITY FIX: Email hidden in environment variables
+            from: `"Monika AI" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`, 
             to: email,
             subject: "Your Monika AI Login Code 🌸",
             html: `<div style="text-align:center; border:2px solid #ff6b9d; padding:20px; border-radius:15px; font-family: sans-serif;">
@@ -115,8 +122,14 @@ app.post("/api/auth/verify-otp", async (req, res) => {
 });
 
 app.get('/api/history/:sessionId', async (req, res) => {
+    // 🛡️ SECURITY FIX: Prevents NoSQL Injection via URL params
+    const sessionId = req.params.sessionId;
+    if (typeof sessionId !== 'string' || sessionId.length > 100) {
+        return res.status(400).json({ error: "Invalid session format" });
+    }
+
     try {
-        const history = await Chat.find({ sessionId: req.params.sessionId }).sort({ timestamp: 1 }).limit(40);
+        const history = await Chat.find({ sessionId: sessionId }).sort({ timestamp: 1 }).limit(40);
         res.json(history);
     } catch (err) { res.status(500).json({ error: "History error" }); }
 });
@@ -134,14 +147,18 @@ CRITICAL RULES:
 6. Always remember the facts the user shares with you.`;
 
 app.post("/ask", async (req, res) => {
-    const { question, imageBase64, sessionId } = req.body;
+    let { question, imageBase64, sessionId } = req.body;
+    
+    // 🛡️ SECURITY FIX: Ensure question is a string to prevent query injection
+    if (typeof question !== 'string') question = String(question);
+    
     const currentSessionId = sessionId || "anonymous_user";
     const API_KEYS = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
     
     try {
         // 1. Retrieve Memory & History
-        const historyDocs = await Chat.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(10);
-        const personalFacts = await Fact.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(5);
+        const historyDocs = await Chat.find({ sessionId: String(currentSessionId) }).sort({ timestamp: -1 }).limit(10);
+        const personalFacts = await Fact.find({ sessionId: String(currentSessionId) }).sort({ timestamp: -1 }).limit(5);
         const memoryString = personalFacts.map(f => f.fact).join(". ");
 
         // 2. Format Context
