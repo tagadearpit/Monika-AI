@@ -66,12 +66,14 @@ if (showEmailBtn && showPhoneBtn) {
         showPhoneBtn.classList.remove('active');
         emailInputGroup.style.display = 'block';
         phoneInputGroup.style.display = 'none';
+        document.getElementById('phoneInput').value = ''; // 🛡️ Wipes phone input
     };
     showPhoneBtn.onclick = () => {
         showPhoneBtn.classList.add('active');
         showEmailBtn.classList.remove('active');
         phoneInputGroup.style.display = 'block';
         emailInputGroup.style.display = 'none';
+        document.getElementById('emailInput').value = ''; // 🛡️ Wipes email input
     };
 }
 
@@ -94,7 +96,7 @@ if (document.getElementById('sendCodeBtn')) {
         
         if (!userInput) return alert(`Please enter your ${loginMode}!`);
 
-        // 🛡️ NEW: Ensure the email strictly ends with @gmail.com
+        // 🛡️ Ensure the email strictly ends with @gmail.com
         if (loginMode === 'email') {
             if (!userInput.toLowerCase().endsWith('@gmail.com')) {
                 return alert("Please enter correct email address (must be @gmail.com)");
@@ -330,12 +332,19 @@ async function sendMessage(isVoiceChat = false) {
 
     let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
 
+    // 🛡️ NEW: API Timeout Logic (30 Seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
         const response = await fetch(`${baseUrl}/ask`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId })
+            body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId }),
+            signal: controller.signal // Attaching the timeout controller
         });
+        
+        clearTimeout(timeoutId); // If it succeeds, cancel the timeout!
         
         const data = await response.json();
         hideTypingIndicator();
@@ -348,7 +357,11 @@ async function sendMessage(isVoiceChat = false) {
 
     } catch (e) {
         hideTypingIndicator();
-        addMessage("Connection lost... 💔", 'monika', false);
+        if (e.name === 'AbortError') {
+            addMessage("Request timed out. Monika is taking too long to think... 💔", 'monika', false);
+        } else {
+            addMessage("Connection lost... 💔", 'monika', false);
+        }
     } finally {
         isMonikaBusy = false;
         messageInput.disabled = false;
