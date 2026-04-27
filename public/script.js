@@ -253,6 +253,30 @@ function hideTypingIndicator() {
 
 async function sendMessage(isVoiceChat = false) {
     let userInput = messageInput.value.trim();
+    
+    // --- MODE SWITCHER LOGIC ---
+    const themes = {
+        '/midnight': 'theme-midnight',
+        '/rose': 'theme-rose',
+        '/cyber': 'theme-cyber',
+        '/normal': '' // Clears all themes
+    };
+
+    if (themes[userInput.toLowerCase()] !== undefined) {
+        // Remove any existing themes first
+        document.body.classList.remove('theme-midnight', 'theme-rose', 'theme-cyber');
+        
+        // Add the new theme if it's not '/normal'
+        if (userInput.toLowerCase() !== '/normal') {
+            document.body.classList.add(themes[userInput.toLowerCase()]);
+        }
+        
+        messageInput.value = '';
+        addMessage(`[MODE]: System appearance updated to ${userInput.substring(1)}. ✨`, 'system', false);
+        return;
+    }
+    // ----------------------------
+
     if (!userInput && isVisionActive) userInput = "What do you see right now?";
     if (!userInput) return;
 
