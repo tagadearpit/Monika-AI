@@ -43,7 +43,7 @@ window.onload = async function () {
             setupRecaptcha(); 
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
-                { theme: "outline", size: "large", shape: "pill" }
+                { theme: "outline", size: "large", shape: "pill", width: "100%" }
             );
         } else {
             loginOverlay.style.display = 'none';
@@ -53,6 +53,27 @@ window.onload = async function () {
         console.error("Auth config error:", error);
     }
 };
+
+// --- EMAIL/PHONE TOGGLE LOGIC ---
+const showEmailBtn = document.getElementById('showEmailBtn');
+const showPhoneBtn = document.getElementById('showPhoneBtn');
+const emailInputGroup = document.getElementById('emailInputGroup');
+const phoneInputGroup = document.getElementById('phoneInputGroup');
+
+if (showEmailBtn && showPhoneBtn) {
+    showEmailBtn.onclick = () => {
+        showEmailBtn.classList.add('active');
+        showPhoneBtn.classList.remove('active');
+        emailInputGroup.style.display = 'block';
+        phoneInputGroup.style.display = 'none';
+    };
+    showPhoneBtn.onclick = () => {
+        showPhoneBtn.classList.add('active');
+        showEmailBtn.classList.remove('active');
+        phoneInputGroup.style.display = 'block';
+        emailInputGroup.style.display = 'none';
+    };
+}
 
 function handleGoogleLogin(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
@@ -68,14 +89,16 @@ function setupRecaptcha() {
 
 if (document.getElementById('sendCodeBtn')) {
     document.getElementById('sendCodeBtn').onclick = async () => {
-        const userInput = document.getElementById('phoneNumber').value.trim();
-        if (!userInput) return alert("Please enter an email or phone number!");
+        const loginMode = showEmailBtn.classList.contains('active') ? 'email' : 'phone';
+        const userInput = loginMode === 'email' ? document.getElementById('emailInput').value.trim() : document.getElementById('phoneInput').value.trim();
+        
+        if (!userInput) return alert(`Please enter your ${loginMode}!`);
 
         const btn = document.getElementById('sendCodeBtn');
         btn.disabled = true;
         btn.innerText = "Processing...";
 
-        if (userInput.includes("@")) {
+        if (loginMode === 'email') {
             try {
                 const res = await fetch("/api/auth/send-otp", {
                     method: "POST",
@@ -108,15 +131,17 @@ if (document.getElementById('sendCodeBtn')) {
 
 if (document.getElementById('verifyCodeBtn')) {
     document.getElementById('verifyCodeBtn').onclick = async () => {
-        const userInput = document.getElementById('phoneNumber').value.trim();
+        const loginMode = showEmailBtn.classList.contains('active') ? 'email' : 'phone';
+        const userInput = loginMode === 'email' ? document.getElementById('emailInput').value.trim() : document.getElementById('phoneInput').value.trim();
         const code = document.getElementById('verificationCode').value.trim();
+        
         if (!code || code.length !== 6) return alert("Please enter the 6-digit code.");
 
         const btn = document.getElementById('verifyCodeBtn');
         btn.disabled = true;
         btn.innerText = "Verifying...";
 
-        if (userInput.includes("@")) {
+        if (loginMode === 'email') {
             const res = await fetch("/api/auth/verify-otp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -192,12 +217,10 @@ async function loadChatHistory(identifier) {
 // --- UI ANIMATIONS & LOGIC ---
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Pass false to indicate these are text inputs
     if (sendBtn) sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(false); });
     if (messageInput) messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !isMonikaBusy) sendMessage(false); });
 });
 
-// Upgraded addMessage with Typewriter Support & FIXED CSS class
 async function addMessage(text, sender, typewrite = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
@@ -211,7 +234,6 @@ async function addMessage(text, sender, typewrite = false) {
         prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
     }
 
-    // Ensures the dark background box appears perfectly using "message-content"
     messageDiv.innerHTML = `<div class="message-content">${prefix}<span class="chat-text"></span></div>`;
     const textSpan = messageDiv.querySelector('.chat-text');
     
@@ -225,7 +247,7 @@ async function addMessage(text, sender, typewrite = false) {
                     textSpan.textContent += text.charAt(i);
                     i++;
                     chatMessages.scrollTop = chatMessages.scrollHeight;
-                    setTimeout(type, 30); // Typing speed in milliseconds
+                    setTimeout(type, 30); 
                 } else {
                     resolve();
                 }
@@ -259,23 +281,18 @@ async function sendMessage(isVoiceChat = false) {
         '/midnight': 'theme-midnight',
         '/rose': 'theme-rose',
         '/cyber': 'theme-cyber',
-        '/normal': '' // Clears all themes
+        '/normal': ''
     };
 
     if (themes[userInput.toLowerCase()] !== undefined) {
-        // Remove any existing themes first
         document.body.classList.remove('theme-midnight', 'theme-rose', 'theme-cyber');
-        
-        // Add the new theme if it's not '/normal'
         if (userInput.toLowerCase() !== '/normal') {
             document.body.classList.add(themes[userInput.toLowerCase()]);
         }
-        
         messageInput.value = '';
         addMessage(`[MODE]: System appearance updated to ${userInput.substring(1)}. ✨`, 'system', false);
         return;
     }
-    // ----------------------------
 
     if (!userInput && isVisionActive) userInput = "What do you see right now?";
     if (!userInput) return;
@@ -303,13 +320,7 @@ async function sendMessage(isVoiceChat = false) {
         const reply = data.reply || "I'm a bit confused... 💔";
         const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
 
-        // 🧠 Voice vs Text Logic: Typewriter runs ALWAYS. 
-        if (isVoiceChat) {
-            // Spoken -> Speak aloud instantly alongside the typewriter effect
-            monikaSpeak(reply); 
-        }
-        
-        // Typewriter effect runs for BOTH text and voice input!
+        if (isVoiceChat) monikaSpeak(reply); 
         await addMessage(cleanReply, 'monika', true);
 
     } catch (e) {
@@ -332,11 +343,18 @@ camBtn.onclick = async () => {
             visionFeed.srcObject = stream;
             visionContainer.style.display = 'block';
             camBtn.classList.add('active'); 
+            
+            // 🖥️ MAGIC HAPPENS HERE: Adds the desktop side-by-side layout!
+            document.body.classList.add('camera-active');
+            
         } catch (e) { alert("Camera access needed!"); isVisionActive = false; }
     } else {
         if (visionFeed.srcObject) visionFeed.srcObject.getTracks().forEach(t => t.stop());
         visionContainer.style.display = 'none';
         camBtn.classList.remove('active');
+        
+        // 🖥️ Resets layout when camera turns off
+        document.body.classList.remove('camera-active');
     }
 };
 
@@ -363,7 +381,7 @@ if (SpeechRecognition) {
         micBtn.classList.remove('active');
         if (Date.now() - lastSpeechTime > 500 && messageInput.value && !isMonikaBusy) {
             lastSpeechTime = Date.now(); 
-            sendMessage(true); // Triggers voice response
+            sendMessage(true); 
         }
         messageInput.placeholder = "Type to Monika... 💕";
     };
