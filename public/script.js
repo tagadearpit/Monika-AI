@@ -94,6 +94,21 @@ if (document.getElementById('sendCodeBtn')) {
         
         if (!userInput) return alert(`Please enter your ${loginMode}!`);
 
+        // 🛡️ NEW: Ensure the email strictly ends with @gmail.com
+        if (loginMode === 'email') {
+            if (!userInput.toLowerCase().endsWith('@gmail.com')) {
+                return alert("Please enter correct email address (must be @gmail.com)");
+            }
+        }
+
+        // 🛡️ Ensure phone number is valid
+        if (loginMode === 'phone') {
+            const phoneRegex = /^\+?[0-9]{7,15}$/;
+            if (!phoneRegex.test(userInput)) {
+                return alert("Please enter a valid phone number (e.g., +1234567890)");
+            }
+        }
+
         const btn = document.getElementById('sendCodeBtn');
         btn.disabled = true;
         btn.innerText = "Processing...";
@@ -219,6 +234,14 @@ async function loadChatHistory(identifier) {
 document.addEventListener('DOMContentLoaded', () => {
     if (sendBtn) sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(false); });
     if (messageInput) messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !isMonikaBusy) sendMessage(false); });
+    
+    // 🛡️ Instantly delete letters if typed in the phone box
+    const phoneInput = document.getElementById('phoneInput');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function() {
+            this.value = this.value.replace(/[^\d+]/g, '');
+        });
+    }
 });
 
 async function addMessage(text, sender, typewrite = false) {
