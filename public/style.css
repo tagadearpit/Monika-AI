@@ -253,3 +253,29 @@ body {
         min-width: 36px; /* Prevents the send button from squishing */
     }
 }
+
+/* =========================================
+   🌈 MULTI-MODE THEMES
+   ========================================= */
+
+/* 1. MIDNIGHT MODE (Deep Blue & Silver) */
+body.theme-midnight { background: #050a15 !important; }
+body.theme-midnight .chat-container { background: #0a1628 !important; }
+body.theme-midnight .title-gradient, 
+body.theme-midnight .send-btn, 
+body.theme-midnight .avatar-img {
+    filter: hue-rotate(180deg) brightness(1.2) !important; /* Turns pink to neon blue */
+}
+body.theme-midnight .message.user .message-content { background: #0077ff !important; }
+
+/* 2. ROSE GARDEN (Very Soft Pink & White) */
+body.theme-rose { background: #fff5f8 !important; color: #5d3a44 !important; }
+body.theme-rose .chat-container { background: #ffffff !important; box-shadow: 0 10px 30px rgba(255,182,193,0.3); }
+body.theme-rose .message.monika .message-content { background: #fce4ec !important; color: #5d3a44 !important; }
+body.theme-rose .title-gradient { filter: none !important; color: #ff6b9d !important; -webkit-text-fill-color: #ff6b9d !important; }
+
+/* 3. CYBER VIBE (Purple & Cyan) */
+body.theme-cyber { background: #120458 !important; }
+body.theme-cyber .chat-container { background: #000000 !important; border: 1px solid #ff00ff; }
+body.theme-cyber .title-gradient { filter: hue-rotate(280deg) !important; }
+body.theme-cyber .message.user .message-content { background: #bc13fe !important; box-shadow: 0 0 10px #bc13fe; }
