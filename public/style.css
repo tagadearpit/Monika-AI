@@ -138,7 +138,6 @@ body {
     color: white; padding: 10px 15px; font-size: 0.95rem;
 }
 
-/* UPDATED: perfectly circular hover effects */
 .tool-btn {
     background: transparent; 
     border: none; 
@@ -156,7 +155,6 @@ body {
 }
 .tool-btn:hover { color: white; background: rgba(255,255,255,0.1); }
 
-/* UPDATED: Active state when mic is on */
 .tool-btn.active {
     background: rgba(255, 20, 147, 0.15);
     color: #ff1493;
@@ -210,3 +208,48 @@ body {
 .video-box { border-radius: 15px; overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,0.1); }
 #vision-feed { width: 100%; height: 100%; object-fit: cover; }
 #vision-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 5px; font-size: 0.7rem; color: #ff6b9d; }
+
+/* =========================================
+   📱 MOBILE ONLY RESPONSIVE SETTINGS
+   ========================================= */
+@media (max-width: 768px) {
+    /* Fix Header: Keep Monika AI on one line and shrink slightly */
+    .title-gradient { 
+        font-size: 1.6rem !important; 
+        white-space: nowrap !important; 
+    }
+    .app-header { gap: 5px; }
+    .logo-area { gap: 8px; }
+    .quick-btn { 
+        padding: 5px 10px !important; 
+        font-size: 0.85rem !important; 
+    }
+    
+    /* Fix Chat Bubbles: Make them wider on small screens */
+    .message-content { 
+        max-width: 92% !important; 
+    }
+
+    /* Fix Input Bar: Stop text box from pushing icons off-screen */
+    .input-container {
+        padding: 10px 10px 15px; 
+    }
+    .input-wrapper {
+        padding: 4px 8px;
+        gap: 5px;
+    }
+    #messageInput {
+        min-width: 0 !important; /* Critical fix: lets the input shrink! */
+        font-size: 0.9rem;
+    }
+    .tool-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.95rem;
+    }
+    .send-btn {
+        width: 36px;
+        height: 36px;
+        min-width: 36px; /* Prevents the send button from squishing */
+    }
+}
