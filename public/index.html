@@ -16,21 +16,33 @@
 <body>
     <div id="login-overlay" class="login-overlay">
         <div class="login-box">
-            <h2 class="title-gradient" style="font-size: 3rem; margin-bottom: 10px;">Monika AI</h2>
-            <p style="color: white; margin-bottom: 20px;">Choose how you want to connect.</p>
+            <h2 class="title-gradient" style="font-family: 'Dancing Script', cursive; font-size: 3.5rem; margin-bottom: 10px;">Monika AI</h2>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Choose how you want to connect.</p>
             
-            <div id="googleButton" style="display: flex; justify-content: center; margin-bottom: 15px;"></div>
-            <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 15px;">— OR —</div>
+            <div id="googleButton" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
             
             <div id="phone-input-section">
-                <input type="text" id="phoneNumber" placeholder="Email or Phone (+123...)" style="padding: 10px; border-radius: 20px; border: none; outline: none; width: 80%; margin-bottom: 15px; font-family: 'Poppins'; text-align: center;">
-                <button id="sendCodeBtn" class="quick-btn action-btn" style="width: 80%;">Send Login Code</button>
+                <div style="color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-bottom: 15px; letter-spacing: 2px;">— OR LOGIN WITH —</div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="showEmailBtn" class="auth-toggle-btn active">Email</button>
+                    <button id="showPhoneBtn" class="auth-toggle-btn">Phone</button>
+                </div>
+                
+                <div id="emailInputGroup">
+                    <input type="email" id="emailInput" placeholder="Enter your email address" style="text-align: center;">
+                </div>
+                <div id="phoneInputGroup" style="display: none;">
+                    <input type="tel" id="phoneInput" placeholder="Phone number (+123...)" style="text-align: center;">
+                </div>
+
+                <button id="sendCodeBtn" class="action-btn">Send Login Code</button>
             </div>
 
             <div id="otp-input-section" style="display: none;">
                 <p style="color: #ff6b9d; margin-bottom: 10px; font-size: 0.9rem;">Check your Inbox or SMS! 🌸</p>
-                <input type="number" id="verificationCode" placeholder="Enter 6-digit code" style="padding: 10px; border-radius: 20px; border: none; outline: none; width: 80%; margin-bottom: 15px; font-family: 'Poppins'; text-align: center; letter-spacing: 2px;">
-                <button id="verifyCodeBtn" class="quick-btn action-btn" style="width: 80%; background: linear-gradient(45deg, #4ade80, #3b82f6);">Verify & Enter</button>
+                <input type="number" id="verificationCode" placeholder="Enter 6-digit code" style="text-align: center; letter-spacing: 5px; font-size: 1.2rem;">
+                <button id="verifyCodeBtn" class="action-btn" style="background: linear-gradient(45deg, #4ade80, #3b82f6); border: none;">Verify & Enter</button>
             </div>
             <div id="recaptcha-container" style="margin-top: 15px;"></div>
         </div>
@@ -40,19 +52,19 @@
         
         <header class="app-header">
             <div class="logo-area">
-                <div class="monika-avatar" style="animation: none;">
+                <div class="monika-avatar">
                     <div class="avatar-img" style="width: 45px; height: 45px; font-size: 1.2rem; border-width: 2px;">🌸</div>
-                    </div>
+                </div>
                 <h1 class="title-gradient" style="font-size: 2.2rem; margin: 0;">Monika AI</h1>
             </div>
             
             <div class="action-area">
-                <button id="logoutBtn" class="quick-btn" style="border-color: #ff4d4d; color: #ff4d4d; padding: 6px 15px;">Logout</button>
+                <button id="logoutBtn" class="quick-btn" style="border-color: rgba(255, 77, 77, 0.3); color: #ff4d4d; padding: 6px 15px;">Logout</button>
                 <button id="pipButton" class="quick-btn" style="padding: 6px 12px;" title="Pop-Out Window"><i class="fas fa-external-link-alt"></i></button>
             </div>
         </header>
 
-        <div id="vision-container" class="video-box" style="display: none; margin-bottom: 20px; height: 200px;">
+        <div id="vision-container" class="video-box" style="display: none;">
             <video id="vision-feed" autoplay playsinline muted></video>
             <canvas id="capture-canvas" style="display:none;"></canvas>
             <div id="vision-label">🔴 LIVE REALITY FEED</div>
