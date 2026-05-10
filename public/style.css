@@ -169,7 +169,7 @@ body {
 .send-btn i { transform: rotate(45deg); margin-right: 4px; }
 
 /* =========================================
-   🔐 BUTTONS & OVERLAYS
+   🔐 BUTTONS & OVERLAYS (UPGRADED GLASSMORPHISM)
    ========================================= */
 .quick-btn {
     background: transparent; border: 1px solid rgba(255,255,255,0.1);
@@ -186,17 +186,64 @@ body {
 
 .login-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(40, 21, 35, 0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(10px);
+    /* Animated moving background gradient instead of solid color */
+    background: linear-gradient(-45deg, #1c0e18, #362231, #120914, #281523);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    z-index: 9999; display: flex; justify-content: center; align-items: center;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .login-box {
-    background: rgba(255, 255, 255, 0.03); padding: 40px; border-radius: 20px; text-align: center; border: 1px solid rgba(255, 107, 157, 0.2); width: 90%; max-width: 400px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    background: rgba(40, 21, 35, 0.4); 
+    backdrop-filter: blur(20px); 
+    -webkit-backdrop-filter: blur(20px);
+    padding: 40px; border-radius: 24px; text-align: center; 
+    border: 1px solid rgba(255, 107, 157, 0.3); 
+    width: 90%; max-width: 400px; 
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6), inset 0 0 20px rgba(255, 107, 157, 0.05);
+    animation: floatInBox 1s cubic-bezier(0.25, 1, 0.5, 1) both;
 }
 
-.login-box input { width: 100%; padding: 12px; border-radius: 10px; border: none; background: rgba(0,0,0,0.5); color: white; margin-bottom: 15px; outline: none; }
-.login-box input:focus { border: 1px solid #ff1493; }
-.login-box button.action-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); margin-top: 10px;}
-#verifyCodeBtn { background: #ff1493; border: none; }
+@keyframes floatInBox {
+    from { opacity: 0; transform: translateY(30px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.login-box input { 
+    width: 100%; padding: 14px; border-radius: 12px; border: none; 
+    background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px; outline: none; 
+    transition: all 0.3s ease; text-align: center; font-size: 1rem;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.login-box input:focus { 
+    background: rgba(0,0,0,0.6);
+    border: 1px solid #ff1493; 
+    box-shadow: 0 0 15px rgba(255, 20, 147, 0.3);
+    transform: translateY(-2px);
+}
+
+.login-box button.action-btn { 
+    width: 100%; padding: 14px; border-radius: 12px; border: none; 
+    background: linear-gradient(45deg, #ff1493, #ff6b9d); 
+    color: white; font-weight: 600; font-size: 1.05rem; letter-spacing: 1px;
+    margin-top: 10px; cursor: pointer; transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(255, 20, 147, 0.3);
+}
+
+.login-box button.action-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(255, 20, 147, 0.6); 
+}
+
+#verifyCodeBtn { background: linear-gradient(45deg, #4ade80, #3b82f6) !important; box-shadow: 0 5px 15px rgba(74, 222, 128, 0.3); }
+#verifyCodeBtn:hover { box-shadow: 0 8px 25px rgba(74, 222, 128, 0.6); }
 
 /* =========================================
    ✨ ANIMATIONS & EXTRAS
@@ -219,7 +266,6 @@ body {
    📸 DESKTOP CAMERA SPLIT LAYOUT
    ========================================= */
 @media (min-width: 769px) {
-    /* When the camera is active, split the layout 50/50 */
     body.camera-active .container {
         flex-direction: row;
         flex-wrap: wrap;
@@ -229,16 +275,16 @@ body {
     body.camera-active .app-header { width: 100%; flex: none; }
     
     body.camera-active #vision-container {
-        width: calc(50% - 10px); /* Exactly 50% minus the gap */
+        width: calc(50% - 10px); 
         display: block !important;
         margin-bottom: 20px;
         box-shadow: 0 15px 50px rgba(0,0,0,0.4);
     }
     
     body.camera-active .chat-container {
-        width: calc(50% - 10px); /* Exactly 50% minus the gap */
-        flex: none; /* Stops it from stretching */
-        height: calc(100vh - 150px); /* Matches typical screen height */
+        width: calc(50% - 10px); 
+        flex: none; 
+        height: calc(100vh - 150px); 
     }
 }
 
@@ -246,7 +292,6 @@ body {
    📱 MOBILE ONLY RESPONSIVE SETTINGS
    ========================================= */
 @media (max-width: 768px) {
-    /* Fix Header: Keep Monika AI on one line and shrink slightly */
     .title-gradient { 
         font-size: 1.6rem !important; 
         white-space: nowrap !important; 
@@ -258,12 +303,10 @@ body {
         font-size: 0.85rem !important; 
     }
     
-    /* Fix Chat Bubbles: Make them wider on small screens */
     .message-content { 
         max-width: 92% !important; 
     }
 
-    /* Fix Input Bar: Stop text box from pushing icons off-screen */
     .input-container {
         padding: 10px 10px 15px; 
     }
@@ -272,7 +315,7 @@ body {
         gap: 5px;
     }
     #messageInput {
-        min-width: 0 !important; /* Critical fix: lets the input shrink! */
+        min-width: 0 !important; 
         font-size: 0.9rem;
     }
     .tool-btn {
@@ -283,7 +326,7 @@ body {
     .send-btn {
         width: 36px;
         height: 36px;
-        min-width: 36px; /* Prevents the send button from squishing */
+        min-width: 36px; 
     }
 }
 
@@ -297,7 +340,7 @@ body.theme-midnight .chat-container { background: #0a1628 !important; }
 body.theme-midnight .title-gradient, 
 body.theme-midnight .send-btn, 
 body.theme-midnight .avatar-img {
-    filter: hue-rotate(180deg) brightness(1.2) !important; /* Turns pink to neon blue */
+    filter: hue-rotate(180deg) brightness(1.2) !important; 
 }
 body.theme-midnight .message.user .message-content { background: #0077ff !important; }
 
