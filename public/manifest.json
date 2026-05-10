@@ -4,8 +4,8 @@
   "description": "Your Intelligent Companion",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0814",
-  "theme_color": "#ff4d94",
+  "background_color": "#281523",
+  "theme_color": "#281523",
   "icons": [
     {
       "src": "/icon-192.png",
