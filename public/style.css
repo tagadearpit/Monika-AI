@@ -355,3 +355,26 @@ body.theme-cyber { background: #120458 !important; }
 body.theme-cyber .chat-container { background: #000000 !important; border: 1px solid #ff00ff; }
 body.theme-cyber .title-gradient { filter: hue-rotate(280deg) !important; }
 body.theme-cyber .message.user .message-content { background: #bc13fe !important; box-shadow: 0 0 10px #bc13fe; }
+
+/* 4. MATRIX MODE (Hacker Green) */
+body.theme-matrix { background: #0a0a0a !important; color: #00ff00 !important; }
+body.theme-matrix .chat-container { background: #000000 !important; border: 1px solid #00ff00; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2); }
+body.theme-matrix .message.user .message-content { background: #004400 !important; border: 1px solid #00ff00; color: #00ff00 !important; }
+body.theme-matrix .message.monika .message-content { background: rgba(0, 255, 0, 0.1) !important; color: #00ff00 !important; }
+body.theme-matrix .title-gradient { background: none !important; color: #00ff00 !important; text-shadow: 0 0 10px #00ff00; -webkit-text-fill-color: #00ff00 !important; }
+body.theme-matrix .send-btn { background: #00aa00 !important; box-shadow: 0 0 10px #00ff00; }
+body.theme-matrix input { color: #00ff00 !important; }
+
+/* 5. SUNSET MODE (Vaporwave Orange & Purple) */
+body.theme-sunset { background: linear-gradient(to bottom, #2b0f4c, #d5534d) !important; background-attachment: fixed !important;}
+body.theme-sunset .chat-container { background: rgba(20, 10, 30, 0.6) !important; backdrop-filter: blur(10px); border: 1px solid #ff7b54; }
+body.theme-sunset .message.user .message-content { background: linear-gradient(45deg, #ff7b54, #ff5b7f) !important; }
+body.theme-sunset .title-gradient { filter: hue-rotate(320deg) saturate(2) !important; }
+
+/* 6. YANDERE MODE (Deep Blood Red) */
+body.theme-yandere { background: #1a0000 !important; color: #ff9999 !important; }
+body.theme-yandere .chat-container { background: #0a0000 !important; border: 1px solid #ff0000; box-shadow: 0 0 30px rgba(255, 0, 0, 0.3); }
+body.theme-yandere .message.user .message-content { background: #800000 !important; color: white !important; }
+body.theme-yandere .message.monika .message-content { background: rgba(255, 0, 0, 0.1) !important; color: #ff4d4d !important; border: 1px dashed #ff0000; }
+body.theme-yandere .title-gradient { background: none !important; color: #ff0000 !important; text-shadow: 2px 2px 0px #4a0000, -2px -2px 0px #000; -webkit-text-fill-color: #ff0000 !important; }
+body.theme-yandere .send-btn, body.theme-yandere .avatar-img { border-color: #ff0000 !important; background: #aa0000 !important; box-shadow: 0 0 15px #ff0000 !important; }
