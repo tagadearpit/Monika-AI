@@ -306,11 +306,15 @@ async function sendMessage(isVoiceChat = false) {
         '/midnight': 'theme-midnight',
         '/rose': 'theme-rose',
         '/cyber': 'theme-cyber',
+        '/matrix': 'theme-matrix',   // ✨ NEW
+        '/sunset': 'theme-sunset',   // ✨ NEW
+        '/yandere': 'theme-yandere', // ✨ NEW
         '/normal': ''
     };
 
     if (themes[userInput.toLowerCase()] !== undefined) {
-        document.body.classList.remove('theme-midnight', 'theme-rose', 'theme-cyber');
+        // ✨ Wipes out ALL themes before applying the new one
+        document.body.classList.remove('theme-midnight', 'theme-rose', 'theme-cyber', 'theme-matrix', 'theme-sunset', 'theme-yandere');
         if (userInput.toLowerCase() !== '/normal') {
             document.body.classList.add(themes[userInput.toLowerCase()]);
         }
