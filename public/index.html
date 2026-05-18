@@ -59,6 +59,7 @@
             </div>
             
             <div class="action-area">
+                <button id="settingsBtn" class="quick-btn" title="Settings" style="padding: 6px 12px;"><i class="fas fa-cog"></i></button>
                 <button id="logoutBtn" class="quick-btn" style="border-color: rgba(255, 77, 77, 0.3); color: #ff4d4d; padding: 6px 15px;">Logout</button>
                 <button id="pipButton" class="quick-btn" style="padding: 6px 12px;" title="Pop-Out Window"><i class="fas fa-external-link-alt"></i></button>
             </div>
@@ -85,6 +86,51 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div id="settingsModal" class="settings-overlay" style="display: none;">
+        <div class="settings-box">
+            <div class="settings-header">
+                <h3>App Settings ⚙️</h3>
+                <button id="closeSettingsBtn" class="close-modal-btn">&times;</button>
+            </div>
+            <hr class="settings-divider">
+
+            <div class="settings-body">
+                <div class="setting-group">
+                    <label><i class="fas fa-user"></i> Your Preferred Name</label>
+                    <input type="text" id="settingUserName" placeholder="Enter your name...">
+                    <button id="saveNameBtn" class="settings-action-btn">Update Name</button>
+                </div>
+
+                <div class="setting-group">
+                    <label><i class="fas fa-volume-up"></i> Voice Output (TTS)</label>
+                    <div class="toggle-wrapper">
+                        <span>Speak Responses</span>
+                        <input type="checkbox" id="settingTtsToggle" checked>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label><i class="fas fa-palette"></i> Switch App Theme</label>
+                    <select id="settingThemeSelect">
+                        <option value="/normal">🌸 Monika Default</option>
+                        <option value="/midnight">🌌 Midnight Mode</option>
+                        <option value="/rose">🌹 Rose Garden</option>
+                        <option value="/cyber">⚡ Cyber Vibe</option>
+                        <option value="/matrix">📟 Matrix Terminal</option>
+                        <option value="/sunset">🌇 Vaporwave Sunset</option>
+                        <option value="/yandere">🔪 Yandere Crimson</option>
+                    </select>
+                </div>
+
+                <div class="setting-group danger-zone">
+                    <label><i class="fas fa-shield-alt"></i> Privacy & Danger Zone</label>
+                    <p>Wipe all conversations, context memories, and authentication records.</p>
+                    <button id="wipeDataBtn" class="danger-action-btn">Delete My Account</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <template id="typing-template">
