@@ -71,6 +71,7 @@ const WelcomeTrack = mongoose.model("WelcomeTrack", new mongoose.Schema({
 
 // --- 3. EMAIL CONFIG (BREVO) ---
 const transporter = nodemailer.createTransport({
+    pool: true, // 🛡️ NEW: Puts emails in a queue so they don't crash into each other!
     host: "smtp-relay.brevo.com",
     port: 2525,
     auth: {
@@ -150,6 +151,9 @@ app.post("/api/auth/welcome", async (req, res) => {
         // Check MongoDB: Have we already welcomed this user?
         const alreadySent = await WelcomeTrack.findOne({ email });
         if (alreadySent) return res.json({ success: true, message: "Already welcomed" });
+
+        // ⏱️ NEW: Wait 5 seconds before sending so Brevo doesn't block it!
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         // If not, send the beautiful Monika welcome email!
         const userName = name || "dummy";
