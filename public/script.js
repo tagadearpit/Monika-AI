@@ -79,7 +79,8 @@ if (showEmailBtn && showPhoneBtn) {
 
 function handleGoogleLogin(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    loginSuccess(payload.email, `Google Auth Success. Welcome, ${payload.given_name}! 🌸`);
+    // 🛡️ Passing payload.given_name as the 3rd argument for the email!
+    loginSuccess(payload.email, `Google Auth Success. Welcome, ${payload.given_name}! 🌸`, payload.given_name);
 }
 
 function setupRecaptcha() {
@@ -188,12 +189,21 @@ function showOtpSection() {
     document.getElementById('otp-input-section').style.display = 'block';
 }
 
-function loginSuccess(id, welcomeMsg) {
+function loginSuccess(id, welcomeMsg, name = "") {
     sessionId = id;
     localStorage.setItem('monika_session', sessionId);
     loginOverlay.style.display = 'none';
     loadChatHistory(sessionId);
     addMessage(welcomeMsg, 'system', false);
+
+    // 🛡️ NEW: Silently trigger the welcome email check
+    if (id.includes('@')) {
+        fetch("/api/auth/welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: id, name: name })
+        }).catch(err => console.error("Welcome check failed silently", err));
+    }
 }
 
 if (document.getElementById('logoutBtn')) {
@@ -306,9 +316,9 @@ async function sendMessage(isVoiceChat = false) {
         '/midnight': 'theme-midnight',
         '/rose': 'theme-rose',
         '/cyber': 'theme-cyber',
-        '/matrix': 'theme-matrix',   // ✨ NEW
-        '/sunset': 'theme-sunset',   // ✨ NEW
-        '/yandere': 'theme-yandere', // ✨ NEW
+        '/matrix': 'theme-matrix',   
+        '/sunset': 'theme-sunset',   
+        '/yandere': 'theme-yandere', 
         '/normal': ''
     };
 
@@ -336,7 +346,7 @@ async function sendMessage(isVoiceChat = false) {
 
     let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
 
-    // 🛡️ NEW: API Timeout Logic (30 Seconds)
+    // 🛡️ API Timeout Logic (30 Seconds)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -345,10 +355,10 @@ async function sendMessage(isVoiceChat = false) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId }),
-            signal: controller.signal // Attaching the timeout controller
+            signal: controller.signal 
         });
         
-        clearTimeout(timeoutId); // If it succeeds, cancel the timeout!
+        clearTimeout(timeoutId); 
         
         const data = await response.json();
         hideTypingIndicator();
