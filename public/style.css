@@ -395,7 +395,13 @@ body.theme-yandere .send-btn, body.theme-yandere .avatar-img { border-color: #ff
     box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,255,255,0.05);
     width: 90%; max-width: 450px; border-radius: 24px; padding: 25px;
     color: white; animation: slideInUpModal 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    max-height: 85vh; 
+    overflow-y: auto; 
 }
+
+.settings-box::-webkit-scrollbar { width: 6px; }
+.settings-box::-webkit-scrollbar-thumb { background: rgba(255, 107, 157, 0.5); border-radius: 10px; }
+.settings-box::-webkit-scrollbar-track { background: transparent; }
 
 .settings-header { display: flex; justify-content: space-between; align-items: center; }
 .settings-header h3 { color: #ff99bb; font-weight: 600; font-size: 1.25rem; margin: 0; }
