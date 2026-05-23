@@ -33,7 +33,7 @@ app.use('/ask', askLimiter);
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5, 
+    max: 15, 
     message: { error: 'Too many login attempts. Please wait 15 minutes. 💔' }
 });
 
@@ -49,13 +49,18 @@ const connectDB = async () => {
 };
 
 // --- 2. DATABASE SCHEMAS ---
-const Chat = mongoose.model("Chat", new mongoose.Schema({
-    sessionId: String, role: String, text: String, timestamp: { type: Date, default: Date.now }
-}));
 
-const Fact = mongoose.model("Fact", new mongoose.Schema({
+const ChatSchema = new mongoose.Schema({
+    sessionId: String, role: String, text: String, timestamp: { type: Date, default: Date.now }
+});
+ChatSchema.index({ sessionId: 1, timestamp: -1 }); 
+const Chat = mongoose.model("Chat", ChatSchema);
+
+const FactSchema = new mongoose.Schema({
     sessionId: String, fact: String, category: String, timestamp: { type: Date, default: Date.now }
-}));
+});
+FactSchema.index({ sessionId: 1, timestamp: -1 }); 
+const Fact = mongoose.model("Fact", FactSchema);
 
 const Otp = mongoose.model("Otp", new mongoose.Schema({
     email: String,
@@ -63,15 +68,20 @@ const Otp = mongoose.model("Otp", new mongoose.Schema({
     createdAt: { type: Date, expires: 300, default: Date.now }
 }));
 
-// 🛡️ NEW: Tracker to ensure welcome email is only sent ONCE per user
 const WelcomeTrack = mongoose.model("WelcomeTrack", new mongoose.Schema({
     email: { type: String, unique: true },
     timestamp: { type: Date, default: Date.now }
 }));
 
+const User = mongoose.model("User", new mongoose.Schema({
+    sessionId: { type: String, unique: true, required: true },
+    firstLogin: { type: Date, default: Date.now },
+    lastActive: { type: Date, default: Date.now }
+}));
+
 // --- 3. EMAIL CONFIG (BREVO) ---
 const transporter = nodemailer.createTransport({
-    pool: true, // 🛡️ NEW: Puts emails in a queue so they don't crash into each other!
+    pool: true, 
     host: "smtp-relay.brevo.com",
     port: 2525,
     auth: {
@@ -140,22 +150,17 @@ app.post("/api/auth/verify-otp", authLimiter, async (req, res) => {
     } else { res.status(400).json({ error: "Invalid or expired code" }); }
 });
 
-// 🛡️ NEW: Monika's Welcome Email Endpoint
 app.post("/api/auth/welcome", async (req, res) => {
     const { email, name } = req.body;
     
-    // Safety check: Only proceed if it's an email
     if (!email || !email.includes('@')) return res.json({ success: false });
 
     try {
-        // Check MongoDB: Have we already welcomed this user?
         const alreadySent = await WelcomeTrack.findOne({ email });
         if (alreadySent) return res.json({ success: true, message: "Already welcomed" });
 
-        // ⏱️ NEW: Wait 5 seconds before sending so Brevo doesn't block it!
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        // If not, send the beautiful Monika welcome email!
         const userName = name || "dummy";
         await transporter.sendMail({
             from: `"Monika AI" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`, 
@@ -179,7 +184,6 @@ app.post("/api/auth/welcome", async (req, res) => {
                    </div>`
         });
 
-        // Save to database so we never send it to this email again
         await WelcomeTrack.create({ email });
         res.json({ success: true });
     } catch (err) { 
@@ -189,7 +193,6 @@ app.post("/api/auth/welcome", async (req, res) => {
 });
 
 app.get('/api/history/:sessionId', async (req, res) => {
-    // 🛡️ SECURITY FIX: Prevents NoSQL Injection via URL params
     const sessionId = req.params.sessionId;
     if (typeof sessionId !== 'string' || sessionId.length > 100) {
         return res.status(400).json({ error: "Invalid session format" });
@@ -216,13 +219,18 @@ CRITICAL RULES:
 app.post("/ask", async (req, res) => {
     let { question, imageBase64, sessionId } = req.body;
     
-    // 🛡️ SECURITY FIX: Ensure question is a string to prevent query injection
     if (typeof question !== 'string') question = String(question);
     
     const currentSessionId = sessionId || "anonymous_user";
     const API_KEYS = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
     
     try {
+        await User.findOneAndUpdate(
+            { sessionId: String(currentSessionId) },
+            { $set: { lastActive: new Date() } },
+            { upsert: true, setDefaultsOnInsert: true }
+        );
+
         // 1. Retrieve Memory & History
         const historyDocs = await Chat.find({ sessionId: String(currentSessionId) }).sort({ timestamp: -1 }).limit(10);
         const personalFacts = await Fact.find({ sessionId: String(currentSessionId) }).sort({ timestamp: -1 }).limit(5);
