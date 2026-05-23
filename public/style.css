@@ -186,7 +186,6 @@ body {
 
 .login-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    /* Animated moving background gradient instead of solid color */
     background: linear-gradient(-45deg, #1c0e18, #362231, #120914, #281523);
     background-size: 400% 400%;
     animation: gradientBG 15s ease infinite;
@@ -378,3 +377,66 @@ body.theme-yandere .message.user .message-content { background: #800000 !importa
 body.theme-yandere .message.monika .message-content { background: rgba(255, 0, 0, 0.1) !important; color: #ff4d4d !important; border: 1px dashed #ff0000; }
 body.theme-yandere .title-gradient { background: none !important; color: #ff0000 !important; text-shadow: 2px 2px 0px #4a0000, -2px -2px 0px #000; -webkit-text-fill-color: #ff0000 !important; }
 body.theme-yandere .send-btn, body.theme-yandere .avatar-img { border-color: #ff0000 !important; background: #aa0000 !important; box-shadow: 0 0 15px #ff0000 !important; }
+
+/* =========================================
+   ⚙️ GLASSMORPHISM SETTINGS LAYOUT
+   ========================================= */
+.settings-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 8, 20, 0.7);
+    backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+    z-index: 10000; display: flex; justify-content: center; align-items: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.settings-box {
+    background: rgba(54, 34, 49, 0.6);
+    border: 1px solid rgba(255, 20, 147, 0.25);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,255,255,0.05);
+    width: 90%; max-width: 450px; border-radius: 24px; padding: 25px;
+    color: white; animation: slideInUpModal 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.settings-header { display: flex; justify-content: space-between; align-items: center; }
+.settings-header h3 { color: #ff99bb; font-weight: 600; font-size: 1.25rem; margin: 0; }
+
+.close-modal-btn {
+    background: transparent; border: none; color: rgba(255,255,255,0.6);
+    font-size: 1.8rem; cursor: pointer; transition: 0.2s;
+}
+.close-modal-btn:hover { color: #ff1493; transform: scale(1.1); }
+.settings-divider { border: 0; height: 1px; background: rgba(255, 107, 157, 0.2); margin: 15px 0; }
+
+.settings-body { display: flex; flex-direction: column; gap: 20px; }
+.setting-group { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.setting-group label { font-size: 0.9rem; font-weight: 500; color: #ff99bb; display: flex; align-items: center; gap: 8px; margin: 0; }
+
+.setting-group input[type="text"], .setting-group select {
+    width: 100%; padding: 10px 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.4); color: white; outline: none; font-size: 0.95rem; transition: 0.2s; box-sizing: border-box;
+}
+.setting-group input[type="text"]:focus, .setting-group select:focus { border-color: #ff1493; box-shadow: 0 0 10px rgba(255, 20, 147, 0.3); }
+.setting-group select option { background: #281523; color: white; }
+
+.settings-action-btn {
+    background: linear-gradient(45deg, #ff1493, #ff6b9d); border: none; color: white;
+    padding: 10px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 5px;
+}
+.settings-action-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(255, 20, 147, 0.4); }
+
+.toggle-wrapper { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 10px; }
+.toggle-wrapper span { font-size: 0.9rem; color: #e0e0e0; }
+
+/* Danger Zone Styling */
+.danger-zone { border-top: 1px dashed rgba(255, 0, 0, 0.3); padding-top: 15px; }
+.danger-zone label { color: #ff4d4d; }
+.danger-zone p { font-size: 0.8rem; color: rgba(255,255,255,0.6); line-height: 1.4; margin: 0; }
+
+.danger-action-btn {
+    background: rgba(255, 77, 77, 0.15); border: 1px solid #ff4d4d; color: #ff4d4d;
+    padding: 10px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s; margin-top: 10px;
+}
+.danger-action-btn:hover { background: #ff4d4d; color: white; box-shadow: 0 5px 15px rgba(255, 77, 77, 0.4); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideInUpModal { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
