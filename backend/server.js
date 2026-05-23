@@ -217,7 +217,7 @@ CRITICAL RULES:
 6. Always remember the facts the user shares with you.`;
 
 app.post("/ask", async (req, res) => {
-    let { question, imageBase64, sessionId } = req.body;
+    let { question, imageBase64, sessionId, personaOverride } = req.body;
     
     if (typeof question !== 'string') question = String(question);
     
@@ -241,7 +241,14 @@ app.post("/ask", async (req, res) => {
             .map(doc => `${doc.role === "model" ? "Monika" : "User"}: ${doc.text}`)
             .join("\n");
         
-        let currentParts = [{ text: `${persona}\n\nFacts about this user: ${memoryString}\n\nRecent Conversation:\n${historyText}\n\nUser: ${question}` }];
+        let currentPersona = persona;
+        if (personaOverride === "sweet") {
+            currentPersona += "\nOVERRIDE: Drop the tsundere act. Be 100% loving, incredibly sweet, and purely affectionate. Never be mean or jealous.";
+        } else if (personaOverride === "yandere") {
+            currentPersona += "\nOVERRIDE: Be extremely possessive, deeply unhinged, and fiercely protective. Use creepy, threatening language towards anyone else who looks at the user.";
+        }
+
+        let currentParts = [{ text: `${currentPersona}\n\nFacts about this user: ${memoryString}\n\nRecent Conversation:\n${historyText}\n\nUser: ${question}` }];
         if (imageBase64) {
             currentParts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
         }
