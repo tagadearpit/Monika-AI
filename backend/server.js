@@ -275,6 +275,23 @@ app.use(express.static(publicPath));
 app.get('*', (req, res) => res.sendFile(path.join(publicPath, 'index.html')));
 
 const PORT = process.env.PORT || 10000;
-connectDB().then(() => {
+connectDB().then(async () => {
+    
+    try {
+        console.log("🔄 Searching for past users in Chat history...");
+        
+        const oldSessions = await Chat.distinct("sessionId");
+        
+        for (const session of oldSessions) {
+            await User.findOneAndUpdate(
+                { sessionId: session },
+                { $setOnInsert: { firstLogin: new Date(), lastActive: new Date() } },
+                { upsert: true }
+            );
+        }
+        console.log(`✅ Sync complete! Moved ${oldSessions.length} past users into the User database.`);
+    } catch (err) {
+        console.error("Migration failed:", err);
+    }
     app.listen(PORT, () => console.log(`🚀 Monika is Live on Port ${PORT}!`));
 });
