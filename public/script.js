@@ -54,7 +54,6 @@ window.onload = async function () {
     }
 };
 
-// --- EMAIL/PHONE TOGGLE LOGIC ---
 const showEmailBtn = document.getElementById('showEmailBtn');
 const showPhoneBtn = document.getElementById('showPhoneBtn');
 const emailInputGroup = document.getElementById('emailInputGroup');
@@ -66,27 +65,26 @@ if (showEmailBtn && showPhoneBtn) {
         showPhoneBtn.classList.remove('active');
         emailInputGroup.style.display = 'block';
         phoneInputGroup.style.display = 'none';
-        document.getElementById('phoneInput').value = ''; // 🛡️ Wipes phone input
+        document.getElementById('phoneInput').value = ''; 
     };
     showPhoneBtn.onclick = () => {
         showPhoneBtn.classList.add('active');
         showEmailBtn.classList.remove('active');
         phoneInputGroup.style.display = 'block';
         emailInputGroup.style.display = 'none';
-        document.getElementById('emailInput').value = ''; // 🛡️ Wipes email input
+        document.getElementById('emailInput').value = ''; 
     };
 }
 
 function handleGoogleLogin(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    // 🛡️ Passing payload.given_name as the 3rd argument for the email!
     loginSuccess(payload.email, `Google Auth Success. Welcome, ${payload.given_name}! 🌸`, payload.given_name);
 }
 
 function setupRecaptcha() {
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
         'size': 'invisible',
-        'callback': (response) => { /* reCAPTCHA solved */ }
+        'callback': (response) => { }
     });
 }
 
@@ -97,24 +95,17 @@ if (document.getElementById('sendCodeBtn')) {
         
         if (!userInput) return alert(`Please enter your ${loginMode}!`);
 
-        // 🛡️ Ensure the email strictly ends with @gmail.com
-        if (loginMode === 'email') {
-            if (!userInput.toLowerCase().endsWith('@gmail.com')) {
-                return alert("Please enter correct email address (must be @gmail.com)");
-            }
+        if (loginMode === 'email' && !userInput.toLowerCase().endsWith('@gmail.com')) {
+            return alert("Please enter correct email address (must be @gmail.com)");
         }
 
-        // 🛡️ Ensure phone number is valid
         if (loginMode === 'phone') {
             const phoneRegex = /^\+?[0-9]{7,15}$/;
-            if (!phoneRegex.test(userInput)) {
-                return alert("Please enter a valid phone number (e.g., +1234567890)");
-            }
+            if (!phoneRegex.test(userInput)) return alert("Please enter a valid phone number (e.g., +1234567890)");
         }
 
         const btn = document.getElementById('sendCodeBtn');
-        btn.disabled = true;
-        btn.innerText = "Processing...";
+        btn.disabled = true; btn.innerText = "Processing...";
 
         if (loginMode === 'email') {
             try {
@@ -123,25 +114,17 @@ if (document.getElementById('sendCodeBtn')) {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email: userInput })
                 });
-                if (res.ok) {
-                    showOtpSection();
-                } else {
-                    alert("Email failed. Please check server logs.");
-                    btn.disabled = false;
-                    btn.innerText = "Send Login Code";
-                }
+                if (res.ok) showOtpSection();
+                else { alert("Email failed. Please check logs."); btn.disabled = false; btn.innerText = "Send Login Code"; }
             } catch (e) { alert("Server connection error."); }
         } else {
             const appVerifier = window.recaptchaVerifier;
             auth.signInWithPhoneNumber(userInput, appVerifier)
-                .then((result) => {
-                    confirmationResult = result;
-                    showOtpSection();
-                }).catch((error) => {
+                .then((result) => { confirmationResult = result; showOtpSection(); })
+                .catch((error) => {
                     alert("SMS Error: " + error.message);
-                    btn.disabled = false;
-                    btn.innerText = "Send Login Code";
-                    if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
+                    btn.disabled = false; btn.innerText = "Send Login Code";
+                    if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(wId => grecaptcha.reset(wId));
                 });
         }
     };
@@ -156,8 +139,7 @@ if (document.getElementById('verifyCodeBtn')) {
         if (!code || code.length !== 6) return alert("Please enter the 6-digit code.");
 
         const btn = document.getElementById('verifyCodeBtn');
-        btn.disabled = true;
-        btn.innerText = "Verifying...";
+        btn.disabled = true; btn.innerText = "Verifying...";
 
         if (loginMode === 'email') {
             const res = await fetch("/api/auth/verify-otp", {
@@ -165,21 +147,12 @@ if (document.getElementById('verifyCodeBtn')) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userInput, code })
             });
-            if (res.ok) {
-                loginSuccess(userInput, "Email verified! Welcome back. 🌸");
-            } else {
-                alert("Invalid or expired code.");
-                btn.disabled = false;
-                btn.innerText = "Verify & Enter";
-            }
+            if (res.ok) loginSuccess(userInput, "Email verified! Welcome back. 🌸");
+            else { alert("Invalid or expired code."); btn.disabled = false; btn.innerText = "Verify & Enter"; }
         } else {
             confirmationResult.confirm(code).then((result) => {
                 loginSuccess(result.user.phoneNumber, "Phone verified! Welcome back. 🌸");
-            }).catch((error) => {
-                alert("Invalid SMS code.");
-                btn.disabled = false;
-                btn.innerText = "Verify & Enter";
-            });
+            }).catch((error) => { alert("Invalid SMS code."); btn.disabled = false; btn.innerText = "Verify & Enter"; });
         }
     };
 }
@@ -196,7 +169,6 @@ function loginSuccess(id, welcomeMsg, name = "") {
     loadChatHistory(sessionId);
     addMessage(welcomeMsg, 'system', false);
 
-    // 🛡️ NEW: Silently trigger the welcome email check
     if (id.includes('@')) {
         fetch("/api/auth/welcome", {
             method: "POST",
@@ -209,14 +181,8 @@ function loginSuccess(id, welcomeMsg, name = "") {
 if (document.getElementById('logoutBtn')) {
     document.getElementById('logoutBtn').onclick = () => {
         if (auth && auth.currentUser) {
-            auth.signOut().then(() => {
-                localStorage.removeItem('monika_session');
-                location.reload(); 
-            });
-        } else {
-            localStorage.removeItem('monika_session');
-            location.reload(); 
-        }
+            auth.signOut().then(() => { localStorage.removeItem('monika_session'); location.reload(); });
+        } else { localStorage.removeItem('monika_session'); location.reload(); }
     };
 }
 
@@ -247,12 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sendBtn) sendBtn.addEventListener('click', () => { if (!isMonikaBusy) sendMessage(false); });
     if (messageInput) messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !isMonikaBusy) sendMessage(false); });
     
-    // 🛡️ Instantly delete letters if typed in the phone box
     const phoneInput = document.getElementById('phoneInput');
     if (phoneInput) {
-        phoneInput.addEventListener('input', function() {
-            this.value = this.value.replace(/[^\d+]/g, '');
-        });
+        phoneInput.addEventListener('input', function() { this.value = this.value.replace(/[^\d+]/g, ''); });
     }
 });
 
@@ -261,31 +224,25 @@ async function addMessage(text, sender, typewrite = false) {
     messageDiv.className = `message ${sender}`;
     
     let prefix = "";
-    if (sender === 'user') {
-        prefix = '<span style="font-weight:bold;">You:</span> ';
-    } else if (sender === 'monika') {
-        prefix = '<span style="color:#ff6b9d; font-weight:bold;">Monika:</span> ';
-    } else if (sender === 'system') {
-        prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
-    }
+    if (sender === 'user') prefix = '<span style="font-weight:bold;">You:</span> ';
+    else if (sender === 'monika') prefix = '<span style="color:#ff6b9d; font-weight:bold;">Monika:</span> ';
+    else if (sender === 'system') prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
 
     messageDiv.innerHTML = `<div class="message-content">${prefix}<span class="chat-text"></span></div>`;
     const textSpan = messageDiv.querySelector('.chat-text');
-    
     chatMessages.appendChild(messageDiv);
     
-    if (typewrite && sender === 'monika') {
+    const isTypingEnabled = localStorage.getItem('monika_typing') !== "false"; 
+
+    if (typewrite && sender === 'monika' && isTypingEnabled) {
         await new Promise(resolve => {
             let i = 0;
             function type() {
                 if (i < text.length) {
-                    textSpan.textContent += text.charAt(i);
-                    i++;
+                    textSpan.textContent += text.charAt(i); i++;
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                     setTimeout(type, 30); 
-                } else {
-                    resolve();
-                }
+                } else { resolve(); }
             }
             type();
         });
@@ -311,23 +268,14 @@ function hideTypingIndicator() {
 async function sendMessage(isVoiceChat = false) {
     let userInput = messageInput.value.trim();
     
-    // --- MODE SWITCHER LOGIC ---
     const themes = {
-        '/midnight': 'theme-midnight',
-        '/rose': 'theme-rose',
-        '/cyber': 'theme-cyber',
-        '/matrix': 'theme-matrix',   
-        '/sunset': 'theme-sunset',   
-        '/yandere': 'theme-yandere', 
-        '/normal': ''
+        '/midnight': 'theme-midnight', '/rose': 'theme-rose', '/cyber': 'theme-cyber',
+        '/matrix': 'theme-matrix', '/sunset': 'theme-sunset', '/yandere': 'theme-yandere', '/normal': ''
     };
 
     if (themes[userInput.toLowerCase()] !== undefined) {
-        // ✨ Wipes out ALL themes before applying the new one
         document.body.classList.remove('theme-midnight', 'theme-rose', 'theme-cyber', 'theme-matrix', 'theme-sunset', 'theme-yandere');
-        if (userInput.toLowerCase() !== '/normal') {
-            document.body.classList.add(themes[userInput.toLowerCase()]);
-        }
+        if (userInput.toLowerCase() !== '/normal') document.body.classList.add(themes[userInput.toLowerCase()]);
         messageInput.value = '';
         addMessage(`[MODE]: System appearance updated to ${userInput.substring(1)}. ✨`, 'system', false);
         return;
@@ -336,17 +284,11 @@ async function sendMessage(isVoiceChat = false) {
     if (!userInput && isVisionActive) userInput = "What do you see right now?";
     if (!userInput) return;
 
-    isMonikaBusy = true;
-    messageInput.disabled = true;
-    sendBtn.disabled = true;
-
+    isMonikaBusy = true; messageInput.disabled = true; sendBtn.disabled = true;
     addMessage(userInput, 'user', false);
-    messageInput.value = '';
-    showTypingIndicator();
+    messageInput.value = ''; showTypingIndicator();
 
     let imageBase64 = isVisionActive ? await captureVisionFrame() : null;
-
-    // 🛡️ API Timeout Logic (30 Seconds)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -354,59 +296,53 @@ async function sendMessage(isVoiceChat = false) {
         const response = await fetch(`${baseUrl}/ask`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: userInput, imageBase64, sessionId: sessionId }),
+            body: JSON.stringify({ 
+                question: userInput, 
+                imageBase64, 
+                sessionId: sessionId,
+                personaOverride: localStorage.getItem('monika_persona') || 'tsundere',
+                userName: localStorage.getItem('monika_user_name') || ''
+            }),
             signal: controller.signal 
         });
         
         clearTimeout(timeoutId); 
-        
         const data = await response.json();
         hideTypingIndicator();
         
         const reply = data.reply || "I'm a bit confused... 💔";
         const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
 
-        if (isVoiceChat) monikaSpeak(reply); 
+        // 🛡️ FIXED: Checks the TTS Setting before speaking out loud
+        const isTtsEnabled = localStorage.getItem('monika_tts') !== "false";
+        if (isVoiceChat && isTtsEnabled) monikaSpeak(reply); 
+        
         await addMessage(cleanReply, 'monika', true);
-
     } catch (e) {
         hideTypingIndicator();
-        if (e.name === 'AbortError') {
-            addMessage("Request timed out. Monika is taking too long to think... 💔", 'monika', false);
-        } else {
-            addMessage("Connection lost... 💔", 'monika', false);
-        }
+        if (e.name === 'AbortError') addMessage("Request timed out. Monika is taking too long to think... 💔", 'monika', false);
+        else addMessage("Connection lost... 💔", 'monika', false);
     } finally {
-        isMonikaBusy = false;
-        messageInput.disabled = false;
-        sendBtn.disabled = false;
-        messageInput.focus();
+        isMonikaBusy = false; messageInput.disabled = false; sendBtn.disabled = false; messageInput.focus();
     }
 }
 
 // --- VISION & SPEECH SYSTEM ---
-camBtn.onclick = async () => {
-    isVisionActive = !isVisionActive;
-    if (isVisionActive) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            visionFeed.srcObject = stream;
-            visionContainer.style.display = 'block';
-            camBtn.classList.add('active'); 
-            
-            // 🖥️ MAGIC HAPPENS HERE: Adds the desktop side-by-side layout!
-            document.body.classList.add('camera-active');
-            
-        } catch (e) { alert("Camera access needed!"); isVisionActive = false; }
-    } else {
-        if (visionFeed.srcObject) visionFeed.srcObject.getTracks().forEach(t => t.stop());
-        visionContainer.style.display = 'none';
-        camBtn.classList.remove('active');
-        
-        // 🖥️ Resets layout when camera turns off
-        document.body.classList.remove('camera-active');
-    }
-};
+if (camBtn) {
+    camBtn.onclick = async () => {
+        isVisionActive = !isVisionActive;
+        if (isVisionActive) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                visionFeed.srcObject = stream; visionContainer.style.display = 'block';
+                camBtn.classList.add('active'); document.body.classList.add('camera-active');
+            } catch (e) { alert("Camera access needed!"); isVisionActive = false; }
+        } else {
+            if (visionFeed.srcObject) visionFeed.srcObject.getTracks().forEach(t => t.stop());
+            visionContainer.style.display = 'none'; camBtn.classList.remove('active'); document.body.classList.remove('camera-active');
+        }
+    };
+}
 
 async function captureVisionFrame() {
     if (!visionFeed.srcObject) return null;
@@ -420,28 +356,24 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognition;
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
-    recognition.onstart = () => { 
-        isListening = true; 
-        micBtn.classList.add('active'); 
-        messageInput.placeholder = "Listening..."; 
-    };
+    recognition.onstart = () => { isListening = true; micBtn.classList.add('active'); messageInput.placeholder = "Listening..."; };
     recognition.onresult = (e) => { messageInput.value = e.results[0][0].transcript; };
     recognition.onend = () => {
-        isListening = false; 
-        micBtn.classList.remove('active');
+        isListening = false; micBtn.classList.remove('active');
         if (Date.now() - lastSpeechTime > 500 && messageInput.value && !isMonikaBusy) {
-            lastSpeechTime = Date.now(); 
-            sendMessage(true); 
+            lastSpeechTime = Date.now(); sendMessage(true); 
         }
         messageInput.placeholder = "Type to Monika... 💕";
     };
 }
 
-micBtn.onclick = () => {
-    if (isMonikaBusy) return;
-    if (isListening) recognition.stop();
-    else { window.speechSynthesis.cancel(); recognition.start(); }
-};
+if (micBtn) {
+    micBtn.onclick = () => {
+        if (isMonikaBusy) return;
+        if (isListening) recognition.stop();
+        else { window.speechSynthesis.cancel(); recognition.start(); }
+    };
+}
 
 function monikaSpeak(text) {
     window.speechSynthesis.cancel();
@@ -450,18 +382,100 @@ function monikaSpeak(text) {
     globalUtterance.text = text.replace(/\[.*?\]/g, "");
     
     const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-        globalUtterance.voice = voices.find(v => v.name.includes("Female") || v.name.includes("Google UK English Female")) || voices[0];
-    }
+    if (voices.length > 0) globalUtterance.voice = voices.find(v => v.name.includes("Female") || v.name.includes("Google UK English Female")) || voices[0];
     
     window.speechSynthesis.speak(globalUtterance);
 }
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
-pipBtn.onclick = async () => {
-    if (!window.documentPictureInPicture) return alert("Use Chrome for PiP!");
-    const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 400, height: 600 });
-    [...document.styleSheets].forEach(s => pipWindow.document.head.appendChild(s.ownerNode.cloneNode(true)));
-    pipWindow.document.body.append(document.getElementById('chat-container'));
-    pipWindow.addEventListener("pagehide", e => document.getElementById('main-wrapper').append(e.target.querySelector('#chat-container')));
-};
+if (pipBtn) {
+    pipBtn.onclick = async () => {
+        if (!window.documentPictureInPicture) return alert("Use Chrome for PiP!");
+        const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 400, height: 600 });
+        [...document.styleSheets].forEach(s => pipWindow.document.head.appendChild(s.ownerNode.cloneNode(true)));
+        pipWindow.document.body.append(document.getElementById('chat-container'));
+        pipWindow.addEventListener("pagehide", e => document.getElementById('main-wrapper').append(e.target.querySelector('#chat-container')));
+    };
+}
+
+// ==========================================
+// ⚙️ SETTINGS PANEL INTERACTIVE TRIGGERS
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const settingsBtn = document.getElementById('settingsBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const themeSelect = document.getElementById('settingThemeSelect');
+    const saveNameBtn = document.getElementById('saveNameBtn');
+    const wipeDataBtn = document.getElementById('wipeDataBtn');
+    const personaSelect = document.getElementById('settingPersonaSelect');
+    const typingToggle = document.getElementById('settingTypingToggle');
+    const ttsToggle = document.getElementById('settingTtsToggle');
+
+    if (settingsBtn) {
+        settingsBtn.onclick = () => {
+            document.getElementById('settingUserName').value = localStorage.getItem('monika_user_name') || "";
+            if (personaSelect) personaSelect.value = localStorage.getItem('monika_persona') || "tsundere";
+            if (typingToggle) typingToggle.checked = localStorage.getItem('monika_typing') !== "false";
+            // 🛡️ FIXED: Load saved TTS toggle state
+            if (ttsToggle) ttsToggle.checked = localStorage.getItem('monika_tts') !== "false";
+            settingsModal.style.display = 'flex';
+        };
+    }
+
+    if (closeSettingsBtn) closeSettingsBtn.onclick = () => settingsModal.style.display = 'none';
+    window.onclick = (e) => { if (e.target === settingsModal) settingsModal.style.display = 'none'; };
+
+    if (themeSelect) {
+        themeSelect.onchange = (e) => {
+            messageInput.value = e.target.value; 
+            sendMessage(false);                  
+            settingsModal.style.display = 'none';
+        };
+    }
+
+    if (saveNameBtn) {
+        saveNameBtn.onclick = () => {
+            const newName = document.getElementById('settingUserName').value.trim();
+            if (newName) {
+                localStorage.setItem('monika_user_name', newName);
+                addMessage(`[SETTINGS]: Custom display name saved as "${newName}". 🌸`, 'system', false);
+                settingsModal.style.display = 'none';
+            }
+        };
+    }
+
+    if (personaSelect) {
+        personaSelect.onchange = (e) => {
+            localStorage.setItem('monika_persona', e.target.value);
+            addMessage(`[SETTINGS]: My personality parameters have been updated. 🌸`, 'system', false);
+        };
+    }
+
+    if (typingToggle) {
+        typingToggle.onchange = (e) => localStorage.setItem('monika_typing', e.target.checked);
+    }
+
+    if (ttsToggle) {
+        ttsToggle.onchange = (e) => localStorage.setItem('monika_tts', e.target.checked);
+    }
+
+    if (wipeDataBtn) {
+        wipeDataBtn.onclick = async () => {
+            if (confirm("🚨 WARNING: Are you absolutely sure you want to delete your account? This will wipe your chat history, context facts, and log you out forever!")) {
+                
+                try {
+                    await fetch(`${baseUrl}/api/user/delete`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sessionId: localStorage.getItem('monika_session') })
+                    });
+                } catch(e) { console.error("DB Wipe Failed", e); }
+
+                localStorage.clear();
+                addMessage("[CRITICAL]: Purging data packets... Goodbye. 💔", 'system', false);
+                setTimeout(() => { location.reload(); }, 2000);
+            }
+        };
+    }
+});
