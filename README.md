@@ -6,7 +6,7 @@
 
 <div align="center">
 
-[![🚀 LIVE DEMO](https://img.shields.io/badge/🚀_LIVE_DEMO-Visit_Now-FF1493?style=for-the-badge&logo=rocket&logoColor=white)](https://monika-ai-0jpf.onrender.com)
+[![🚀 LIVE DEMO](https://img.shields.io/badge/🚀_LIVE_DEMO-Visit_Now-FF1493?style=for-the-badge&logo=rocket&logoColor=white)](https://monika-ai.duckdns.org)
 [![GitHub Stars](https://img.shields.io/github/stars/tagadearpit/Monika-AI?style=for-the-badge&logo=github&logoColor=white&color=FFD700)](https://github.com/tagadearpit/Monika-AI)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
@@ -219,7 +219,7 @@ GEMINI_API_KEY_2=your_backup_gemini_key_here
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/monika-db
 
 # 🔹 CORS & Security
-ALLOWED_ORIGINS=http://localhost:10000,https://monika-ai-0jpf.onrender.com
+ALLOWED_ORIGINS=http://localhost:10000,https://monika-ai.duckdns.org
 
 # 🔹 Firebase Authentication
 FIREBASE_API_KEY=your_firebase_api_key
@@ -466,7 +466,7 @@ If Monika-AI brings a smile to your face or helps you in any way, please:
 
 ## 🚀 **Ready to Meet Monika?**
 
-### [🎯 Launch Live Demo Now!](https://monika-ai-0jpf.onrender.com)
+### [🎯 Launch Live Demo Now!](https://monika-ai.duckdns.org)
 
 *Experience the future of AI companions. Monika is waiting. 💕*
 
@@ -476,7 +476,7 @@ If Monika-AI brings a smile to your face or helps you in any way, please:
   <strong>Made with 💜 for everyone who loves beautiful, intelligent AI</strong><br>
   <a href="https://github.com/tagadearpit">GitHub</a> • 
   <a href="https://github.com/tagadearpit/Monika-AI">Repository</a> • 
-  <a href="https://monika-ai-0jpf.onrender.com">Live Demo</a>
+  <a href="https://monika-ai.duckdns.org">Live Demo</a>
 </p>
 
 </div>
