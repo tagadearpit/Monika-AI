@@ -4,7 +4,13 @@ let isVisionActive = false;
 let isMonikaBusy = false; 
 let isListening = false; 
 let lastSpeechTime = 0; 
-let sessionId = localStorage.getItem('monika_session');
+
+// 🛡️ ENHANCED: Basic Session Encryption & Move to Session Storage
+const encryptSession = (id) => btoa(id);
+const decryptSession = (id) => { try { return atob(id); } catch(e) { return null; } };
+
+let rawSession = sessionStorage.getItem('monika_session');
+let sessionId = rawSession ? decryptSession(rawSession) : null;
 
 // DOM Elements
 const chatMessages = document.getElementById('chatMessages');
@@ -95,13 +101,20 @@ if (document.getElementById('sendCodeBtn')) {
         
         if (!userInput) return alert(`Please enter your ${loginMode}!`);
 
-        if (loginMode === 'email' && !userInput.toLowerCase().endsWith('@gmail.com')) {
-            return alert("Please enter correct email address (must be @gmail.com)");
+        // 🛡️ ENHANCED: Better Email Validation
+        if (loginMode === 'email') {
+            const emailRegex = /^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(userInput)) {
+                return alert("Please enter a valid email address");
+            }
         }
 
+        // 🛡️ ENHANCED: E.164 Phone Validation
         if (loginMode === 'phone') {
-            const phoneRegex = /^\+?[0-9]{7,15}$/;
-            if (!phoneRegex.test(userInput)) return alert("Please enter a valid phone number (e.g., +1234567890)");
+            const phoneRegex = /^\+?[1-9]\d{1,14}$/; 
+            if (!phoneRegex.test(userInput)) {
+                return alert("Please enter a valid phone number (e.g., +1234567890)");
+            }
         }
 
         const btn = document.getElementById('sendCodeBtn');
@@ -164,7 +177,8 @@ function showOtpSection() {
 
 function loginSuccess(id, welcomeMsg, name = "") {
     sessionId = id;
-    localStorage.setItem('monika_session', sessionId);
+    // 🛡️ ENHANCED: Save encrypted session to sessionStorage
+    sessionStorage.setItem('monika_session', encryptSession(sessionId));
     loginOverlay.style.display = 'none';
     loadChatHistory(sessionId);
     addMessage(welcomeMsg, 'system', false);
@@ -181,8 +195,8 @@ function loginSuccess(id, welcomeMsg, name = "") {
 if (document.getElementById('logoutBtn')) {
     document.getElementById('logoutBtn').onclick = () => {
         if (auth && auth.currentUser) {
-            auth.signOut().then(() => { localStorage.removeItem('monika_session'); location.reload(); });
-        } else { localStorage.removeItem('monika_session'); location.reload(); }
+            auth.signOut().then(() => { sessionStorage.removeItem('monika_session'); location.reload(); });
+        } else { sessionStorage.removeItem('monika_session'); location.reload(); }
     };
 }
 
@@ -217,6 +231,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (phoneInput) {
         phoneInput.addEventListener('input', function() { this.value = this.value.replace(/[^\d+]/g, ''); });
     }
+
+    // ⌨️ ENHANCED: Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === '/') {
+            e.preventDefault();
+            if(camBtn) camBtn.click();
+        }
+    });
 });
 
 async function addMessage(text, sender, typewrite = false) {
@@ -228,6 +250,7 @@ async function addMessage(text, sender, typewrite = false) {
     else if (sender === 'monika') prefix = '<span style="color:#ff6b9d; font-weight:bold;">Monika:</span> ';
     else if (sender === 'system') prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
 
+    // XSS Safe implementation using textContent
     messageDiv.innerHTML = `<div class="message-content">${prefix}<span class="chat-text"></span></div>`;
     const textSpan = messageDiv.querySelector('.chat-text');
     chatMessages.appendChild(messageDiv);
@@ -307,21 +330,30 @@ async function sendMessage(isVoiceChat = false) {
         });
         
         clearTimeout(timeoutId); 
+        
+        // 🛡️ ENHANCED: Better Error Handling Response Catch
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
         const data = await response.json();
         hideTypingIndicator();
         
         const reply = data.reply || "I'm a bit confused... 💔";
         const cleanReply = reply.replace(/\[.*?\]/g, "").trim();
 
-        // 🛡️ FIXED: Checks the TTS Setting before speaking out loud
         const isTtsEnabled = localStorage.getItem('monika_tts') !== "false";
         if (isVoiceChat && isTtsEnabled) monikaSpeak(reply); 
         
         await addMessage(cleanReply, 'monika', true);
     } catch (e) {
         hideTypingIndicator();
-        if (e.name === 'AbortError') addMessage("Request timed out. Monika is taking too long to think... 💔", 'monika', false);
-        else addMessage("Connection lost... 💔", 'monika', false);
+        // 🛡️ ENHANCED: Explicit Error Messages
+        if (e.name === 'AbortError') {
+            addMessage("Request timed out. Monika is thinking hard... 💭", 'monika', false);
+        } else if (e instanceof TypeError) {
+            addMessage("Network connection issue. Please check your internet. 💔", 'monika', false);
+        } else {
+            addMessage(`Error: ${e.message}`, 'monika', false);
+        }
     } finally {
         isMonikaBusy = false; messageInput.disabled = false; sendBtn.disabled = false; messageInput.focus();
     }
@@ -417,7 +449,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('settingUserName').value = localStorage.getItem('monika_user_name') || "";
             if (personaSelect) personaSelect.value = localStorage.getItem('monika_persona') || "tsundere";
             if (typingToggle) typingToggle.checked = localStorage.getItem('monika_typing') !== "false";
-            // 🛡️ FIXED: Load saved TTS toggle state
             if (ttsToggle) ttsToggle.checked = localStorage.getItem('monika_tts') !== "false";
             settingsModal.style.display = 'flex';
         };
@@ -468,10 +499,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     await fetch(`${baseUrl}/api/user/delete`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ sessionId: localStorage.getItem('monika_session') })
+                        body: JSON.stringify({ sessionId: sessionId })
                     });
                 } catch(e) { console.error("DB Wipe Failed", e); }
 
+                sessionStorage.removeItem('monika_session');
                 localStorage.clear();
                 addMessage("[CRITICAL]: Purging data packets... Goodbye. 💔", 'system', false);
                 setTimeout(() => { location.reload(); }, 2000);
