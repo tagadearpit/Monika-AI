@@ -6,6 +6,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const nodemailer = require("nodemailer");
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto'); 
+const xss = require('xss'); // 🛡️ NEW: XSS Sanitization Library
 require('dotenv').config();
 
 // --- STARTUP CHECKS & GLOBAL AI INITIALIZATION ---
@@ -18,6 +19,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const app = express();
 app.set('trust proxy', 1);
+
+// 🛡️ NEW: Professional Security Headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // Forgiving CSP that allows Google Auth and Firebase while blocking unknown scripts
+    res.setHeader('Content-Security-Policy', "default-src 'self' https://*.firebaseio.com https://*.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://accounts.google.com;");
+    next();
+});
 
 app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
@@ -169,7 +181,7 @@ app.post("/api/auth/verify-otp", authLimiter, async (req, res) => {
 });
 
 app.post("/api/auth/welcome", authLimiter, async (req, res) => {
-    const { email, name } = req.body;
+    let { email, name } = req.body;
     
     if (!email || typeof email !== 'string' || !emailRegex.test(email)) {
         return res.status(400).json({ success: false, error: "Invalid email" });
@@ -182,7 +194,10 @@ app.post("/api/auth/welcome", authLimiter, async (req, res) => {
         res.json({ success: true });
 
         try {
-            const safeName = (name && typeof name === 'string') ? name.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30) : "dummy";
+            // 🛡️ NEW: Sanitize name input for the email
+            const safeName = (name && typeof name === 'string') 
+                ? xss(name.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30), { whiteList: {}, stripIgnoredTag: true }) 
+                : "dummy";
             
             await transporter.sendMail({
                 from: `"Monika AI" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`, 
@@ -251,6 +266,11 @@ CRITICAL RULES:
 app.post("/ask", async (req, res) => {
     let { question, imageBase64, sessionId, personaOverride, userName } = req.body;
     
+    // 🛡️ NEW: XSS Validation and Stripping
+    if (typeof question === 'string') {
+        question = xss(question, { whiteList: {}, stripIgnoredTag: true });
+    }
+    
     if (!question || typeof question !== 'string' || question.trim().length === 0 || question.length > 2000) {
         return res.status(400).json({ error: "Invalid or overly long question format" });
     }
@@ -287,7 +307,8 @@ app.post("/ask", async (req, res) => {
         }
         
         if (userName && typeof userName === 'string') {
-            const safeName = userName.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30);
+            // 🛡️ NEW: XSS String protection for userName
+            const safeName = xss(userName.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30), { whiteList: {}, stripIgnoredTag: true });
             if (safeName.length > 0) {
                 currentPersona += `\n\nCRITICAL OVERRIDE: The user's real name is "${safeName}". If they ask "what is my name" or "do you know my name", you MUST say "${safeName}". Use this name affectionately in your responses.`;
             }
