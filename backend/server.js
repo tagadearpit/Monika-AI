@@ -20,7 +20,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const app = express();
 app.set('trust proxy', 1);
 
-// 🛡️ UPDATED: Balanced Security Headers whitelisting Google Auth, FontAwesome, and Firebase assets
+// 🛡️ ULTIMATE: Expanded CSP to guarantee Fonts, Icons, and Firebase load cleanly
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -28,7 +28,7 @@ app.use((req, res, next) => {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('Content-Security-Policy', 
         "default-src 'self' https://*.firebaseio.com https://*.googleapis.com; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com https://apis.google.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://accounts.google.com; " +
         "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
         "img-src 'self' data: blob: https:; " +
