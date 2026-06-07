@@ -47,9 +47,10 @@ window.onload = async function () {
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
             setupRecaptcha(); 
+            // 🛡️ FIXED: Changed width to a numeric value (380) to resolve GSI warning
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
-                { theme: "outline", size: "large", shape: "pill", width: "100%" }
+                { theme: "outline", size: "large", shape: "pill", width: 380 }
             );
         } else {
             loginOverlay.style.display = 'none';
