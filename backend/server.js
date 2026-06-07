@@ -20,14 +20,21 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const app = express();
 app.set('trust proxy', 1);
 
-// 🛡️ NEW: Professional Security Headers
+// 🛡️ UPDATED: Balanced Security Headers whitelisting Google Auth, FontAwesome, and Firebase assets
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    // Forgiving CSP that allows Google Auth and Firebase while blocking unknown scripts
-    res.setHeader('Content-Security-Policy', "default-src 'self' https://*.firebaseio.com https://*.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://accounts.google.com;");
+    res.setHeader('Content-Security-Policy', 
+        "default-src 'self' https://*.firebaseio.com https://*.googleapis.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://accounts.google.com; " +
+        "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
+        "img-src 'self' data: blob: https:; " +
+        "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://securetoken.googleapis.com https://www.gstatic.com; " +
+        "frame-src 'self' https://accounts.google.com;"
+    );
     next();
 });
 
