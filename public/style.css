@@ -60,6 +60,7 @@ body {
 /* 🎨 ENHANCED: Gradient Text with Glow */
 .title-gradient {
     font-family: 'Dancing Script', cursive;
+    font-size: 3.5rem; /* BIGGER for PC Screens */
     color: #ff99bb;
     font-weight: 700;
     text-shadow: 0 0 15px rgba(255, 20, 147, 0.3);
@@ -340,7 +341,7 @@ body {
    ========================================= */
 @media (max-width: 768px) {
     .title-gradient { 
-        font-size: 1.6rem !important; 
+        font-size: 2.2rem !important; /* PERFECT scale for smartphones */
         white-space: nowrap !important; 
     }
     .app-header { gap: 5px; }
