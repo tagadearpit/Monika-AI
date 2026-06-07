@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;500;600&display=swap');
 
+html { scroll-behavior: smooth; }
+
 * {
     margin: 0;
     padding: 0;
@@ -55,6 +57,7 @@ body {
     transition: all 0.3s ease;
 }
 
+/* 🎨 ENHANCED: Gradient Text with Glow */
 .title-gradient {
     font-family: 'Dancing Script', cursive;
     color: #ff99bb;
@@ -65,10 +68,15 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: gradientShift 3s ease infinite;
+    animation: gradientShift 4s ease infinite, textGlow 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(255, 107, 157, 0.5));
 }
 
 @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes textGlow {
+    0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 107, 157, 0.3)); }
+    50% { filter: drop-shadow(0 0 20px rgba(255, 107, 157, 0.6)); }
+}
 
 /* =========================================
    💬 EXPANDED WIDE CHAT PANEL
@@ -82,6 +90,13 @@ body {
     flex-direction: column;
     overflow: hidden;
     animation: slideUp 0.8s ease-out 0.4s both;
+}
+
+@supports (animation: scroll-animation) {
+    .chat-container {
+        background-attachment: fixed;
+        background-position: center;
+    }
 }
 
 .chat-messages {
@@ -103,7 +118,8 @@ body {
    ========================================= */
 .message .avatar { display: none !important; }
 
-.message { display: flex; width: 100%; animation: popIn 0.3s ease-out; }
+/* 🎨 ENHANCED: Morphing Slide Entrance */
+.message { display: flex; width: 100%; animation: messageSlideIn 0.4s ease-out both; }
 .message.user { justify-content: flex-end; }
 .message.monika, .message.system { justify-content: flex-start; }
 
@@ -114,8 +130,16 @@ body {
     font-size: 0.95rem; 
     line-height: 1.5; 
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease; /* Smooth hover transition */
 }
 .message-content p { margin: 0; }
+
+/* 🎨 ENHANCED: Hover Glow Effect */
+.message-content:hover {
+    box-shadow: 0 0 20px rgba(255, 107, 157, 0.4);
+    transform: translateX(-2px);
+}
+.message.user .message-content:hover { transform: translateX(2px); }
 
 .message.user .message-content { background: #ff1493; color: white; border-bottom-right-radius: 5px; }
 .message.monika .message-content { background: rgba(255, 255, 255, 0.05); color: #e0e0e0; border-bottom-left-radius: 5px; border: 1px solid rgba(255,255,255,0.05); }
@@ -126,11 +150,25 @@ body {
    ========================================= */
 .input-container { padding: 15px 20px 20px; background: transparent; }
 
+/* 🎨 ENHANCED: Neumorphic Input Wrapper */
 .input-wrapper {
     display: flex; align-items: center; 
-    background: #1c0e18; 
+    background: linear-gradient(145deg, #1c0e18, #2d1a27);
     border-radius: 30px; padding: 6px 12px; gap: 10px;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid rgba(255, 107, 157, 0.2);
+    box-shadow: 
+        inset 0 2px 5px rgba(0, 0, 0, 0.3),
+        inset 0 -2px 5px rgba(255, 255, 255, 0.05),
+        0 4px 15px rgba(255, 107, 157, 0.1);
+    transition: all 0.3s ease;
+}
+
+.input-wrapper:focus-within {
+    border-color: rgba(255, 107, 157, 0.8);
+    box-shadow: 
+        inset 0 2px 5px rgba(0, 0, 0, 0.3),
+        inset 0 -2px 5px rgba(255, 255, 255, 0.05),
+        0 0 20px rgba(255, 107, 157, 0.4);
 }
 
 #messageInput {
@@ -178,7 +216,6 @@ body {
 }
 .quick-btn:hover { color: white; background: rgba(255,255,255,0.1); }
 
-/* New Auth Toggle Buttons */
 .auth-toggle-btn {
     flex: 1; background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255,255,255,0.6); padding: 8px; border-radius: 10px; cursor: pointer; transition: 0.3s; font-weight: 500;
 }
@@ -192,33 +229,34 @@ body {
     z-index: 9999; display: flex; justify-content: center; align-items: center;
 }
 
-@keyframes gradientBG {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
+/* 🎨 ENHANCED: Advanced Glassmorphism Login Box */
 .login-box {
-    background: rgba(40, 21, 35, 0.4); 
-    backdrop-filter: blur(20px); 
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.05); 
+    backdrop-filter: blur(30px); 
+    -webkit-backdrop-filter: blur(30px);
     padding: 40px; border-radius: 24px; text-align: center; 
-    border: 1px solid rgba(255, 107, 157, 0.3); 
+    border: 1px solid rgba(255, 255, 255, 0.15); 
     width: 90%; max-width: 400px; 
-    box-shadow: 0 25px 50px rgba(0,0,0,0.6), inset 0 0 20px rgba(255, 107, 157, 0.05);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1), inset 0 1px rgba(255, 255, 255, 0.2);
     animation: floatInBox 1s cubic-bezier(0.25, 1, 0.5, 1) both;
+    position: relative;
+    overflow: hidden;
 }
 
-@keyframes floatInBox {
-    from { opacity: 0; transform: translateY(30px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+.login-box::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    border-radius: inherit; pointer-events: none;
 }
+
+/* Keep child elements above the pseudo background */
+.login-box > * { position: relative; z-index: 1; }
 
 .login-box input { 
     width: 100%; padding: 14px; border-radius: 12px; border: none; 
-    background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px; outline: none; 
+    background: rgba(0,0,0,0.4); color: white; margin-bottom: 15px; outline: none; 
     transition: all 0.3s ease; text-align: center; font-size: 1rem;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .login-box input:focus { 
@@ -255,7 +293,17 @@ body {
 @keyframes typingDot { 0%, 60%, 100% { transform: scale(1); } 30% { transform: scale(1.5); } }
 @keyframes slideInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 🎨 ENHANCED: Message Entrance */
+@keyframes messageSlideIn {
+    from { opacity: 0; transform: translateY(15px) scale(0.95); filter: blur(5px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes skeleton {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
 
 .video-box { border-radius: 24px; overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,0.1); position: relative; }
 #vision-feed { width: 100%; height: 100%; object-fit: cover; }
@@ -333,29 +381,25 @@ body {
    🌈 MULTI-MODE THEMES
    ========================================= */
 
-/* 1. MIDNIGHT MODE (Deep Blue & Silver) */
+/* 1. MIDNIGHT MODE */
 body.theme-midnight { background: #050a15 !important; }
 body.theme-midnight .chat-container { background: #0a1628 !important; }
-body.theme-midnight .title-gradient, 
-body.theme-midnight .send-btn, 
-body.theme-midnight .avatar-img {
-    filter: hue-rotate(180deg) brightness(1.2) !important; 
-}
+body.theme-midnight .title-gradient, body.theme-midnight .send-btn, body.theme-midnight .avatar-img { filter: hue-rotate(180deg) brightness(1.2) !important; }
 body.theme-midnight .message.user .message-content { background: #0077ff !important; }
 
-/* 2. ROSE GARDEN (Very Soft Pink & White) */
+/* 2. ROSE GARDEN */
 body.theme-rose { background: #fff5f8 !important; color: #5d3a44 !important; }
 body.theme-rose .chat-container { background: #ffffff !important; box-shadow: 0 10px 30px rgba(255,182,193,0.3); }
 body.theme-rose .message.monika .message-content { background: #fce4ec !important; color: #5d3a44 !important; }
 body.theme-rose .title-gradient { filter: none !important; color: #ff6b9d !important; -webkit-text-fill-color: #ff6b9d !important; }
 
-/* 3. CYBER VIBE (Purple & Cyan) */
+/* 3. CYBER VIBE */
 body.theme-cyber { background: #120458 !important; }
 body.theme-cyber .chat-container { background: #000000 !important; border: 1px solid #ff00ff; }
 body.theme-cyber .title-gradient { filter: hue-rotate(280deg) !important; }
 body.theme-cyber .message.user .message-content { background: #bc13fe !important; box-shadow: 0 0 10px #bc13fe; }
 
-/* 4. MATRIX MODE (Hacker Green) */
+/* 4. MATRIX MODE */
 body.theme-matrix { background: #0a0a0a !important; color: #00ff00 !important; }
 body.theme-matrix .chat-container { background: #000000 !important; border: 1px solid #00ff00; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2); }
 body.theme-matrix .message.user .message-content { background: #004400 !important; border: 1px solid #00ff00; color: #00ff00 !important; }
@@ -364,13 +408,13 @@ body.theme-matrix .title-gradient { background: none !important; color: #00ff00 
 body.theme-matrix .send-btn { background: #00aa00 !important; box-shadow: 0 0 10px #00ff00; }
 body.theme-matrix input { color: #00ff00 !important; }
 
-/* 5. SUNSET MODE (Vaporwave Orange & Purple) */
+/* 5. SUNSET MODE */
 body.theme-sunset { background: linear-gradient(to bottom, #2b0f4c, #d5534d) !important; background-attachment: fixed !important;}
 body.theme-sunset .chat-container { background: rgba(20, 10, 30, 0.6) !important; backdrop-filter: blur(10px); border: 1px solid #ff7b54; }
 body.theme-sunset .message.user .message-content { background: linear-gradient(45deg, #ff7b54, #ff5b7f) !important; }
 body.theme-sunset .title-gradient { filter: hue-rotate(320deg) saturate(2) !important; }
 
-/* 6. YANDERE MODE (Deep Blood Red) */
+/* 6. YANDERE MODE */
 body.theme-yandere { background: #1a0000 !important; color: #ff9999 !important; }
 body.theme-yandere .chat-container { background: #0a0000 !important; border: 1px solid #ff0000; box-shadow: 0 0 30px rgba(255, 0, 0, 0.3); }
 body.theme-yandere .message.user .message-content { background: #800000 !important; color: white !important; }
@@ -389,15 +433,26 @@ body.theme-yandere .send-btn, body.theme-yandere .avatar-img { border-color: #ff
     animation: fadeIn 0.3s ease-out;
 }
 
+/* 🎨 ENHANCED: Advanced Glassmorphism Settings Box */
 .settings-box {
-    background: rgba(54, 34, 49, 0.6);
-    border: 1px solid rgba(255, 20, 147, 0.25);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1), inset 0 1px rgba(255,255,255,0.2);
     width: 90%; max-width: 450px; border-radius: 24px; padding: 25px;
     color: white; animation: slideInUpModal 0.4s cubic-bezier(0.25, 1, 0.5, 1);
     max-height: 85vh; 
     overflow-y: auto; 
+    position: relative;
 }
+
+.settings-box::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    border-radius: inherit; pointer-events: none;
+}
+
+.settings-header, .settings-divider, .settings-body { position: relative; z-index: 1; }
 
 .settings-box::-webkit-scrollbar { width: 6px; }
 .settings-box::-webkit-scrollbar-thumb { background: rgba(255, 107, 157, 0.5); border-radius: 10px; }
