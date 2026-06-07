@@ -47,10 +47,10 @@ window.onload = async function () {
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
             setupRecaptcha(); 
-            // 🛡️ FIXED: Changed width to a numeric value (380) to resolve GSI warning
+            // 🎨 FIXED: Shrunk width to 280 to perfectly align with the CSS padding bounds
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
-                { theme: "outline", size: "large", shape: "pill", width: 380 }
+                { theme: "outline", size: "large", shape: "pill", width: 280 }
             );
         } else {
             loginOverlay.style.display = 'none';
