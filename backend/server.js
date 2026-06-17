@@ -330,7 +330,7 @@ app.post("/ask", async (req, res) => {
             currentParts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent({ contents: [{ role: "user", parts: currentParts }] });
         const reply = result.response.text();
 
