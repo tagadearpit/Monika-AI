@@ -5,11 +5,8 @@ let isMonikaBusy = false;
 let isListening = false; 
 let lastSpeechTime = 0; 
 
-const encryptSession = (id) => btoa(id);
-const decryptSession = (id) => { try { return atob(id); } catch(e) { return null; } };
-
-let rawSession = sessionStorage.getItem('monika_session');
-let sessionId = rawSession ? decryptSession(rawSession) : null;
+// 🛡️ SECURE AUTH: Retrieve validated JWT from storage (No more raw session IDs)
+let authToken = sessionStorage.getItem('monika_token');
 
 // DOM Elements
 const chatMessages = document.getElementById('chatMessages');
@@ -43,26 +40,21 @@ window.onload = async function () {
             callback: handleGoogleLogin
         });
 
-        if (!sessionId) {
+        if (!authToken) {
             loginOverlay.style.display = 'flex';
             setupRecaptcha(); 
             
+            // 🎨 FIXED: "Continue with Google" text and 280px width to fit the container
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
-                { 
-                    theme: "outline", 
-                    size: "large", 
-                    shape: "pill", 
-                    text: "continue_with", 
-                    width: 280 
-                }
+                { theme: "outline", size: "large", shape: "pill", text: "continue_with", width: 280 }
             );
         } else {
             loginOverlay.style.display = 'none';
-            loadChatHistory(sessionId);
+            loadChatHistory();
         }
     } catch (error) {
-        console.error("Auth config error:", error);
+        console.error("Initialization error:", error);
     }
 };
 
@@ -88,9 +80,18 @@ if (showEmailBtn && showPhoneBtn) {
     };
 }
 
-function handleGoogleLogin(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    loginSuccess(payload.email, `Google Auth Success. Welcome, ${payload.given_name}! 🌸`, payload.given_name);
+// 🛡️ SECURE: Send Google credential to backend for JWT exchange
+async function handleGoogleLogin(response) {
+    try {
+        const res = await fetch("/api/auth/google", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: response.credential })
+        });
+        if (!res.ok) throw new Error("Google verification failed");
+        const data = await res.json();
+        loginSuccess(data.token, `Google Auth Success. Welcome, ${data.name}! 🌸`, data.name);
+    } catch (e) { alert("Secure login failed."); }
 }
 
 function setupRecaptcha() {
@@ -132,7 +133,7 @@ if (document.getElementById('sendCodeBtn')) {
                     body: JSON.stringify({ email: userInput })
                 });
                 if (res.ok) showOtpSection();
-                else { alert("Email failed. Please check logs."); btn.disabled = false; btn.innerText = "Send Login Code"; }
+                else { alert("Email limit reached or failed. Please check logs."); btn.disabled = false; btn.innerText = "Send Login Code"; }
             } catch (e) { alert("Server connection error."); }
         } else {
             const appVerifier = window.recaptchaVerifier;
@@ -159,16 +160,30 @@ if (document.getElementById('verifyCodeBtn')) {
         btn.disabled = true; btn.innerText = "Verifying...";
 
         if (loginMode === 'email') {
+            // 🛡️ SECURE: Expect JWT from verified OTP
             const res = await fetch("/api/auth/verify-otp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userInput, code })
             });
-            if (res.ok) loginSuccess(userInput, "Email verified! Welcome back. 🌸");
-            else { alert("Invalid or expired code."); btn.disabled = false; btn.innerText = "Verify & Enter"; }
+            if (res.ok) {
+                const data = await res.json();
+                loginSuccess(data.token, "Email verified! Welcome back. 🌸");
+            } else { 
+                alert("Invalid or expired code."); 
+                btn.disabled = false; btn.innerText = "Verify & Enter"; 
+            }
         } else {
-            confirmationResult.confirm(code).then((result) => {
-                loginSuccess(result.user.phoneNumber, "Phone verified! Welcome back. 🌸");
+            // 🛡️ SECURE: Send Firebase token to backend for JWT exchange
+            confirmationResult.confirm(code).then(async (result) => {
+                const idToken = await result.user.getIdToken();
+                const res = await fetch("/api/auth/firebase", {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    loginSuccess(data.token, "Phone verified! Welcome back. 🌸");
+                } else { throw new Error("Backend verification failed"); }
             }).catch((error) => { alert("Invalid SMS code."); btn.disabled = false; btn.innerText = "Verify & Enter"; });
         }
     };
@@ -179,36 +194,45 @@ function showOtpSection() {
     document.getElementById('otp-input-section').style.display = 'block';
 }
 
-function loginSuccess(id, welcomeMsg, name = "") {
-    sessionId = id;
-    sessionStorage.setItem('monika_session', encryptSession(sessionId));
+function loginSuccess(token, welcomeMsg, name = "") {
+    authToken = token;
+    // 🛡️ SECURE: Save JWT token
+    sessionStorage.setItem('monika_token', authToken);
     loginOverlay.style.display = 'none';
-    loadChatHistory(sessionId);
+    loadChatHistory();
     addMessage(welcomeMsg, 'system', false);
 
-    if (id.includes('@')) {
-        fetch("/api/auth/welcome", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: id, name: name })
-        }).catch(err => console.error("Welcome check failed silently", err));
-    }
+    // Trigger welcome email securely with Bearer token
+    fetch("/api/auth/welcome", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ name: name })
+    }).catch(err => console.error("Welcome check failed silently", err));
 }
 
 if (document.getElementById('logoutBtn')) {
     document.getElementById('logoutBtn').onclick = () => {
         if (auth && auth.currentUser) {
-            auth.signOut().then(() => { sessionStorage.removeItem('monika_session'); location.reload(); });
-        } else { sessionStorage.removeItem('monika_session'); location.reload(); }
+            auth.signOut().then(() => { sessionStorage.removeItem('monika_token'); location.reload(); });
+        } else { sessionStorage.removeItem('monika_token'); location.reload(); }
     };
 }
 
 // ==========================================
 // --- CHAT HISTORY ---
 // ==========================================
-async function loadChatHistory(identifier) {
+async function loadChatHistory() {
     try {
-        const response = await fetch(`${baseUrl}/api/history/${encodeURIComponent(identifier)}`);
+        // 🛡️ SECURE: Call history using Bearer token, backend determines identity
+        const response = await fetch(`${baseUrl}/api/history`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (!response.ok) throw new Error("Auth failed");
+        
         const history = await response.json();
         
         if (history && history.length > 0) {
@@ -220,7 +244,11 @@ async function loadChatHistory(identifier) {
             });
             addMessage("Previous memories restored successfully. 🌸", 'system', false);
         }
-    } catch (error) { console.error("History load error:", error); }
+    } catch (error) { 
+        console.error("History load error:", error);
+        sessionStorage.removeItem('monika_token');
+        location.reload(); // Force login if token is invalid
+    }
 }
 
 // ==========================================
@@ -252,7 +280,6 @@ async function addMessage(text, sender, typewrite = false) {
     else if (sender === 'monika') prefix = '<span style="color:#ff6b9d; font-weight:bold;">Monika:</span> ';
     else if (sender === 'system') prefix = '<span style="color:#ff6b9d; font-weight:bold;">System:</span> ';
 
-    // XSS Safe implementation using textContent
     messageDiv.innerHTML = `<div class="message-content">${prefix}<span class="chat-text"></span></div>`;
     const textSpan = messageDiv.querySelector('.chat-text');
     chatMessages.appendChild(messageDiv);
@@ -318,13 +345,16 @@ async function sendMessage(isVoiceChat = false) {
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
+        // 🛡️ SECURE: Send Bearer token. No sessionId in body.
         const response = await fetch(`${baseUrl}/ask`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`
+            },
             body: JSON.stringify({ 
                 question: userInput, 
                 imageBase64, 
-                sessionId: sessionId,
                 personaOverride: localStorage.getItem('monika_persona') || 'tsundere',
                 userName: localStorage.getItem('monika_user_name') || ''
             }),
@@ -333,6 +363,13 @@ async function sendMessage(isVoiceChat = false) {
         
         clearTimeout(timeoutId); 
         
+        // Handle Token Expiration or Invalid Token
+        if (response.status === 401 || response.status === 403) {
+            sessionStorage.removeItem('monika_token');
+            location.reload();
+            return;
+        }
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
@@ -347,7 +384,6 @@ async function sendMessage(isVoiceChat = false) {
         await addMessage(cleanReply, 'monika', true);
     } catch (e) {
         hideTypingIndicator();
-        // 🛡️ ENHANCED: Explicit Error Messages
         if (e.name === 'AbortError') {
             addMessage("Request timed out. Monika is thinking hard... 💭", 'monika', false);
         } else if (e instanceof TypeError) {
@@ -497,14 +533,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm("🚨 WARNING: Are you absolutely sure you want to delete your account? This will wipe your chat history, context facts, and log you out forever!")) {
                 
                 try {
+                    // 🛡️ SECURE: Pass Authorization header to delete route
                     await fetch(`${baseUrl}/api/user/delete`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ sessionId: sessionId })
+                        headers: { 
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${authToken}`
+                        }
                     });
                 } catch(e) { console.error("DB Wipe Failed", e); }
 
-                sessionStorage.removeItem('monika_session');
+                sessionStorage.removeItem('monika_token');
                 localStorage.clear();
                 addMessage("[CRITICAL]: Purging data packets... Goodbye. 💔", 'system', false);
                 setTimeout(() => { location.reload(); }, 2000);
