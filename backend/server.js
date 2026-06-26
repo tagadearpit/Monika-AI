@@ -22,7 +22,6 @@ if (!process.env.GEMINI_API_KEY || !process.env.MONGO_URI || !process.env.JWT_SE
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Initialize Firebase Admin for phone token verification
 admin.initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
 
 const app = express();
@@ -41,7 +40,8 @@ app.use(helmet({
             frameSrc: ["'self'", "https://accounts.google.com"]
         }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } // FIX: Allows Google OAuth popups to communicate back
 }));
 
 app.use(cors({
@@ -56,8 +56,8 @@ app.use(express.urlencoded({ limit: '20mb', extended: true }));
 const askLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Rate limit exceeded.' } });
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: { error: 'Too many authentication attempts.' } });
 const emailLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // 5 emails per hour per address
+    windowMs: 60 * 60 * 1000,
+    max: 5,
     keyGenerator: (req) => req.body.email || req.ip,
     message: { error: 'OTP request limit exceeded for this address.' }
 });
@@ -86,7 +86,7 @@ const Fact = mongoose.model("Fact", FactSchema);
 const OtpSchema = new mongoose.Schema({ 
     email: String, 
     code: String, 
-    attempts: { type: Number, default: 0 }, // Brute-force protection tracking
+    attempts: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now, index: { expires: 300 } } 
 });
 const Otp = mongoose.model("Otp", OtpSchema);
@@ -115,7 +115,7 @@ const authenticateToken = (req, res, next) => {
 
     jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] }, (err, user) => {
         if (err) return res.status(403).json({ error: "Forbidden" });
-        req.user = user; // { sessionId: verified_identifier }
+        req.user = user;
         next();
     });
 };
@@ -125,7 +125,6 @@ const generateToken = (identifier) => {
 };
 
 // --- ROUTES ---
-
 app.get('/api/config', (req, res) => {
     res.json({ 
         googleClientId: process.env.GOOGLE_CLIENT_ID,
@@ -140,7 +139,6 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-// 1. Google Identity Verification
 app.post("/api/auth/google", authLimiter, async (req, res) => {
     const { credential } = req.body;
     try {
@@ -159,7 +157,6 @@ app.post("/api/auth/google", authLimiter, async (req, res) => {
     }
 });
 
-// 2. Firebase Phone Verification
 app.post("/api/auth/firebase", authLimiter, async (req, res) => {
     const { idToken } = req.body;
     try {
@@ -171,7 +168,6 @@ app.post("/api/auth/firebase", authLimiter, async (req, res) => {
     }
 });
 
-// 3. Email OTP Generation
 app.post("/api/auth/send-otp", emailLimiter, async (req, res) => {
     const { email } = req.body;
     if (!email || typeof email !== 'string' || !emailRegex.test(email)) return res.status(400).json({ error: "Invalid email payload." });
@@ -192,7 +188,6 @@ app.post("/api/auth/send-otp", emailLimiter, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Email delivery failed." }); }
 });
 
-// 4. Email OTP Verification
 app.post("/api/auth/verify-otp", authLimiter, async (req, res) => {
     const { email, code } = req.body;
     if (!email || !code || typeof code !== 'string') return res.status(400).json({ error: "Invalid payload parameters." });
@@ -218,8 +213,6 @@ app.post("/api/auth/verify-otp", authLimiter, async (req, res) => {
         }
     } catch (err) { res.status(500).json({ error: "Database execution failed." }); }
 });
-
-// --- PROTECTED ROUTES ---
 
 app.post("/api/auth/welcome", authenticateToken, authLimiter, async (req, res) => {
     let { name } = req.body;
@@ -272,13 +265,14 @@ app.post("/api/user/delete", authenticateToken, async (req, res) => {
 async function generateAIResponse(promptParts, retryCount = 0) {
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        return await model.generateContent({ contents: [{ role: "user", parts: promptParts }], generationConfig: { maxOutputTokens: 150, temperature: 0.85 } });
+        // FIX: Removed maxOutputTokens. Truncating at 150 tokens caused mid-word severing, which broke the frontend regex.
+        return await model.generateContent({ contents: [{ role: "user", parts: promptParts }], generationConfig: { temperature: 0.85 } });
     } catch (err) {
         if (err.status === 429 && retryCount === 0 && process.env.GEMINI_API_KEY_2) {
             console.warn("Primary API key exhausted. Executing secondary key failover.");
             const backupGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY_2);
             const backupModel = backupGenAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-            return await backupModel.generateContent({ contents: [{ role: "user", parts: promptParts }], generationConfig: { maxOutputTokens: 150, temperature: 0.85 } });
+            return await backupModel.generateContent({ contents: [{ role: "user", parts: promptParts }], generationConfig: { temperature: 0.85 } });
         }
         throw err;
     }
