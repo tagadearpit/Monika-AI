@@ -5,7 +5,6 @@ let isMonikaBusy = false;
 let isListening = false; 
 let lastSpeechTime = 0; 
 
-// 🛡️ ENHANCED: Basic Session Encryption & Move to Session Storage
 const encryptSession = (id) => btoa(id);
 const decryptSession = (id) => { try { return atob(id); } catch(e) { return null; } };
 
@@ -47,10 +46,16 @@ window.onload = async function () {
         if (!sessionId) {
             loginOverlay.style.display = 'flex';
             setupRecaptcha(); 
-            // 🎨 FIXED: Shrunk width to 280 to perfectly align with the CSS padding bounds
+            
             google.accounts.id.renderButton(
                 document.getElementById("googleButton"),
-                { theme: "outline", size: "large", shape: "pill", width: 280 }
+                { 
+                    theme: "outline", 
+                    size: "large", 
+                    shape: "pill", 
+                    text: "continue_with", 
+                    width: 280 
+                }
             );
         } else {
             loginOverlay.style.display = 'none';
@@ -102,7 +107,6 @@ if (document.getElementById('sendCodeBtn')) {
         
         if (!userInput) return alert(`Please enter your ${loginMode}!`);
 
-        // 🛡️ ENHANCED: Better Email Validation
         if (loginMode === 'email') {
             const emailRegex = /^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
             if (!emailRegex.test(userInput)) {
@@ -110,7 +114,6 @@ if (document.getElementById('sendCodeBtn')) {
             }
         }
 
-        // 🛡️ ENHANCED: E.164 Phone Validation
         if (loginMode === 'phone') {
             const phoneRegex = /^\+?[1-9]\d{1,14}$/; 
             if (!phoneRegex.test(userInput)) {
@@ -178,7 +181,6 @@ function showOtpSection() {
 
 function loginSuccess(id, welcomeMsg, name = "") {
     sessionId = id;
-    // 🛡️ ENHANCED: Save encrypted session to sessionStorage
     sessionStorage.setItem('monika_session', encryptSession(sessionId));
     loginOverlay.style.display = 'none';
     loadChatHistory(sessionId);
@@ -233,7 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         phoneInput.addEventListener('input', function() { this.value = this.value.replace(/[^\d+]/g, ''); });
     }
 
-    // ⌨️ ENHANCED: Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === '/') {
             e.preventDefault();
@@ -332,7 +333,6 @@ async function sendMessage(isVoiceChat = false) {
         
         clearTimeout(timeoutId); 
         
-        // 🛡️ ENHANCED: Better Error Handling Response Catch
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
