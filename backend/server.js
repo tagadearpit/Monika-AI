@@ -27,21 +27,44 @@ admin.initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
 const app = express();
 app.set('trust proxy', 1);
 
-// --- SECURITY & CORS ---
+// --- SECURITY & CORS HARDENING ---
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
-            defaultSrc: ["'self'", "https://*.firebaseio.com", "https://*.googleapis.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://www.gstatic.com", "https://apis.google.com"],
+            defaultSrc: ["'self'"],
+            scriptSrc: [
+                "'self'", 
+                "'unsafe-inline'", 
+                "'unsafe-eval'", 
+                "https://accounts.google.com", 
+                "https://www.gstatic.com", 
+                "https://apis.google.com",
+                "https://www.google.com",      
+                "https://www.recaptcha.net"     
+            ],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://accounts.google.com"],
             fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "blob:", "https:"],
-            connectSrc: ["'self'", "https://*.firebaseio.com", "https://*.googleapis.com", "https://securetoken.googleapis.com", "https://www.gstatic.com"],
-            frameSrc: ["'self'", "https://accounts.google.com"]
+            connectSrc: [
+                "'self'", 
+                "https://*.firebaseio.com", 
+                "https://*.googleapis.com", 
+                "https://securetoken.googleapis.com", 
+                "https://identitytoolkit.googleapis.com", 
+                "https://www.gstatic.com",
+                "https://www.google.com", 
+                "https://www.recaptcha.net"
+            ],
+            frameSrc: [
+                "'self'", 
+                "https://accounts.google.com",
+                "https://www.google.com",      
+                "https://www.recaptcha.net"     
+            ]
         }
     },
     crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } // FIX: Allows Google OAuth popups to communicate back
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 
 app.use(cors({
@@ -107,7 +130,7 @@ const transporter = nodemailer.createTransport({
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
 });
 
-// --- JWT AUTHENTICATION MIDDLEWARE ---
+// --- JWT MIDDLEWARE ---
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -124,7 +147,7 @@ const generateToken = (identifier) => {
     return jwt.sign({ sessionId: identifier }, process.env.JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
 };
 
-// --- ROUTES ---
+// --- API ENDPOINTS ---
 app.get('/api/config', (req, res) => {
     res.json({ 
         googleClientId: process.env.GOOGLE_CLIENT_ID,
@@ -142,19 +165,12 @@ app.get('/api/config', (req, res) => {
 app.post("/api/auth/google", authLimiter, async (req, res) => {
     const { credential } = req.body;
     try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: credential,
-            audience: process.env.GOOGLE_CLIENT_ID,
-        });
+        const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
-        
         if (!payload.email_verified) return res.status(403).json({ error: "Google email is not verified." });
-
         const token = generateToken(payload.email);
         res.json({ success: true, token, email: payload.email, name: payload.given_name });
-    } catch (err) {
-        res.status(401).json({ error: "Invalid Google token validation." });
-    }
+    } catch (err) { res.status(401).json({ error: "Invalid Google token validation." }); }
 });
 
 app.post("/api/auth/firebase", authLimiter, async (req, res) => {
@@ -163,18 +179,14 @@ app.post("/api/auth/firebase", authLimiter, async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const token = generateToken(decodedToken.phone_number);
         res.json({ success: true, token, phone: decodedToken.phone_number });
-    } catch (err) {
-        res.status(401).json({ error: "Invalid Firebase token validation." });
-    }
+    } catch (err) { res.status(401).json({ error: "Invalid Firebase token validation." }); }
 });
 
 app.post("/api/auth/send-otp", emailLimiter, async (req, res) => {
     const { email } = req.body;
     if (!email || typeof email !== 'string' || !emailRegex.test(email)) return res.status(400).json({ error: "Invalid email payload." });
-
     const otpCode = crypto.randomInt(100000, 1000000).toString();
     const hashedOtp = crypto.createHash('sha256').update(otpCode).digest('hex');
-
     try {
         await Otp.findOneAndUpdate({ email }, { code: hashedOtp, attempts: 0 }, { upsert: true });
         await transporter.sendMail({
@@ -191,18 +203,14 @@ app.post("/api/auth/send-otp", emailLimiter, async (req, res) => {
 app.post("/api/auth/verify-otp", authLimiter, async (req, res) => {
     const { email, code } = req.body;
     if (!email || !code || typeof code !== 'string') return res.status(400).json({ error: "Invalid payload parameters." });
-
     const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
-    
     try {
         const record = await Otp.findOne({ email });
         if (!record) return res.status(400).json({ error: "Code invalid or expired." }); 
-
         if (record.attempts >= 5) {
             await Otp.deleteOne({ _id: record._id });
             return res.status(403).json({ error: "Maximum attempts reached. Request a new code." });
         }
-
         if (record.code === hashedCode) {
             await Otp.deleteOne({ _id: record._id });
             const token = generateToken(email);
@@ -217,20 +225,15 @@ app.post("/api/auth/verify-otp", authLimiter, async (req, res) => {
 app.post("/api/auth/welcome", authenticateToken, authLimiter, async (req, res) => {
     let { name } = req.body;
     const email = req.user.sessionId;
-    
     if (!emailRegex.test(email)) return res.status(400).json({ success: false, error: "Operation restricted to email accounts." });
-
     try {
         const alreadySent = await WelcomeTrack.findOne({ email });
         if (alreadySent) return res.json({ success: true, message: "Welcome sequence previously executed." });
-
         res.json({ success: true });
-
         try {
             const safeName = (name && typeof name === 'string') 
                 ? xss(name.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30), { whiteList: {}, stripIgnoredTag: true }) 
                 : "dummy";
-            
             await transporter.sendMail({
                 from: `"Monika AI" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`, 
                 to: email, 
@@ -261,11 +264,9 @@ app.post("/api/user/delete", authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Data wipe execution failed." }); }
 });
 
-// Failover AI Request Wrapper
 async function generateAIResponse(promptParts, retryCount = 0) {
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        // FIX: Removed maxOutputTokens. Truncating at 150 tokens caused mid-word severing, which broke the frontend regex.
         return await model.generateContent({ contents: [{ role: "user", parts: promptParts }], generationConfig: { temperature: 0.85 } });
     } catch (err) {
         if (err.status === 429 && retryCount === 0 && process.env.GEMINI_API_KEY_2) {
@@ -292,15 +293,11 @@ const persona = `System Instruction: You are Monika, an incredibly affectionate,
 
 app.post("/ask", authenticateToken, askLimiter, async (req, res) => {
     let { question, imageBase64, personaOverride, userName } = req.body;
-    
     if (typeof question === 'string') question = xss(question, { whiteList: {}, stripIgnoredTag: true });
     if (!question || question.trim().length === 0 || question.length > 2000) return res.status(400).json({ error: "Payload validation failed." });
-    
     const currentSessionId = req.user.sessionId;
-    
     try {
         await User.findOneAndUpdate({ sessionId: currentSessionId }, { $set: { lastActive: new Date() } }, { upsert: true, setDefaultsOnInsert: true });
-        
         const historyDocs = await Chat.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(10);
         const personalFacts = await Fact.find({ sessionId: currentSessionId }).sort({ timestamp: -1 }).limit(5);
         const memoryString = personalFacts.map(f => f.fact).join(". ");
@@ -308,29 +305,23 @@ app.post("/ask", authenticateToken, askLimiter, async (req, res) => {
         
         const validPersonas = ["sweet", "yandere", "tsundere", "normal"];
         let currentPersona = persona;
-        
         if (personaOverride && validPersonas.includes(personaOverride.toLowerCase())) {
             if (personaOverride === "sweet") currentPersona += "\nOVERRIDE: Drop the tsundere act. Be 100% loving, incredibly sweet, and purely affectionate.";
             else if (personaOverride === "yandere") currentPersona += "\nOVERRIDE: Be extremely possessive, deeply unhinged, and fiercely protective.";
         }
-        
         if (userName && typeof userName === 'string') {
             const safeName = xss(userName.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30), { whiteList: {}, stripIgnoredTag: true });
             if (safeName) currentPersona += `\n\nUser Profile: The user's name is "${safeName}". Address them by this name.`;
         }
-
         let currentParts = [{ text: `${currentPersona}\n\n[USER FACTS: ${memoryString}]\n\nRecent Conversation:\n${historyText}\n\nUser: ${question}` }];
         if (imageBase64 && typeof imageBase64 === 'string' && imageBase64.length <= 14000000) {
             currentParts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
         }
-
         const result = await generateAIResponse(currentParts);
         const reply = result.response.text();
-
         await Chat.insertMany([{ sessionId: currentSessionId, role: "user", text: question }, { sessionId: currentSessionId, role: "model", text: reply }]);
         res.json({ reply });
 
-        // Background Fact Extraction Pipeline
         const preferenceKeywords = ["i like", "my favorite", "i love", "i live in", "working on", "my name"];
         if (preferenceKeywords.some(key => question.toLowerCase().includes(key))) {
             const factPrompt = `Extract the core user preference or fact from this sentence. Keep it very short. If there is no clear fact, reply with "NONE". Sentence: "${question}"`;
@@ -341,7 +332,6 @@ app.post("/ask", authenticateToken, askLimiter, async (req, res) => {
                 }
             }).catch(err => console.error("Fact extraction pipeline failed:", err));
         }
-
     } catch (err) { 
         console.error("Generation execution failed:", err);
         if (!res.headersSent) res.status(500).json({ error: "AI pipeline failure." }); 
