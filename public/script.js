@@ -140,9 +140,18 @@ if (document.getElementById('sendCodeBtn')) {
             auth.signInWithPhoneNumber(userInput, appVerifier)
                 .then((result) => { confirmationResult = result; showOtpSection(); })
                 .catch((error) => {
-                    alert("SMS Error: " + error.message);
+                    // 🛡️ ENHANCED DEBUGLOG PIPELINE
+                    console.error("Firebase SMS error details:", {
+                        code: error.code,
+                        message: error.message,
+                        customData: error.customData
+                    });
+                    alert(`SMS Error: ${error.code || "unknown"} - ${error.message}`);
+                    
                     btn.disabled = false; btn.innerText = "Send Login Code";
-                    if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(wId => grecaptcha.reset(wId));
+                    if (window.recaptchaVerifier) {
+                        window.recaptchaVerifier.render().then(wId => grecaptcha.reset(wId));
+                    }
                 });
         }
     };
