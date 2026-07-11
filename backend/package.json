@@ -1,17 +1,20 @@
 {
   "name": "monika-ai-backend",
-  "version": "1.1.0",
-  "description": "Advanced AI Companion with Vision, Memory, and Search",
+  "version": "2.0.0",
+  "description": "Production-hardened AI companion with persistent authentication, vision, memory, and PWA support",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "mkdir -p public && cp -r *.html *.css *.js manifest.json public/",
-    "prod": "npm run build && NODE_ENV=production npm start"
+    "dev": "node --watch server.js",
+    "build": "npm run check",
+    "prod": "NODE_ENV=production node server.js",
+    "check": "node --check server.js && node --check ../public/script.js && node --check ../public/sw.js",
+    "lint": "cd .. && ./backend/node_modules/.bin/eslint backend/server.js public/script.js public/sw.js",
+    "test": "npm run check && npm run lint"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "axios": "^1.6.2",
+    "@google/genai": "^2.11.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -21,13 +24,18 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.0.1",
-    "node-fetch": "^2.7.0",
-    "nodemailer": "^8.0.6",
+    "nodemailer": "^9.0.3",
     "xss": "^1.0.15"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "author": "Arpit Tagade",
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4"
+  }
 }

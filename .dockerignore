@@ -1,0 +1,7 @@
+.git
+.gitignore
+backend/node_modules
+backend/.env
+*.log
+README.md
+SECURITY.md
