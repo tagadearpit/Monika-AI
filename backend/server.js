@@ -300,11 +300,13 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ error: 'Invalid access token.', code: 'AUTH_INVALID' });
         }
 
-        const activeSession = await Session.exists({
+        const activeSession = await Session.exists(
+        mongoose.trusted({
             _id: payload.sid,
             userId: payload.sub,
             expiresAt: { $gt: new Date() }
-        });
+    })
+);
         if (!activeSession) {
             return res.status(401).json({ error: 'Session has been revoked or expired.', code: 'SESSION_REVOKED' });
         }
@@ -356,7 +358,13 @@ const pruneOldSessions = async (userId) => {
         .select('_id')
         .lean();
     if (oldSessions.length > 0) {
-        await Session.deleteMany({ _id: { $in: oldSessions.map((session) => session._id) } });
+        await Session.deleteMany(
+        mongoose.trusted({
+            _id: {
+                $in: oldSessions.map((session) => session._id)
+            }
+        })
+    );
     }
 };
 
@@ -394,13 +402,18 @@ const rotatePersistentSession = async (req, res) => {
 
     const tokenHash = hashValue(refreshToken);
     const now = new Date();
-    const session = await Session.findOne({
+    const session = await Session.findOne(
+    mongoose.trusted({
         expiresAt: { $gt: now },
         $or: [
             { tokenHash },
-            { previousTokenHash: tokenHash, previousValidUntil: { $gt: now } }
+            {
+                previousTokenHash: tokenHash,
+                previousValidUntil: { $gt: now }
+            }
         ]
-    });
+    })
+);
 
     if (!session) return null;
 
