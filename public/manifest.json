@@ -17,5 +17,12 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "id": "/",
+  "scope": "/",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any"
 }
