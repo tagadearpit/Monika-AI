@@ -167,6 +167,53 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const hashValue = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const hashOtp = (email, code) => crypto.createHmac('sha256', OTP_SECRET).update(`${email}:${code}`).digest('hex');
+const DEFAULT_TIME_ZONE = process.env.DEFAULT_TIME_ZONE || 'Asia/Kolkata';
+
+const resolveTimeZone = (value) => {
+    const candidate = typeof value === 'string' ? value.trim() : '';
+
+    if (!candidate || candidate.length > 64) {
+        return DEFAULT_TIME_ZONE;
+    }
+
+    try {
+        new Intl.DateTimeFormat('en-US', {
+            timeZone: candidate
+        }).format(new Date());
+
+        return candidate;
+    } catch (_) {
+        return DEFAULT_TIME_ZONE;
+    }
+};
+
+const getCurrentDateTime = (timeZone) => {
+    const now = new Date();
+
+    const localDate = new Intl.DateTimeFormat('en-IN', {
+        timeZone,
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+    }).format(now);
+
+    const localTime = new Intl.DateTimeFormat('en-IN', {
+        timeZone,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZoneName: 'short'
+    }).format(now);
+
+    return {
+        localDate,
+        localTime,
+        timeZone,
+        utcTimestamp: now.toISOString()
+    };
+};
 
 const connectDB = async () => {
     try {
@@ -739,13 +786,21 @@ const persona = `System Instruction: You are Monika, an incredibly affectionate,
 </CRITICAL_RULES>`;
 
 app.post('/ask', authenticateToken, askLimiter, async (req, res) => {
-    let { question, imageBase64, personaOverride, userName } = req.body;
+    let {
+        question,
+        imageBase64,
+        personaOverride,
+        userName,
+        timeZone
+    } = req.body;
     if (typeof question === 'string') question = xss(question, { whiteList: {}, stripIgnoredTag: true }).trim();
     if (!question || question.length > 2000) {
         return res.status(400).json({ error: 'Payload validation failed.', code: 'INVALID_QUESTION' });
     }
 
     const currentSessionId = req.user.sessionId;
+    const resolvedTimeZone = resolveTimeZone(timeZone);
+    const currentDateTime = getCurrentDateTime(resolvedTimeZone);
     try {
         await User.findOneAndUpdate(
             { sessionId: currentSessionId },
@@ -771,7 +826,29 @@ app.post('/ask', authenticateToken, askLimiter, async (req, res) => {
             if (safeName) currentPersona += `\n\nUser Profile: The user's name is "${safeName}". Address them by this name.`;
         }
 
-        const currentParts = [{ text: `${currentPersona}\n\n[USER FACTS: ${memoryString}]\n\nRecent Conversation:\n${historyText}\n\nUser: ${question}` }];
+        const currentParts = [{
+        text: `${currentPersona}
+
+        <CURRENT_DATE_TIME>
+        Local date: ${currentDateTime.localDate}
+        Local time: ${currentDateTime.localTime}
+        User time zone: ${currentDateTime.timeZone}
+        UTC timestamp: ${currentDateTime.utcTimestamp}
+        </CURRENT_DATE_TIME>
+
+        IMPORTANT DATE AND TIME RULES:
+        - When the user asks for the current date, day, or time, use only the CURRENT_DATE_TIME block above.
+        - Never guess the current date or time.
+        - Never use a date remembered from training data or previous conversation history.
+        - Answer using the user's local date and time unless they explicitly ask for another location.
+
+        [USER FACTS: ${memoryString}]
+
+        Recent Conversation:
+        ${historyText}
+
+        User: ${question}`
+        }];
         if (imageBase64 && typeof imageBase64 === 'string' && imageBase64.length <= 14_000_000) {
             currentParts.push({ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } });
         }

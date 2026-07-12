@@ -593,7 +593,8 @@ async function sendMessage(isVoiceChat = false) {
                 question: userInput,
                 imageBase64,
                 personaOverride: localStorage.getItem('monika_persona') || 'tsundere',
-                userName: localStorage.getItem('monika_user_name') || ''
+                userName: localStorage.getItem('monika_user_name') || '',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
             }),
             signal: controller.signal
         });
