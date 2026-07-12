@@ -300,13 +300,11 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ error: 'Invalid access token.', code: 'AUTH_INVALID' });
         }
 
-        const activeSession = await Session.exists(
-        mongoose.trusted({
+        const activeSession = await Session.exists({
             _id: payload.sid,
             userId: payload.sub,
             expiresAt: { $gt: new Date() }
-    })
-);
+            }).setOptions({ sanitizeFilter: false });
         if (!activeSession) {
             return res.status(401).json({ error: 'Session has been revoked or expired.', code: 'SESSION_REVOKED' });
         }
@@ -358,13 +356,11 @@ const pruneOldSessions = async (userId) => {
         .select('_id')
         .lean();
     if (oldSessions.length > 0) {
-        await Session.deleteMany(
-        mongoose.trusted({
-            _id: {
-                $in: oldSessions.map((session) => session._id)
-            }
-        })
-    );
+        await Session.deleteMany({
+        _id: {
+            $in: oldSessions.map((session) => session._id)
+        }
+        }).setOptions({ sanitizeFilter: false });
     }
 };
 
@@ -402,18 +398,16 @@ const rotatePersistentSession = async (req, res) => {
 
     const tokenHash = hashValue(refreshToken);
     const now = new Date();
-    const session = await Session.findOne(
-    mongoose.trusted({
-        expiresAt: { $gt: now },
-        $or: [
-            { tokenHash },
-            {
-                previousTokenHash: tokenHash,
-                previousValidUntil: { $gt: now }
-            }
-        ]
-    })
-);
+    const session = await Session.findOne({
+    expiresAt: { $gt: now },
+    $or: [
+        { tokenHash },
+        {
+            previousTokenHash: tokenHash,
+            previousValidUntil: { $gt: now }
+        }
+    ]
+    }).setOptions({ sanitizeFilter: false });
 
     if (!session) return null;
 
@@ -622,7 +616,9 @@ app.post('/api/auth/logout', verifyTrustedOrigin, refreshLimiter, async (req, re
         }
 
         if (deletionConditions.length > 0) {
-            await Session.deleteMany({ $or: deletionConditions });
+            await Session.deleteMany({
+            $or: deletionConditions
+            }).setOptions({ sanitizeFilter: false });
         }
         clearRefreshCookies(res);
         return res.status(204).send();
@@ -805,7 +801,11 @@ app.post('/ask', authenticateToken, askLimiter, async (req, res) => {
                             .select('_id')
                             .lean();
                         if (staleFacts.length > 0) {
-                            await Fact.deleteMany({ _id: { $in: staleFacts.map((fact) => fact._id) } });
+                            await Fact.deleteMany({
+                            _id: {
+                                $in: staleFacts.map((fact) => fact._id)
+                            }
+                            }).setOptions({ sanitizeFilter: false });
                         }
                     }
                 })
