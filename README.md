@@ -1,151 +1,175 @@
-# 🤖 Monika AI v2.0
+# 🤖 Monika AI v3.0
 
-Monika AI is a production-ready AI chatbot built with **Node.js, Express, MongoDB, Google Gemini, Firebase, Google Sign-In, email OTP authentication, speech features, camera vision, themes, Picture-in-Picture, and PWA support**.
+Monika AI is a full-stack AI companion built with **Node.js, Express, MongoDB, Google Gemini, Firebase, Google Sign-In, email OTP, speech, camera support, reminders, and PWA features**.
 
-Version 2.0 keeps the existing UI/UX while adding secure persistent login and stronger production safeguards.
-
----
-
-## ✨ Main Features
-
-- 💬 AI chat powered by Google Gemini
-- 🧠 MongoDB-backed chat history and memory
-- 🔐 Persistent login across browser restarts
-- 🌐 Google Sign-In
-- 📱 Firebase phone authentication
-- 📧 Email OTP login
-- 🎤 Speech input
-- 🔊 Text-to-speech output
-- 📷 Camera vision support
-- 🎨 Theme persistence
-- 🪟 Picture-in-Picture mode
-- 📲 Progressive Web App support
-- 🔄 Multi-tab login and logout synchronization
-- 📝 Message draft recovery
-- ❤️ Health and readiness endpoints
-- 🧾 Structured production logs
-- 🛡️ Secure, revocable server sessions
+Version 3.0 keeps the existing Monika visual style while adding conversation management, editable memory, streaming responses, device controls, attachments, personalization, feedback, reminders, usage limits, and an administrator dashboard.
 
 ---
 
-## 🔐 How Persistent Login Works
+## ✨ Main features
 
-Monika AI v2.0 no longer depends only on `sessionStorage`.
+### 💬 Conversations
 
-The authentication system now uses:
+- Create multiple conversations
+- Rename and pin conversations
+- Delete one conversation or clear all history
+- Search across messages
+- Export a conversation as TXT, Markdown, or PDF
+- Automatically migrate existing v2 chat history
 
-- Short-lived access tokens stored only in browser memory
-- A secure `HttpOnly` refresh cookie
-- Rotating refresh credentials
-- Hashed session tokens stored in MongoDB
-- Automatic token refresh
-- Immediate session revocation on logout
-- Rolling session expiration
-- Multi-tab session synchronization
+### ⚡ AI messaging
 
-By default, users remain signed in for up to **365 days of inactivity**.
+- Streaming Gemini responses
+- Stop generation
+- Regenerate a response
+- Continue a response
+- Edit and resend a previous user message
+- Copy responses
+- Like, dislike, or report responses
+- Accurate date and time using the browser's timezone
 
-A user will need to log in again if:
+### 🧠 Editable memory
 
-- They manually log out
-- They clear browser cookies
-- Cookies are blocked
-- Their account is deleted
-- Their session is revoked
-- They remain inactive longer than the configured session lifetime
+- View remembered facts
+- Add memories manually
+- Edit incorrect memories
+- Delete individual memories
+- Clear all memories
+- Disable automatic memory entirely
+- Store source and confidence metadata
+
+### 📎 Attachments
+
+- Images: JPEG, PNG, and WebP
+- Documents: PDF, TXT, and Markdown
+- Attachment preview and removal before sending
+- Server-side MIME type and size validation
+- Camera capture support
+
+Attachment contents are processed only for the current AI request. MongoDB stores message text and safe attachment metadata, not raw Base64 file contents.
+
+### 🎙️ Voice and personalization
+
+- Speech-to-text input
+- Optional hands-free mode
+- Automatic text-to-speech playback
+- Voice and language selection
+- Preferred name
+- Response length
+- Persona mode
+- Theme and text size
+- Sound and typing-animation controls
+
+### 🔐 Authentication and devices
+
+- Google Sign-In
+- Firebase phone authentication
+- Email OTP login
+- Persistent login across Chrome restarts
+- Short-lived access tokens
+- Rotating `HttpOnly` refresh cookies
+- Server-side session revocation
+- Active-device list
+- Current-device indicator
+- Logout from one device
+- Logout from all other devices
+- Refresh-token reuse detection
+- Optional login notification emails
+
+### ⏰ Reminders and journal
+
+- Create, list, edit, and delete reminders
+- Parse natural reminder requests with Gemini
+- Daily and weekly recurrence
+- In-app due-reminder delivery
+- Optional Web Push notifications
+- Opt-in daily or weekly conversation recap
+
+### 🛡️ Production controls
+
+- Per-user daily message and image limits
+- Request IDs and structured logs
+- Request latency and Gemini duration logs
+- Health and readiness endpoints
+- CSRF protection for authenticated mutations
+- Exact CORS allowlist
+- Zod request validation
+- Rate limiting
+- Graceful shutdown
+- MongoDB connection-pool settings
+- Security audit events
+- Protected administrator dashboard
+- User suspension and report review
 
 ---
 
-## 🆕 What Changed in v2.0
-
-- ✅ Persistent login after closing Chrome
-- ✅ Secure server-managed sessions
-- ✅ Automatic token refresh
-- ✅ Logout synchronization across tabs
-- ✅ Message draft recovery
-- ✅ Saved theme preference
-- ✅ Safer PWA caching
-- ✅ Request IDs and structured logs
-- ✅ Graceful server shutdown
-- ✅ MongoDB connection-pool controls
-- ✅ Stronger OTP protection
-- ✅ Current Firebase Admin modular imports
-- ✅ Node.js 22 support
-- ✅ Render deployment configuration
-- ✅ Docker deployment support
-- ✅ Zero known npm vulnerabilities at packaging time
-
-The visual layout and CSS design remain unchanged.
-
----
-
-## 📁 Project Structure
+## 📁 Project structure
 
 ```text
-Monika-AI-main/
+Monika-AI-Production-v3/
 ├── backend/
-│   ├── .env.example
+│   ├── models.js
+│   ├── server.js
+│   ├── utils.js
+│   ├── validation.js
 │   ├── package.json
 │   ├── package-lock.json
-│   └── server.js
+│   └── test/
+│       ├── smoke.test.js
+│       └── integration.test.js
 ├── public/
 │   ├── index.html
 │   ├── style.css
 │   ├── script.js
 │   ├── manifest.json
 │   ├── sw.js
-│   └── icons/
 ├── Dockerfile
-├── render.yaml
 ├── SECURITY.md
 ├── CHANGELOG.md
-└── README.md
+├── VALIDATION.md
 ```
 
 ---
 
 ## 🧰 Requirements
 
-Before running the project, make sure you have:
-
 - Node.js 22 or newer
-- MongoDB Atlas or another MongoDB deployment
-- Gemini API key
+- MongoDB Atlas or compatible MongoDB deployment
+- Google Gemini API key
+- HTTPS for production
+
+Depending on the login methods you enable, you may also need:
+
 - Google OAuth client ID
-- Firebase project configuration
-- Firebase service-account JSON for stronger token revocation checks
-- SMTP account for email OTP login
-- HTTPS for production deployment
+- Firebase web configuration
+- Firebase Admin service account
+- SMTP credentials
+
+Web Push reminders additionally require VAPID keys.
 
 ---
 
-## 🚀 Local Installation
+## 🚀 Local installation
 
-### 1. Open the backend folder
+### 1. Open the backend directory
 
 ```bash
 cd backend
 ```
 
-### 2. Create the environment file
-
-```bash
-cp .env.example .env
-```
-
-### 3. Install dependencies
+### 2. Install dependencies
 
 ```bash
 npm ci
 ```
 
-### 4. Validate the project
+### 3. Validate the project
 
 ```bash
-npm run check
+npm test
 ```
 
-### 5. Start the server
+### 4. Start the server
 
 ```bash
 npm start
@@ -157,212 +181,151 @@ Open:
 http://localhost:10000
 ```
 
-> ⚠️ Never commit the `.env` file to GitHub.
+> ⚠️ Never commit `backend/.env`, private keys, OTP values, access tokens, or service-account JSON.
 
 ---
 
-## 🔑 Required Environment Variables
-
-Create `backend/.env` and add your real credentials:
-
-```env
-NODE_ENV=production
-PORT=10000
-
-GEMINI_API_KEY=your_gemini_api_key
-MONGO_URI=your_mongodb_connection_string
-
-JWT_SECRET=use_a_long_random_secret
-OTP_SECRET=use_a_different_long_random_secret
-
-ALLOWED_ORIGINS=https://your-domain.com
-
-GOOGLE_CLIENT_ID=your_google_client_id
-
-FIREBASE_API_KEY=your_firebase_api_key
-FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-FIREBASE_APP_ID=your_firebase_app_id
-
-SMTP_USER=your_email
-SMTP_PASS=your_email_app_password
-SMTP_FROM_EMAIL=your_email
-```
-
-Use `backend/.env.example` for the complete list.
-
----
-
-## ⏳ Session Settings
+## 🔐 Authentication settings
 
 ```env
 ACCESS_TOKEN_TTL_SECONDS=900
 SESSION_TTL_DAYS=365
 MAX_SESSIONS_PER_USER=10
+LOGIN_NOTIFICATION_EMAILS=false
 ```
 
-Meaning:
-
-- `ACCESS_TOKEN_TTL_SECONDS=900` — access tokens last 15 minutes.
-- `SESSION_TTL_DAYS=365` — users can stay signed in for up to 365 days of inactivity.
-- `MAX_SESSIONS_PER_USER=10` — one account can have up to 10 active device sessions.
-
-Increasing the session lifetime improves convenience but also increases the risk of a stolen device session remaining valid.
+`SESSION_TTL_DAYS` uses rolling expiration. A successful session refresh extends the session. Users still need to log in again after manual logout, cookie deletion, administrator revocation, account deletion, or session expiry.
 
 ---
 
-## 🔥 Firebase Production Credentials
 
-For stronger Firebase phone-auth checks, add:
+Limits are enforced by the server. Increasing them can raise Gemini cost, memory usage, request time, and abuse exposure. Set the optional cost variable from your current model pricing; leaving it at `0` disables monetary estimation in the admin dashboard.
+
+---
+
+
+
+## 📧 Email OTP configuration
 
 ```env
-FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
-FIREBASE_CHECK_REVOKED=true
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=2525
+SMTP_SECURE=false
+SMTP_USER=your_smtp_username
+SMTP_PASS=your_smtp_password
+SMTP_FROM_EMAIL=noreply@your-domain.example
 ```
 
-Keep the full JSON on one line.
-
-Without this value, Firebase ID tokens are still verified, but revoked-user checks are not performed.
+Email OTP and login notifications remain unavailable when SMTP is not configured.
 
 ---
 
-## ☁️ Deploy on Render
+## 🔔 Optional Web Push reminders
 
-The included `render.yaml` is configured for:
+Generate VAPID keys:
 
-- Root directory: `backend`
-- Build command: `npm ci --omit=dev`
-- Start command: `npm start`
+```bash
+npx web-push generate-vapid-keys
+```
+
+Add them to the environment:
+
+```env
+VAPID_PUBLIC_KEY=your_public_key
+VAPID_PRIVATE_KEY=your_private_key
+VAPID_SUBJECT=mailto:admin@your-domain.example
+```
+
+The included reminder worker runs inside the web process every 30 seconds. On a sleeping or frequently restarted hosting instance, notification delivery may be delayed. For strict delivery guarantees, move reminders to a dedicated worker and queue.
+
+---
+
+## ☁️ Render deployment
+
+The included `render.yaml` uses:
+
+- Node.js 22
+- Build command: `cd backend && npm ci --omit=dev --no-audit --no-fund`
+- Start command: `node backend/server.js`
 - Health check: `/api/health`
-- Node.js version: 22
 
-### Render steps
+Deployment steps:
 
-1. Push the project to GitHub
-2. Create a new Render Web Service
-3. Connect the GitHub repository
-4. Add all environment variables in Render
-5. Deploy the service
-
-Set `ALLOWED_ORIGINS` to the exact production URL.
+1. Push the project to GitHub.
+2. Create or update the Render Web Service.
+3. Add every required environment variable.
+4. Set `ALLOWED_ORIGINS` to each exact HTTPS origin, separated by commas.
+5. Do not include trailing slashes.
+6. Deploy and inspect runtime logs.
 
 Example:
 
 ```env
-ALLOWED_ORIGINS=https://monika-ai.duckdns.org
+ALLOWED_ORIGINS=https://monika-ai.duckdns.org,https://your-service.onrender.com
 ```
-
-Do not add a trailing slash.
 
 ---
 
-## 🐳 Docker Deployment
-
-Build the image:
+## 🐳 Docker deployment
 
 ```bash
-docker build -t monika-ai:2.0 .
-```
-
-Run the container:
-
-```bash
-docker run --rm -p 10000:10000 --env-file backend/.env monika-ai:2.0
+docker build -t monika-ai:3.0 .
+docker run --rm -p 10000:10000 --env-file backend/.env monika-ai:3.0
 ```
 
 ---
 
-## 🔌 API Endpoints
-
-| Endpoint | Method | Authentication | Purpose |
-|---|---|---|---|
-| `/api/config` | GET | Public | Returns browser authentication configuration |
-| `/api/auth/google` | POST | Google credential | Creates a persistent session |
-| `/api/auth/firebase` | POST | Firebase ID token | Creates a persistent session |
-| `/api/auth/send-otp` | POST | Public | Sends an email OTP |
-| `/api/auth/verify-otp` | POST | OTP | Verifies OTP and creates a session |
-| `/api/auth/refresh` | POST | Refresh cookie | Rotates the session and returns a new access token |
-| `/api/auth/logout` | POST | Session | Revokes the current session |
-| `/api/history` | GET | Bearer token | Loads the authenticated user's chat history |
-| `/ask` | POST | Bearer token | Sends a message to the AI |
-| `/api/user/delete` | POST | Bearer token | Deletes the user account and all sessions |
-| `/api/health` | GET | Public | Confirms the server process is running |
-| `/api/ready` | GET | Public | Confirms MongoDB is ready |
-
----
-
-## 🛡️ Production Notes
-
-- Always deploy behind HTTPS
-- Never expose `.env` or private keys
-- Keep `JWT_SECRET` and `OTP_SECRET` different
-- Use long, random secrets
-- Keep MongoDB backups enabled
-- Add every legitimate frontend URL to `ALLOWED_ORIGINS`
-- Do not use `*` for production CORS
-- Monitor Render logs regularly
-- Replace the built-in rate limiter with Redis when running multiple backend instances
-- Use separate credentials for development and production
-
-Production cookies use the `Secure` flag and will not work correctly over plain HTTP.
-
----
-
-## ✅ Validation Commands
-
-Run these before deployment:
+## ✅ Validation commands
 
 ```bash
 cd backend
 npm ci
-npm run check
+npm test
 npm audit --omit=dev
 ```
 
-Expected result:
+The MongoDB integration suite is opt-in because it downloads a temporary MongoDB binary:
 
-```text
-0 vulnerabilities
+```bash
+RUN_DB_INTEGRATION_TESTS=true npm test
 ```
 
----
-
-## 🧪 Recommended Production Tests
-
-After deployment, test:
-
-- Login with Google
-- Login with Firebase phone authentication
-- Login with email OTP
-- Close and reopen Chrome
-- Refresh the page
-- Open the app in multiple tabs
-- Log out from one tab
-- Delete the account
-- Send AI messages
-- Load chat history
-- Test microphone and speech output
-- Install the PWA
-- Test the health endpoint
-- Check Render logs
+Use a CI runner with network access when enabling that suite.
 
 ---
 
-## 📌 Important Files
+## 🧪 Production test checklist
 
-- `backend/.env.example` — environment variable template
-- `backend/server.js` — backend server
-- `public/script.js` — frontend application logic
-- `public/style.css` — current UI design
-- `render.yaml` — Render deployment configuration
-- `Dockerfile` — Docker deployment configuration
-- `SECURITY.md` — security notes
-- `CHANGELOG.md` — version history
+After deployment, verify:
+
+- Google, phone, and email login methods you enabled
+- Login persistence after closing and reopening Chrome
+- Refresh and logout across multiple tabs
+- Conversation create, rename, pin, search, export, and delete
+- Streaming, stop, regenerate, edit, continue, and copy actions
+- Memory add, edit, delete, disable, and clear
+- Image, PDF, and text attachments
+- Speech input and output permissions
+- Device revocation
+- Reminder delivery and notification permissions
+- User quotas and rate limits
+- Administrator authorization
+- Account deletion
+- `/api/health` and `/api/ready`
+- Browser console and Render runtime logs
+
+---
+
+## ⚠️ Known operational limits
+
+- Attachments are transient and are not stored in external object storage.
+- The reminder worker is process-local rather than BullMQ/Redis-backed.
+- Rate limiting is process-local; use a shared store before horizontal scaling.
+- The Content Security Policy still permits inline scripts/styles required by the current interface and third-party login widgets. `unsafe-eval` has been removed.
+- Sentry, full two-factor authentication, account recovery, encrypted object storage, and a distributed background queue are not included in this release.
 
 ---
 
 ## 📄 License
 
-Add your preferred license before publicly distributing the project.
+Released under the MIT License. See [`LICENSE`](LICENSE).

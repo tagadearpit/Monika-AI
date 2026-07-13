@@ -3,23 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#281523">
+    <meta name="description" content="Monika AI — persistent, private, multi-conversation AI companion.">
     <title>Monika AI</title>
-    
-    <!-- Google Search Console Verification -->
-    <meta name="google-site-verification" content="LNez62BEHcYunMt_aaq_ZxNOeUCdkOiRhwxV4NCclGQ" />
-    
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <meta name="google-site-verification" content="LNez62BEHcYunMt_aaq_ZxNOeUCdkOiRhwxV4NCclGQ">
+    <link rel="icon" href="/icon-192.png" type="image/png">
     <link rel="manifest" href="/manifest.json">
-    
     <link rel="preconnect" href="https://accounts.google.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://www.gstatic.com">
-    
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -27,152 +22,238 @@
 <body>
     <div id="login-overlay" class="login-overlay">
         <div class="login-box">
-            <h2 class="title-gradient" style="font-family: 'Dancing Script', cursive; margin-bottom: 10px;">Monika AI</h2>
-            <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Choose how you want to connect.</p>
-            
-            <div id="googleButton" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
-            
+            <h2 class="title-gradient login-title">Monika AI</h2>
+            <p class="muted-copy">Choose how you want to connect.</p>
+            <div id="googleButton" class="google-button"></div>
             <div id="phone-input-section">
-                <div style="color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-bottom: 15px; letter-spacing: 2px;">— OR LOGIN WITH —</div>
-                
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <button id="showEmailBtn" class="auth-toggle-btn active">Email</button>
-                    <button id="showPhoneBtn" class="auth-toggle-btn">Phone</button>
+                <div class="auth-separator">— OR LOGIN WITH —</div>
+                <div class="auth-toggle-row">
+                    <button id="showEmailBtn" class="auth-toggle-btn active" type="button">Email</button>
+                    <button id="showPhoneBtn" class="auth-toggle-btn" type="button">Phone</button>
                 </div>
-                
                 <div id="emailInputGroup">
-                    <input type="email" id="emailInput" placeholder="Enter your email address" style="text-align: center;">
+                    <input type="email" id="emailInput" placeholder="Enter your email address" autocomplete="email">
                 </div>
-                <div id="phoneInputGroup" style="display: none;">
-                    <input type="tel" id="phoneInput" placeholder="Phone number (+123...)" style="text-align: center;">
+                <div id="phoneInputGroup" hidden>
+                    <input type="tel" id="phoneInput" placeholder="Phone number (+123...)" autocomplete="tel">
                 </div>
-
-                <button id="sendCodeBtn" class="action-btn">Send Login Code</button>
+                <button id="sendCodeBtn" class="action-btn" type="button">Send Login Code</button>
             </div>
-
-            <div id="otp-input-section" style="display: none;">
-                <p style="color: #ff6b9d; margin-bottom: 10px; font-size: 0.9rem;">Check your Inbox or SMS! 🌸</p>
-                <input type="number" id="verificationCode" placeholder="Enter 6-digit code" style="text-align: center; letter-spacing: 5px; font-size: 1.2rem;">
-                <button id="verifyCodeBtn" class="action-btn" style="background: linear-gradient(45deg, #4ade80, #3b82f6); border: none;">Verify & Enter</button>
+            <div id="otp-input-section" hidden>
+                <p class="otp-note">Check your Inbox or SMS! 🌸</p>
+                <input type="text" inputmode="numeric" maxlength="6" id="verificationCode" placeholder="Enter 6-digit code" autocomplete="one-time-code">
+                <button id="verifyCodeBtn" class="action-btn verify-action" type="button">Verify & Enter</button>
             </div>
-            <div id="recaptcha-container" style="margin-top: 15px;"></div>
+            <div id="recaptcha-container"></div>
         </div>
     </div>
 
-    <div class="container" id="main-wrapper">
-        
-        <header class="app-header">
-            <div class="logo-area">
-                <div class="monika-avatar">
-                    <div class="avatar-img" style="width: 45px; height: 45px; font-size: 1.2rem; border-width: 2px;">🌸</div>
-                </div>
-                <h1 class="title-gradient" style="margin: 0;">Monika AI</h1>
+    <div id="appShell" class="app-shell" hidden>
+        <aside id="conversationSidebar" class="conversation-sidebar" aria-label="Conversation navigation">
+            <div class="sidebar-header">
+                <div class="sidebar-brand"><span>🌸</span><strong>Chats</strong></div>
+                <button id="closeSidebarBtn" class="icon-btn mobile-only" type="button" aria-label="Close conversations"><i class="fas fa-times"></i></button>
             </div>
-            
-            <div class="action-area">
-                <button id="settingsBtn" class="quick-btn" title="Settings" style="padding: 6px 12px;"><i class="fas fa-cog"></i></button>
-                <button id="logoutBtn" class="quick-btn" style="border-color: rgba(255, 77, 77, 0.3); color: #ff4d4d; padding: 6px 15px;">Logout</button>
-                <button id="pipButton" class="quick-btn" style="padding: 6px 12px;" title="Pop-Out Window"><i class="fas fa-external-link-alt"></i></button>
+            <button id="newConversationBtn" class="new-chat-btn" type="button"><i class="fas fa-plus"></i> New conversation</button>
+            <div class="sidebar-search-wrap">
+                <i class="fas fa-search"></i>
+                <input id="conversationSearchInput" type="search" placeholder="Search chats or messages" autocomplete="off">
             </div>
-        </header>
+            <div id="searchResults" class="search-results" hidden></div>
+            <div id="conversationList" class="conversation-list" aria-live="polite"></div>
+            <div class="sidebar-footer">
+                <button id="clearAllChatsBtn" class="sidebar-footer-btn" type="button"><i class="fas fa-broom"></i> Clear chat history</button>
+                <button id="manageDataBtn" class="sidebar-footer-btn" type="button"><i class="fas fa-database"></i> Data & devices</button>
+            </div>
+        </aside>
+        <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 
-        <div id="vision-container" class="video-box" style="display: none;">
-            <video id="vision-feed" autoplay playsinline muted></video>
-            <canvas id="capture-canvas" style="display:none;"></canvas>
-            <div id="vision-label">🔴 LIVE REALITY FEED</div>
+        <div class="container" id="main-wrapper">
+            <header class="app-header">
+                <div class="logo-area">
+                    <button id="openSidebarBtn" class="quick-btn mobile-only" type="button" aria-label="Open conversations"><i class="fas fa-bars"></i></button>
+                    <div class="monika-avatar"><div class="avatar-img">🌸</div></div>
+                    <div class="title-stack">
+                        <h1 class="title-gradient">Monika AI</h1>
+                        <button id="currentConversationTitle" class="conversation-title-button" type="button" title="Rename conversation">New conversation</button>
+                    </div>
+                </div>
+                <div class="action-area">
+                    <button id="settingsBtn" class="quick-btn" type="button" title="Settings"><i class="fas fa-cog"></i></button>
+                    <button id="logoutBtn" class="quick-btn logout-quick" type="button">Logout</button>
+                    <button id="pipButton" class="quick-btn" type="button" title="Pop-Out Window"><i class="fas fa-external-link-alt"></i></button>
+                </div>
+            </header>
+
+            <div id="vision-container" class="video-box" hidden>
+                <video id="vision-feed" autoplay playsinline muted></video>
+                <canvas id="capture-canvas" hidden></canvas>
+                <div id="vision-label">🔴 LIVE REALITY FEED</div>
+            </div>
+
+            <main class="chat-container" id="chat-container">
+                <div class="chat-toolbar">
+                    <button id="exportTxtBtn" class="toolbar-btn" type="button" title="Export as TXT"><i class="fas fa-file-alt"></i><span>TXT</span></button>
+                    <button id="exportMdBtn" class="toolbar-btn" type="button" title="Export as Markdown"><i class="fab fa-markdown"></i><span>MD</span></button>
+                    <button id="exportPdfBtn" class="toolbar-btn" type="button" title="Export as PDF"><i class="fas fa-file-pdf"></i><span>PDF</span></button>
+                    <span id="connectionStatus" class="connection-status online"><i class="fas fa-circle"></i> Online</span>
+                </div>
+                <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
+                <div id="attachmentPreview" class="attachment-preview" hidden></div>
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <input type="file" id="attachmentInput" accept="image/jpeg,image/png,image/webp,application/pdf,text/plain,text/markdown,.txt,.md,.pdf" multiple hidden>
+                        <button id="attachButton" class="tool-btn" type="button" title="Attach image, PDF, or text file"><i class="fas fa-paperclip"></i></button>
+                        <input type="text" id="messageInput" placeholder="Type to Monika... 💕" autocomplete="off" maxlength="4000">
+                        <button id="camButton" class="tool-btn" type="button" title="Vision Mode"><i class="fas fa-camera"></i></button>
+                        <button id="micButton" class="tool-btn" type="button" title="Voice input"><i class="fas fa-microphone"></i></button>
+                        <button id="sendBtn" class="send-btn" type="button" aria-label="Send message"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                    <div class="input-hint"><span>Enter to send</span><span id="attachmentLimitHint">Up to 4 files · 8 MB each</span></div>
+                </div>
+            </main>
         </div>
-
-        <main class="chat-container" id="chat-container">
-            <div class="chat-messages" id="chatMessages">
-                </div>
-
-            <div class="input-container">
-                <div class="input-wrapper" style="margin-bottom: 0;">
-                    <input type="text" id="messageInput" placeholder="Type to Monika... 💕" autocomplete="off">
-                    <button id="camButton" class="tool-btn" title="Vision Mode"><i class="fas fa-camera"></i></button>
-                    <button id="micButton" class="tool-btn" title="Voice Chat"><i class="fas fa-microphone"></i></button>
-                    <button id="sendBtn" class="send-btn">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        </main>
     </div>
 
-    <div id="settingsModal" class="settings-overlay" style="display: none;">
-        <div class="settings-box">
+    <div id="settingsModal" class="settings-overlay" hidden>
+        <div class="settings-box settings-box-wide" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
             <div class="settings-header">
-                <h3>App Settings ⚙️</h3>
-                <button id="closeSettingsBtn" class="close-modal-btn">&times;</button>
+                <h3 id="settingsTitle">Monika AI Settings ⚙️</h3>
+                <button id="closeSettingsBtn" class="close-modal-btn" type="button" aria-label="Close settings">&times;</button>
             </div>
-            <hr class="settings-divider">
+            <div class="settings-tabs" role="tablist">
+                <button class="settings-tab active" data-tab="general" type="button">General</button>
+                <button class="settings-tab" data-tab="memory" type="button">Memory</button>
+                <button class="settings-tab" data-tab="devices" type="button">Devices</button>
+                <button class="settings-tab" data-tab="reminders" type="button">Reminders</button>
+                <button class="settings-tab" data-tab="privacy" type="button">Privacy</button>
+            </div>
 
-            <div class="settings-body">
-                <div class="setting-group">
-                    <label><i class="fas fa-user"></i> Your Preferred Name</label>
-                    <input type="text" id="settingUserName" placeholder="Enter your name...">
-                    <button id="saveNameBtn" class="settings-action-btn">Update Name</button>
-                </div>
-
-                <div class="setting-group">
-                    <label><i class="fas fa-volume-up"></i> Voice Output (TTS)</label>
-                    <div class="toggle-wrapper">
-                        <span>Speak Responses</span>
-                        <input type="checkbox" id="settingTtsToggle" checked>
+            <div class="settings-panels">
+                <section class="settings-panel active" data-panel="general">
+                    <div class="settings-grid">
+                        <div class="setting-group">
+                            <label for="settingUserName"><i class="fas fa-user"></i> Preferred name</label>
+                            <input type="text" id="settingUserName" maxlength="30" placeholder="Enter your name">
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingPersonaSelect"><i class="fas fa-brain"></i> Personality</label>
+                            <select id="settingPersonaSelect">
+                                <option value="tsundere">Tsundere 🌸</option>
+                                <option value="sweet">Purely Sweet 💕</option>
+                                <option value="yandere">Safe Yandere Drama 🔪</option>
+                                <option value="normal">Friendly & Neutral</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingResponseLength"><i class="fas fa-align-left"></i> Response length</label>
+                            <select id="settingResponseLength">
+                                <option value="short">Short</option>
+                                <option value="balanced">Balanced</option>
+                                <option value="detailed">Detailed</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingLanguage"><i class="fas fa-language"></i> Response language</label>
+                            <input type="text" id="settingLanguage" maxlength="40" placeholder="English">
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingThemeSelect"><i class="fas fa-palette"></i> Theme</label>
+                            <select id="settingThemeSelect">
+                                <option value="/normal">🌸 Monika Default</option>
+                                <option value="/midnight">🌌 Midnight Mode</option>
+                                <option value="/rose">🌹 Rose Garden</option>
+                                <option value="/cyber">⚡ Cyber Vibe</option>
+                                <option value="/matrix">📟 Matrix Terminal</option>
+                                <option value="/sunset">🌇 Vaporwave Sunset</option>
+                                <option value="/yandere">🔪 Yandere Crimson</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingTextSize"><i class="fas fa-text-height"></i> Text size</label>
+                            <select id="settingTextSize">
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingSpeechLanguage"><i class="fas fa-microphone-lines"></i> Speech language</label>
+                            <input type="text" id="settingSpeechLanguage" maxlength="20" placeholder="en-IN">
+                        </div>
+                        <div class="setting-group">
+                            <label for="settingVoiceSelect"><i class="fas fa-volume-high"></i> Voice</label>
+                            <select id="settingVoiceSelect"><option value="">System default</option></select>
+                        </div>
                     </div>
-                </div>
-
-                <div class="setting-group">
-                    <label><i class="fas fa-palette"></i> Switch App Theme</label>
-                    <select id="settingThemeSelect">
-                        <option value="/normal">🌸 Monika Default</option>
-                        <option value="/midnight">🌌 Midnight Mode</option>
-                        <option value="/rose">🌹 Rose Garden</option>
-                        <option value="/cyber">⚡ Cyber Vibe</option>
-                        <option value="/matrix">📟 Matrix Terminal</option>
-                        <option value="/sunset">🌇 Vaporwave Sunset</option>
-                        <option value="/yandere">🔪 Yandere Crimson</option>
-                    </select>
-                </div>
-
-                <div class="setting-group">
-                    <label><i class="fas fa-brain"></i> Monika's Personality Vibe</label>
-                    <select id="settingPersonaSelect">
-                        <option value="tsundere">Tsundere (Default) 🌸</option>
-                        <option value="sweet">Purely Sweet 💕</option>
-                        <option value="yandere">Full Yandere 🔪</option>
-                    </select>
-                </div>
-
-                <div class="setting-group">
-                    <label><i class="fas fa-keyboard"></i> Text Animation</label>
-                    <div class="toggle-wrapper">
-                        <span>Typewriter Effect</span>
-                        <input type="checkbox" id="settingTypingToggle" checked>
+                    <div class="toggle-list">
+                        <label class="toggle-wrapper"><span>Auto-read responses</span><input type="checkbox" id="settingAutoRead"></label>
+                        <label class="toggle-wrapper"><span>Typing animation</span><input type="checkbox" id="settingTypingToggle"></label>
+                        <label class="toggle-wrapper"><span>Sound effects</span><input type="checkbox" id="settingSoundEffects"></label>
+                        <label class="toggle-wrapper"><span>Hands-free voice mode</span><input type="checkbox" id="settingHandsFree"></label>
                     </div>
-                </div>
-                
-                <hr class="settings-divider">
+                    <button id="saveGeneralSettingsBtn" class="settings-action-btn" type="button">Save preferences</button>
+                </section>
 
-                <div class="setting-group danger-zone">
-                    <label><i class="fas fa-shield-alt"></i> Privacy & Danger Zone</label>
-                    <p>Wipe all conversations, context memories, and authentication records.</p>
-                    <button id="wipeDataBtn" class="danger-action-btn">Delete My Account</button>
-                </div>
+                <section class="settings-panel" data-panel="memory">
+                    <label class="toggle-wrapper"><span>Allow Monika to remember useful facts</span><input type="checkbox" id="settingMemoryEnabled"></label>
+                    <div class="memory-add-row">
+                        <input id="memoryInput" type="text" maxlength="500" placeholder="Add a memory manually">
+                        <button id="addMemoryBtn" class="settings-action-btn compact" type="button">Add</button>
+                    </div>
+                    <div id="memoryList" class="management-list"></div>
+                    <button id="clearMemoriesBtn" class="danger-action-btn" type="button">Clear all memories</button>
+                </section>
+
+                <section class="settings-panel" data-panel="devices">
+                    <div class="section-copy">Review active browsers and revoke access from devices you no longer use.</div>
+                    <div id="sessionList" class="management-list"></div>
+                    <button id="revokeOtherSessionsBtn" class="danger-action-btn" type="button">Log out all other devices</button>
+                </section>
+
+                <section class="settings-panel" data-panel="reminders">
+                    <div class="reminder-form">
+                        <input id="reminderText" type="text" maxlength="500" placeholder="Reminder text">
+                        <input id="reminderDateTime" type="datetime-local">
+                        <select id="reminderRecurrence">
+                            <option value="none">One time</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                        <button id="addReminderBtn" class="settings-action-btn" type="button">Create reminder</button>
+                    </div>
+                    <button id="enableNotificationsBtn" class="secondary-action-btn" type="button"><i class="fas fa-bell"></i> Enable browser notifications</button>
+                    <div id="reminderList" class="management-list"></div>
+                    <hr class="settings-divider">
+                    <label class="toggle-wrapper"><span>Enable private daily/weekly recaps</span><input type="checkbox" id="settingJournalEnabled"></label>
+                    <div class="journal-actions">
+                        <button id="dailyRecapBtn" class="secondary-action-btn" type="button">Generate daily recap</button>
+                        <button id="weeklyRecapBtn" class="secondary-action-btn" type="button">Generate weekly recap</button>
+                    </div>
+                    <div id="journalOutput" class="journal-output" hidden></div>
+                </section>
+
+                <section class="settings-panel" data-panel="privacy">
+                    <div class="privacy-card">
+                        <h4>Security controls</h4>
+                        <p>Persistent sessions are revocable. Attachments are sent to the AI provider for analysis but their raw file data is not stored in MongoDB.</p>
+                    </div>
+                    <button id="openAdminBtn" class="secondary-action-btn" type="button" hidden><i class="fas fa-shield-halved"></i> Open admin dashboard</button>
+                    <div class="danger-zone">
+                        <label><i class="fas fa-triangle-exclamation"></i> Danger zone</label>
+                        <button id="wipeDataBtn" class="danger-action-btn" type="button">Delete my account and all data</button>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
 
     <template id="typing-template">
         <div class="message monika typing-indicator">
-            <div class="message-content" style="background: rgba(255, 255, 255, 0.08); border-bottom-left-radius: 5px;">
-                <div class="typing-dots">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
+            <div class="message-content"><div class="typing-dots"><span></span><span></span><span></span></div></div>
         </div>
     </template>
 
-    <script src="script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>

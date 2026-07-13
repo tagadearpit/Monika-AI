@@ -1,7 +1,11 @@
 .git
-.gitignore
-backend/node_modules
+.github
+**/node_modules
 backend/.env
+.env
 *.log
-README.md
-SECURITY.md
+coverage
+backend/test
+.vscode
+.idea
+.DS_Store
