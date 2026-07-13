@@ -1,16 +1,16 @@
 {
   "name": "monika-ai-backend",
-  "version": "2.0.0",
-  "description": "Production-hardened AI companion with persistent authentication, vision, memory, and PWA support",
+  "version": "3.0.0",
+  "description": "Production AI companion with persistent authentication, multi-conversation chat, editable memory, streaming, attachments, reminders, session management, and admin controls",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "npm run check",
     "prod": "NODE_ENV=production node server.js",
-    "check": "node --check server.js && node --check ../public/script.js && node --check ../public/sw.js",
-    "lint": "cd .. && ./backend/node_modules/.bin/eslint backend/server.js public/script.js public/sw.js",
-    "test": "npm run check && npm run lint"
+    "check": "node --check server.js && node --check models.js && node --check utils.js && node --check validation.js && node --check ../public/script.js && node --check ../public/admin.js && node --check ../public/sw.js",
+    "lint": "cd .. && ./backend/node_modules/.bin/eslint backend/*.js backend/test/*.js public/*.js",
+    "test": "npm run check && npm run lint && node --test test/*.test.js"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
@@ -18,6 +18,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.1.5",
     "firebase-admin": "^14.1.0",
     "google-auth-library": "^10.9.0",
@@ -25,7 +26,10 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.0.1",
     "nodemailer": "^9.0.3",
-    "xss": "^1.0.15"
+    "pdfkit": "^0.17.2",
+    "web-push": "^3.6.7",
+    "xss": "^1.0.15",
+    "zod": "^4.4.3"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -36,6 +40,8 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
-    "eslint": "^9.39.4"
+    "eslint": "^9.39.4",
+    "mongodb-memory-server": "^10.3.0",
+    "supertest": "^7.2.2"
   }
 }

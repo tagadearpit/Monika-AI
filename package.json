@@ -1,13 +1,19 @@
 {
-  "dependencies": {
-    "firebase": "^12.12.1",
-    "firebase-admin": "^14.1.0",
-    "google-auth-library": "^10.9.0",
-    "helmet": "^8.2.0",
-    "jsonwebtoken": "^9.0.3",
-    "mime": "^4.1.0",
-    "nodemailer": "^8.0.6",
-    "prod": "^1.0.0",
-    "xss": "^1.0.15"
-  }
+  "name": "monika-ai",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Production AI companion with secure persistent sessions, multi-conversation chat, editable memory, streaming, reminders, attachments, and administration controls",
+  "scripts": {
+    "install:backend": "npm ci --prefix backend",
+    "start": "npm start --prefix backend",
+    "dev": "npm run dev --prefix backend",
+    "check": "npm run check --prefix backend",
+    "lint": "npm run lint --prefix backend",
+    "test": "npm test --prefix backend",
+    "audit:production": "npm audit --omit=dev --prefix backend"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "MIT"
 }
