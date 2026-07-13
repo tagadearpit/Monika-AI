@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#281523">
+    <title>Monika AI Admin</title>
+    <link rel="icon" href="/icon-192.png" type="image/png">
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-body">
+    <main class="admin-container">
+        <header class="admin-header">
+            <div>
+                <h1>Monika AI Admin</h1>
+                <p>Operational metrics, reports, and account controls.</p>
+            </div>
+            <a href="/" class="secondary-action-btn admin-home-link"><i class="fas fa-arrow-left"></i> Back to app</a>
+        </header>
+
+        <div id="adminStatus" class="admin-status">Authenticating...</div>
+
+        <section id="adminContent" hidden>
+            <div id="metricGrid" class="metric-grid"></div>
+
+            <div class="admin-card">
+                <h2>User suspension</h2>
+                <div class="admin-form-row">
+                    <input id="adminUserId" type="text" placeholder="User email or phone number">
+                    <input id="adminReason" type="text" placeholder="Reason">
+                    <button id="suspendUserBtn" class="danger-action-btn" type="button">Suspend</button>
+                    <button id="unsuspendUserBtn" class="secondary-action-btn" type="button">Unsuspend</button>
+                </div>
+            </div>
+
+            <div class="admin-grid-two">
+                <section class="admin-card">
+                    <div class="admin-card-header"><h2>Recent reports</h2><button id="refreshReportsBtn" class="toolbar-btn" type="button">Refresh</button></div>
+                    <div id="reportList" class="admin-list"></div>
+                </section>
+                <section class="admin-card">
+                    <div class="admin-card-header"><h2>Security audit</h2><button id="refreshAuditBtn" class="toolbar-btn" type="button">Refresh</button></div>
+                    <div id="auditList" class="admin-list"></div>
+                </section>
+            </div>
+        </section>
+    </main>
+    <script src="/admin.js"></script>
+</body>
+</html>
