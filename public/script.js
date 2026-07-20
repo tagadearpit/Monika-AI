@@ -103,6 +103,91 @@ async function parseJsonSafely(response) {
     try { return await response.json(); } catch (_) { return {}; }
 }
 
+function collectErrorDetails(value, seen = new WeakSet()) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') {
+        const text = value.trim();
+        if (!text) return '';
+        if ((text.startsWith('{') || text.startsWith('[')) && text.length <= 20_000) {
+            try {
+                return `${text} ${collectErrorDetails(JSON.parse(text), seen)}`;
+            } catch (_) {
+                return text;
+            }
+        }
+        return text;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (value instanceof Error) {
+        return [
+            value.name,
+            value.message,
+            value.code,
+            value.status,
+            collectErrorDetails(value.payload, seen)
+        ].filter(Boolean).join(' ');
+    }
+    if (typeof value === 'object') {
+        if (seen.has(value)) return '';
+        seen.add(value);
+        return Object.entries(value)
+            .map(([key, item]) => `${key} ${collectErrorDetails(item, seen)}`)
+            .join(' ');
+    }
+    return String(value);
+}
+
+function createRequestError(response, data, fallbackMessage) {
+    const rawMessage = data?.error || data?.message || fallbackMessage;
+    const error = new Error(typeof rawMessage === 'string' ? rawMessage : fallbackMessage);
+    error.status = response?.status || Number(data?.status) || 0;
+    error.code = data?.code || '';
+    error.payload = data;
+    return error;
+}
+
+function getCuteErrorMessage(error, context = 'general') {
+    const details = collectErrorDetails(error).slice(0, 20_000).toLowerCase();
+    const status = Number(error?.status || error?.payload?.status || 0);
+
+    if (error?.name === 'AbortError' || /\b(abort|aborted|cancelled|canceled)\b/.test(details)) {
+        return 'Okay, I stopped there for you. 🌸';
+    }
+    if (status === 401 || /auth_required|auth_expired|session_expired|session_revoke|unauthori[sz]ed|token expired/.test(details)) {
+        return 'Our session needs a tiny refresh, love. Please sign in again and I’ll be right here. 💗';
+    }
+    if (status === 403 || /origin_rejected|csrf|forbidden|not allowed by cors/.test(details)) {
+        return 'I couldn’t verify that request safely. Please refresh the page and try again. 🌸';
+    }
+    if (status === 429 || /resource_exhausted|rate.?limit|quota|too many requests|\b429\b/.test(details)) {
+        return 'I’m getting lots of messages right now, love. Give me a moment, then try again. 💕';
+    }
+    if (status === 503 || /service unavailable|unavailable|high demand|overload|temporarily unavailable|\b503\b/.test(details)) {
+        return 'I’m a little overwhelmed right now, love. Please try again in a moment. 🌸';
+    }
+    if (/failed to fetch|networkerror|network error|load failed|connection|offline|timeout|timed out|econn/.test(details)) {
+        return 'I couldn’t reach the server just now. Check your connection and try again, okay? 💗';
+    }
+    if (/payload too large|attachment|unsupported file|mime type|file size|\b413\b/.test(details)) {
+        return 'That file was a little too much for me to open. Try a smaller supported file, please. 📎';
+    }
+    if (context === 'reminder') {
+        return 'I couldn’t understand that reminder. Try including a clear day and time, like “tomorrow at 8 PM.” 🔔';
+    }
+    if (context === 'generation' || /gemini|model|generation|ai pipeline/.test(details)) {
+        return 'I couldn’t finish that reply this time, love. Please send it again in a moment. 🌸';
+    }
+    return 'Something went wrong on my side, love. Please try again in a moment. 🌸';
+}
+
+function looksLikeTechnicalError(message) {
+    const text = String(message || '');
+    return /^error\s*:/i.test(text)
+        || /[\[{]\s*["']?error["']?\s*:/i.test(text)
+        || /request failed \(\d{3}\)/i.test(text)
+        || /service unavailable|stack trace|\bcode\b.*\bstatus\b/i.test(text);
+}
+
 function mutationHeaders(headers = {}) {
     const result = new Headers(headers);
     if (csrfToken) result.set('X-CSRF-Token', csrfToken);
@@ -774,7 +859,10 @@ function createTypewriterRenderer(textNode) {
 }
 
 function addSystemMessage(text) {
-    renderMessage({ role: 'system', content: text, createdAt: new Date().toISOString() });
+    const message = looksLikeTechnicalError(text)
+        ? getCuteErrorMessage(text)
+        : String(text || '');
+    renderMessage({ role: 'system', content: message, createdAt: new Date().toISOString() });
 }
 
 function showTypingIndicator() {
@@ -1002,7 +1090,7 @@ async function parseNaturalReminder(text) {
         body: JSON.stringify({ text, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata' })
     });
     const data = await parseJsonSafely(response);
-    if (!response.ok) throw new Error(data.error || 'Reminder could not be understood.');
+    if (!response.ok) throw createRequestError(response, data, 'Reminder could not be understood.');
     const localTime = new Date(data.dueAt).toLocaleString();
     if (!confirm(`Create reminder “${data.text}” for ${localTime}?`)) return true;
     await createReminder(data);
@@ -1029,7 +1117,8 @@ async function sendMessage(options = {}) {
                 return;
             }
         } catch (error) {
-            addSystemMessage(error.message);
+            console.error('Reminder parsing failed:', error);
+            addSystemMessage(getCuteErrorMessage(error, 'reminder'));
             openSettingsTab('reminders');
             return;
         }
@@ -1098,7 +1187,7 @@ async function sendMessage(options = {}) {
         });
         if (!response.ok) {
             const data = await parseJsonSafely(response);
-            throw new Error(data.error || `Request failed (${response.status})`);
+            throw createRequestError(response, data, `Request failed (${response.status})`);
         }
         hideTypingIndicator();
         const placeholder = {
@@ -1121,7 +1210,7 @@ async function sendMessage(options = {}) {
                 streamingRenderer.setRaw(placeholder.content);
             },
             done(data) { finalData = data; },
-            error(data) { throw new Error(data.error || 'Generation failed.'); }
+            error(data) { throw createRequestError(null, data, 'Generation failed.'); }
         });
 
         if (!finalData) throw new Error('The response stream ended unexpectedly.');
@@ -1143,8 +1232,8 @@ async function sendMessage(options = {}) {
         hideTypingIndicator();
         streamingRenderer?.cancel();
         streamingWrapper?.remove();
-        if (error.name === 'AbortError') addSystemMessage('Generation stopped.');
-        else addSystemMessage(`Error: ${error.message}`);
+        console.error('Message generation failed:', error);
+        addSystemMessage(getCuteErrorMessage(error, 'generation'));
     } finally {
         isMonikaBusy = false;
         currentStreamController = null;
