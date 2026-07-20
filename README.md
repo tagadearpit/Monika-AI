@@ -1,8 +1,16 @@
-# 🤖 Monika AI v3.0
+# 🤖 Monika AI v3.0.1
 
 Monika AI is a full-stack AI companion built with **Node.js, Express, MongoDB, Google Gemini, Firebase, Google Sign-In, email OTP, speech, camera support, reminders, and PWA features**.
 
-Version 3.0 keeps the existing Monika visual style while adding conversation management, editable memory, streaming responses, device controls, attachments, personalization, feedback, reminders, usage limits, and an administrator dashboard.
+Version 3.0.1 keeps the existing Monika visual style while adding conversation management, editable memory, streaming responses, device controls, attachments, personalization, feedback, reminders, usage limits, and an administrator dashboard.
+
+
+### v3.0.1 maintenance update
+
+- Smooth typewriter rendering for streamed replies
+- No login-page flash while a secure session is restored
+- Preferences return directly to chat after saving
+- Updated PWA cache for reliable rollout
 
 ---
 

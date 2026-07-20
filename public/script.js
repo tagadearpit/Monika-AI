@@ -19,6 +19,7 @@ let isVisionActive = false;
 let isListening = false;
 let isMonikaBusy = false;
 let currentStreamController = null;
+let currentTypewriterRenderer = null;
 let currentConversationId = null;
 let conversations = [];
 let currentMessages = [];
@@ -32,6 +33,8 @@ const legacyToken = sessionStorage.getItem('monika_token') || localStorage.getIt
 const $ = (id) => document.getElementById(id);
 
 const appShell = $('appShell');
+const bootOverlay = $('bootOverlay');
+const bootStatus = $('bootStatus');
 const loginOverlay = $('login-overlay');
 const chatMessages = $('chatMessages');
 const messageInput = $('messageInput');
@@ -72,6 +75,7 @@ function handleExternalAuthEvent(event) {
     if (event.type === 'logout') {
         authToken = null;
         clearTimeout(refreshTimer);
+        setSessionHint(false);
         location.reload();
     } else if (event.type === 'login' && !authToken) {
         restorePersistentSession({ allowLegacyUpgrade: false }).then((restored) => {
@@ -119,6 +123,7 @@ async function restorePersistentSession({ allowLegacyUpgrade = true } = {}) {
                 authToken = data.token;
                 scheduleAccessTokenRefresh(data.expiresIn);
                 clearLegacyAuthStorage();
+                setSessionHint(true);
                 return true;
             }
             if (allowLegacyUpgrade && legacyToken) {
@@ -135,11 +140,13 @@ async function restorePersistentSession({ allowLegacyUpgrade = true } = {}) {
                     authToken = data.token;
                     scheduleAccessTokenRefresh(data.expiresIn);
                     clearLegacyAuthStorage();
+                    setSessionHint(true);
                     return true;
                 }
             }
             authToken = null;
             clearTimeout(refreshTimer);
+            setSessionHint(false);
             return false;
         } catch (error) {
             console.error('Session restoration failed:', error);
@@ -185,9 +192,33 @@ function setupRecaptcha() {
     recaptchaReady = true;
 }
 
+function beginBoot(status = 'Loading Monika AI…') {
+    document.body.classList.add('auth-pending');
+    if (bootStatus) bootStatus.textContent = status;
+    if (bootOverlay) {
+        bootOverlay.hidden = false;
+        bootOverlay.setAttribute('aria-busy', 'true');
+    }
+}
+
+function finishBoot() {
+    document.body.classList.remove('auth-pending');
+    if (bootOverlay) {
+        bootOverlay.hidden = true;
+        bootOverlay.setAttribute('aria-busy', 'false');
+    }
+}
+
+function setSessionHint(active) {
+    if (active) localStorage.setItem('monika_session_hint', '1');
+    else localStorage.removeItem('monika_session_hint');
+}
+
 function showLogin() {
+    setSessionHint(false);
     appShell.hidden = true;
     loginOverlay.hidden = false;
+    finishBoot();
     $('phone-input-section').hidden = false;
     $('otp-input-section').hidden = true;
     $('sendCodeBtn').disabled = false;
@@ -200,7 +231,8 @@ function showLogin() {
 
 async function enterApplication() {
     loginOverlay.hidden = true;
-    appShell.hidden = false;
+    appShell.hidden = true;
+    beginBoot('Loading your conversations…');
     try {
         await loadSettings();
     } catch (error) {
@@ -226,9 +258,21 @@ async function enterApplication() {
         addSystemMessage('Your session is active, but conversations could not be loaded. Check the network and reload.');
     }
     startReminderPolling();
+    setSessionHint(true);
+    appShell.hidden = false;
+    finishBoot();
+    requestAnimationFrame(() => {
+        scrollChatToBottom();
+        messageInput.focus({ preventScroll: true });
+    });
 }
 
 async function initializeApplication() {
+    if (bootStatus) {
+        bootStatus.textContent = localStorage.getItem('monika_session_hint') === '1'
+            ? 'Restoring your secure session…'
+            : 'Starting Monika AI…';
+    }
     try {
         const configResponse = await fetch(`${baseUrl}/api/config`, { credentials: 'include', cache: 'no-store' });
         if (!configResponse.ok) throw new Error(`Configuration request failed (${configResponse.status})`);
@@ -363,6 +407,7 @@ async function loginSuccess(data, welcomeMessage, name = '') {
     authToken = data.token;
     scheduleAccessTokenRefresh(data.expiresIn);
     clearLegacyAuthStorage();
+    setSessionHint(true);
     await enterApplication();
     addSystemMessage(welcomeMessage);
     broadcastAuthEvent('login');
@@ -383,6 +428,7 @@ $('logoutBtn').onclick = async () => {
         window.google?.accounts?.id?.disableAutoSelect();
         authToken = null;
         clearTimeout(refreshTimer);
+        setSessionHint(false);
         broadcastAuthEvent('logout');
         location.reload();
     } catch (error) {
@@ -617,6 +663,114 @@ function messageAction(icon, title, handler) {
 
 function cleanMoodTags(value) {
     return String(value || '').replace(/^\[(NORMAL|HAPPY|LOVING|ANGRY|SAD)\]\s*/i, '').trim();
+}
+
+function createTypewriterRenderer(textNode) {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const enabled = userSettings.typingAnimation !== false && !reduceMotion;
+    let targetText = '';
+    let renderedText = '';
+    let frameId = null;
+    let lastFrameAt = 0;
+    let idleResolvers = [];
+
+    const settle = () => {
+        textNode.classList.remove('typewriter-active');
+        const resolvers = idleResolvers;
+        idleResolvers = [];
+        for (const resolve of resolvers) resolve();
+    };
+
+    const syncText = () => {
+        textNode.textContent = renderedText;
+        scrollChatToBottom();
+    };
+
+    const commonPrefixLength = (left, right) => {
+        const leftChars = Array.from(left);
+        const rightChars = Array.from(right);
+        const limit = Math.min(leftChars.length, rightChars.length);
+        let index = 0;
+        while (index < limit && leftChars[index] === rightChars[index]) index += 1;
+        return index;
+    };
+
+    const renderFrame = (timestamp) => {
+        frameId = null;
+        if (!enabled) {
+            renderedText = targetText;
+            syncText();
+            settle();
+            return;
+        }
+
+        if (timestamp - lastFrameAt < 14) {
+            frameId = requestAnimationFrame(renderFrame);
+            return;
+        }
+        lastFrameAt = timestamp;
+
+        if (!targetText.startsWith(renderedText)) {
+            const commonLength = commonPrefixLength(renderedText, targetText);
+            renderedText = Array.from(targetText).slice(0, commonLength).join('');
+        }
+
+        const targetChars = Array.from(targetText);
+        const renderedLength = Array.from(renderedText).length;
+        const backlog = targetChars.length - renderedLength;
+        if (backlog <= 0) {
+            syncText();
+            settle();
+            return;
+        }
+
+        const charactersPerFrame = backlog > 180 ? 8 : backlog > 90 ? 5 : backlog > 35 ? 3 : 1;
+        renderedText = targetChars.slice(0, renderedLength + charactersPerFrame).join('');
+        textNode.classList.add('typewriter-active');
+        syncText();
+        frameId = requestAnimationFrame(renderFrame);
+    };
+
+    const schedule = () => {
+        if (!enabled) {
+            renderedText = targetText;
+            syncText();
+            settle();
+            return;
+        }
+        textNode.classList.add('typewriter-active');
+        if (frameId === null) frameId = requestAnimationFrame(renderFrame);
+    };
+
+    return {
+        setRaw(rawText) {
+            targetText = cleanMoodTags(rawText);
+            schedule();
+        },
+        finish(rawText) {
+            targetText = cleanMoodTags(rawText);
+            schedule();
+            if (renderedText === targetText && frameId === null) {
+                settle();
+                return Promise.resolve();
+            }
+            return new Promise((resolve) => idleResolvers.push(resolve));
+        },
+        skip() {
+            if (frameId !== null) window.cancelAnimationFrame(frameId);
+            frameId = null;
+            renderedText = targetText;
+            syncText();
+            settle();
+        },
+        cancel() {
+            if (frameId !== null) window.cancelAnimationFrame(frameId);
+            frameId = null;
+            idleResolvers.forEach((resolve) => resolve());
+            idleResolvers = [];
+            textNode.classList.remove('typewriter-active');
+        }
+    };
 }
 
 function addSystemMessage(text) {
@@ -922,6 +1076,9 @@ async function sendMessage(options = {}) {
     renderAttachmentPreview();
     showTypingIndicator();
 
+    let streamingWrapper = null;
+    let streamingRenderer = null;
+
     try {
         const response = await apiFetch(`${baseUrl}/api/ask/stream`, {
             method: 'POST',
@@ -948,8 +1105,11 @@ async function sendMessage(options = {}) {
             _id: `temp-model-${Date.now()}`,
             role: 'model', content: '', createdAt: new Date().toISOString()
         };
-        const wrapper = renderMessage(placeholder, { streaming: true });
-        const textNode = wrapper.querySelector('.chat-text');
+        streamingWrapper = renderMessage(placeholder, { streaming: true });
+        const textNode = streamingWrapper.querySelector('.chat-text');
+        streamingRenderer = createTypewriterRenderer(textNode);
+        currentTypewriterRenderer = streamingRenderer;
+        textNode.classList.add('typewriter-active');
         let finalData = null;
         await consumeSse(response, {
             meta(data) {
@@ -957,9 +1117,8 @@ async function sendMessage(options = {}) {
             },
             delta(data) {
                 placeholder.content += data.text || '';
-                textNode.textContent = cleanMoodTags(placeholder.content);
-                wrapper.dataset.content = placeholder.content;
-                scrollChatToBottom();
+                streamingWrapper.dataset.content = placeholder.content;
+                streamingRenderer.setRaw(placeholder.content);
             },
             done(data) { finalData = data; },
             error(data) { throw new Error(data.error || 'Generation failed.'); }
@@ -968,23 +1127,28 @@ async function sendMessage(options = {}) {
         if (!finalData) throw new Error('The response stream ended unexpectedly.');
         placeholder._id = finalData.messageId;
         placeholder.content = finalData.reply || placeholder.content;
-        wrapper.dataset.messageId = placeholder._id;
-        wrapper.dataset.content = placeholder.content;
+        await streamingRenderer.finish(placeholder.content);
+        textNode.textContent = cleanMoodTags(placeholder.content);
+        streamingWrapper.dataset.messageId = placeholder._id;
+        streamingWrapper.dataset.content = placeholder.content;
         const meta = document.createElement('div');
         meta.className = 'message-meta';
         meta.textContent = new Date().toLocaleString();
-        wrapper.append(meta, buildMessageActions(placeholder));
+        streamingWrapper.append(meta, buildMessageActions(placeholder));
         currentMessages.push(placeholder);
         if (userSettings.autoRead || userSettings.handsFree) monikaSpeak(placeholder.content);
         else playResponseChime();
         await refreshConversationMetadata(finalData.conversationId);
     } catch (error) {
         hideTypingIndicator();
+        streamingRenderer?.cancel();
+        streamingWrapper?.remove();
         if (error.name === 'AbortError') addSystemMessage('Generation stopped.');
         else addSystemMessage(`Error: ${error.message}`);
     } finally {
         isMonikaBusy = false;
         currentStreamController = null;
+        currentTypewriterRenderer = null;
         setBusyUi(false);
         messageInput.focus();
     }
@@ -1017,6 +1181,7 @@ async function consumeSse(response, handlers) {
 
 function stopGeneration() {
     currentStreamController?.abort();
+    currentTypewriterRenderer?.skip();
 }
 
 function setBusyUi(busy) {
@@ -1259,6 +1424,12 @@ $('saveGeneralSettingsBtn').onclick = async () => {
             typingAnimation: $('settingTypingToggle').checked,
             soundEffects: $('settingSoundEffects').checked,
             handsFree: $('settingHandsFree').checked
+        });
+        settingsModal.hidden = true;
+        closeSidebar();
+        requestAnimationFrame(() => {
+            scrollChatToBottom();
+            messageInput.focus({ preventScroll: true });
         });
     } catch (error) { alert(error.message); }
 };

@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'monika-shell-v3-20260713';
+const CACHE_NAME = 'monika-shell-v3.0.1-20260719';
 const APP_SHELL = [
     '/',
     '/index.html',

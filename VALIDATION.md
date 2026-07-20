@@ -1,4 +1,4 @@
-# Validation Report — Monika AI v3.0
+# Validation Report — Monika AI v3.0.1
 
 Validation performed before packaging:
 
@@ -6,7 +6,7 @@ Validation performed before packaging:
 
 - JavaScript syntax checks for backend, frontend, administrator UI, and service worker
 - ESLint checks with no reported errors
-- Automated test runner: 12 passed, 1 skipped
+- Automated test runner: 15 passed, 1 skipped
 - Health endpoint test
 - CSRF issuance and rejection tests
 - CORS rejection test
@@ -16,11 +16,14 @@ Validation performed before packaging:
 - Request schema validation tests
 - Async Express error propagation test
 - HTML duplicate-ID and JavaScript element-reference checks
+- Typewriter renderer behavior test, including mood-tag stripping and progressive output
+- Session-restoration boot-screen and preferences-return regression checks
 - Production dependency audit: 0 known vulnerabilities
 - Clean production `npm ci --omit=dev` from the public npm registry
 - Production dependency import test
 - JSON and YAML configuration parsing
 - Secret-pattern scan of packaged source files
+- Dependency-usage and source-file audit; no safely removable runtime or deployment files were found
 
 ## Included but not executed in this environment
 

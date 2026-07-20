@@ -15,7 +15,7 @@ const { app } = require('../server');
 test('health endpoint returns versioned status', async () => {
     const response = await request(app).get('/api/health').expect(200);
     assert.equal(response.body.status, 'ok');
-    assert.equal(response.body.version, '3.0.0');
+    assert.equal(response.body.version, '3.0.1');
 });
 
 test('config endpoint issues a CSRF token', async () => {

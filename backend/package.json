@@ -1,6 +1,6 @@
 {
   "name": "monika-ai-backend",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Production AI companion with persistent authentication, multi-conversation chat, editable memory, streaming, attachments, reminders, session management, and admin controls",
   "main": "server.js",
   "scripts": {

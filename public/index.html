@@ -19,8 +19,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 </head>
-<body>
-    <div id="login-overlay" class="login-overlay">
+<body class="auth-pending">
+    <div id="bootOverlay" class="boot-overlay" role="status" aria-live="polite" aria-busy="true">
+        <div class="boot-card">
+            <div class="boot-mark" aria-hidden="true">🌸</div>
+            <div class="boot-title title-gradient">Monika AI</div>
+            <div id="bootStatus" class="boot-status">Restoring your secure session…</div>
+            <div class="boot-progress" aria-hidden="true"><span></span></div>
+        </div>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" hidden>
         <div class="login-box">
             <h2 class="title-gradient login-title">Monika AI</h2>
             <p class="muted-copy">Choose how you want to connect.</p>

@@ -19,6 +19,82 @@ body {
     justify-content: center;
 }
 
+
+body.auth-pending {
+    overflow: hidden;
+}
+
+.boot-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(255, 20, 147, 0.14), transparent 34%),
+        linear-gradient(-45deg, #1c0e18, #362231, #120914, #281523);
+    background-size: 100% 100%, 400% 400%;
+    animation: gradientBG 15s ease infinite;
+}
+
+.boot-card {
+    width: min(88vw, 360px);
+    padding: 30px 28px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.045);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.boot-mark {
+    font-size: 2.1rem;
+    margin-bottom: 4px;
+    filter: drop-shadow(0 0 15px rgba(255, 107, 157, 0.65));
+    animation: bootPulse 1.6s ease-in-out infinite;
+}
+
+.boot-title {
+    font-size: 2.65rem !important;
+    line-height: 1.1;
+}
+
+.boot-status {
+    margin-top: 10px;
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 0.82rem;
+}
+
+.boot-progress {
+    height: 3px;
+    margin-top: 18px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.boot-progress span {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #ff6b9d, #ff1493, #ffd3e2);
+    animation: bootProgress 1.15s ease-in-out infinite;
+}
+
+@keyframes bootPulse {
+    0%, 100% { transform: scale(0.96); opacity: 0.75; }
+    50% { transform: scale(1.06); opacity: 1; }
+}
+
+@keyframes bootProgress {
+    0% { transform: translateX(-115%); }
+    100% { transform: translateX(340%); }
+}
+
 /* =========================================
    🔥 WIDESCREEN HEADER & CONTAINER
    ========================================= */
@@ -642,6 +718,24 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .message.user { align-items: flex-end; }
 .message.monika, .message.system { align-items: flex-start; }
 .message-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.chat-text.typewriter-active::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    margin-left: 3px;
+    vertical-align: -0.16em;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0.85;
+    animation: typewriterCaret 0.72s steps(1, end) infinite;
+}
+
+@keyframes typewriterCaret {
+    0%, 45% { opacity: 0.85; }
+    46%, 100% { opacity: 0; }
+}
 .message-meta { margin: 4px 8px 0; color: rgba(255,255,255,.3); font-size: .64rem; }
 .message-actions { display: flex; gap: 3px; margin: 5px 7px 0; opacity: .25; transition: .16s; }
 .message:hover .message-actions, .message:focus-within .message-actions { opacity: 1; }
