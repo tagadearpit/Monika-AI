@@ -1,6 +1,6 @@
 {
   "name": "monika-ai",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "Production AI companion with secure persistent sessions, multi-conversation chat, editable memory, streaming, reminders, attachments, and administration controls",
   "scripts": {

@@ -1,5 +1,18 @@
 # Changelog
 
+
+## 3.0.1 - 2026-07-19
+
+### Fixed
+- Added a real client-side typewriter renderer for streamed responses, including a visible caret and an immediate fallback when animations are disabled.
+- Prevented blank temporary Monika bubbles when a stream is stopped or fails.
+- Closed the settings modal and returned keyboard focus to chat after saving preferences.
+- Replaced the initial login-page flash with a secure session-restoration screen while the HttpOnly refresh cookie is checked.
+- Bumped the PWA cache version so browsers receive the updated frontend immediately.
+
+### Security
+- Persistent authentication remains in a revocable HttpOnly cookie; no access token or raw session credential is stored in localStorage.
+
 ## 3.0.0 - 2026-07-13
 
 ### Conversations

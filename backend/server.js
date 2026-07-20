@@ -1150,7 +1150,7 @@ app.get('/api/config', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptimeSeconds: Math.floor(process.uptime()), version: '3.0.0' });
+    res.json({ status: 'ok', uptimeSeconds: Math.floor(process.uptime()), version: '3.0.1' });
 });
 
 app.get('/api/ready', (req, res) => {
