@@ -100,6 +100,15 @@ test('v3.0.1 frontend contains typewriter streaming and closes preferences after
     assert.match(css, /\.chat-text\.typewriter-active::after/);
 });
 
+test('settings show the authenticated account as read-only server data', () => {
+    const publicDir = path.resolve(__dirname, '../../public');
+    const html = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
+    const script = fs.readFileSync(path.join(publicDir, 'script.js'), 'utf8');
+    assert.match(html, /id="settingAccountIdentifier"[^>]*readonly/);
+    assert.match(script, /userAccount = data\.account/);
+    assert.match(script, /userAccount\?\.identifier \|\| 'Unavailable'/);
+});
+
 test('typewriter renderer progressively reveals streamed text and strips mood tags', async () => {
     const vm = require('node:vm');
     const publicDir = path.resolve(__dirname, '../../public');
@@ -174,4 +183,3 @@ test('typewriter renderer progressively reveals streamed text and strips mood ta
     await completion;
     assert.equal(textNode.textContent, 'Hello, Arpit! Welcome back.');
 });
-

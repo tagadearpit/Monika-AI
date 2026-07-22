@@ -25,6 +25,7 @@ let conversations = [];
 let currentMessages = [];
 let pendingAttachments = [];
 let userSettings = {};
+let userAccount = null;
 let searchTimer = null;
 let reminderPollTimer = null;
 let lastSpeechTime = 0;
@@ -527,6 +528,9 @@ async function loadSettings() {
     if (!response.ok) throw new Error('Unable to load settings.');
     const data = await response.json();
     userSettings = data.settings || {};
+    userAccount = data.account && typeof data.account.identifier === 'string'
+        ? data.account
+        : null;
     userSettings.isAdmin = Boolean(data.isAdmin);
     $('openAdminBtn').hidden = !userSettings.isAdmin;
 }
@@ -534,6 +538,11 @@ async function loadSettings() {
 function applySettingsToUi() {
     applyTheme(userSettings.theme || localStorage.getItem('monika_theme') || '/normal', false);
     applyTextSize(userSettings.textSize || 'medium');
+    const accountType = userAccount?.type === 'email'
+        ? 'Email address'
+        : userAccount?.type === 'phone' ? 'Phone number' : 'Signed-in account';
+    $('settingAccountLabel').textContent = accountType;
+    $('settingAccountIdentifier').value = userAccount?.identifier || 'Unavailable';
     $('settingUserName').value = userSettings.preferredName || '';
     $('settingPersonaSelect').value = userSettings.persona || 'tsundere';
     $('settingResponseLength').value = userSettings.responseLength || 'short';

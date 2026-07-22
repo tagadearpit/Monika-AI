@@ -84,6 +84,7 @@ test.after(async () => {
 test('settings can be read and updated', async () => {
     const initial = await agent.get('/api/settings').set(authHeaders()).expect(200);
     assert.equal(initial.body.isAdmin, true);
+    assert.deepEqual(initial.body.account, { type: 'email', identifier: userId });
 
     const updated = await agent
         .patch('/api/settings')

@@ -40,6 +40,45 @@ test('CORS rejects unknown origins', async () => {
     assert.equal(response.body.code, 'ORIGIN_REJECTED');
 });
 
+test('settings identify the authenticated email or phone account', async () => {
+    const jwt = require('jsonwebtoken');
+    const mongoose = require('mongoose');
+    const { Session, User } = require('../models');
+    const sessionId = new mongoose.Types.ObjectId();
+    const originals = {
+        sessionFindOne: Session.collection.findOne,
+        userFindOne: User.findOne,
+        userFindOneAndUpdate: User.findOneAndUpdate
+    };
+
+    Session.collection.findOne = async () => ({ _id: sessionId });
+    User.findOne = () => ({ select: () => ({ lean: async () => ({ suspendedAt: null }) }) });
+    User.findOneAndUpdate = () => ({ lean: async () => ({ settings: {} }) });
+
+    try {
+        for (const [identifier, type] of [
+            ['user@example.com', 'email'],
+            ['+919876543210', 'phone']
+        ]) {
+            const token = jwt.sign(
+                { sub: identifier, sid: String(sessionId), type: 'access' },
+                process.env.JWT_SECRET,
+                { algorithm: 'HS256', expiresIn: 900, issuer: 'monika-ai', audience: 'monika-web' }
+            );
+            const response = await request(app)
+                .get('/api/settings')
+                .set('Authorization', `Bearer ${token}`)
+                .expect(200);
+            assert.deepEqual(response.body.account, { type, identifier });
+            assert.match(response.headers['cache-control'], /no-store/);
+        }
+    } finally {
+        Session.collection.findOne = originals.sessionFindOne;
+        User.findOne = originals.userFindOne;
+        User.findOneAndUpdate = originals.userFindOneAndUpdate;
+    }
+});
+
 test('attachment content must match the declared MIME type', async () => {
     const jwt = require('jsonwebtoken');
     const mongoose = require('mongoose');

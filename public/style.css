@@ -548,6 +548,9 @@ body.theme-yandere .send-btn, body.theme-yandere .avatar-img { border-color: #ff
 .settings-body { display: flex; flex-direction: column; gap: 20px; }
 .setting-group { display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .setting-group label { font-size: 0.9rem; font-weight: 500; color: #ff99bb; display: flex; align-items: center; gap: 8px; margin: 0; }
+.setting-group input[readonly] { cursor: default; color: rgba(255,255,255,.82); background: rgba(255,255,255,.035); }
+.setting-hint { color: rgba(255,255,255,.5); font-size: .72rem; line-height: 1.4; }
+.account-setting-group { grid-column: 1 / -1; }
 
 .setting-group input[type="text"], .setting-group select {
     width: 100%; padding: 10px 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
