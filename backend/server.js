@@ -259,6 +259,12 @@ const emailLimiter = createLimiter('rate_limit.otp', {
 });
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRegex = /^\+[1-9]\d{7,14}$/;
+
+const accountDetails = (identifier) => ({
+    type: emailRegex.test(identifier) ? 'email' : phoneRegex.test(identifier) ? 'phone' : 'account',
+    identifier
+});
 
 const transporter = nodemailer.createTransport({
     pool: true,
@@ -1373,7 +1379,12 @@ app.post('/api/auth/welcome', verifyTrustedOrigin, verifyCsrf, authenticateToken
 
 app.get('/api/settings', authenticateToken, async (req, res) => {
     const settings = await getUserSettings(req.user.sessionId);
-    return res.json({ settings, isAdmin: req.user.isAdmin });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+        settings,
+        account: accountDetails(req.user.sessionId),
+        isAdmin: req.user.isAdmin
+    });
 });
 
 app.patch('/api/settings', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.settingsUpdate), async (req, res) => {
