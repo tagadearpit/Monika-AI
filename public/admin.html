@@ -4,48 +4,745 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#281523">
+    <meta name="color-scheme" content="dark">
     <title>Monika AI Admin</title>
     <link rel="icon" href="/icon-192.png" type="image/png">
     <link rel="stylesheet" href="/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --admin-bg: radial-gradient(circle at top, rgba(255, 31, 133, 0.18), transparent 32%),
+                        radial-gradient(circle at bottom right, rgba(126, 87, 194, 0.18), transparent 28%),
+                        linear-gradient(160deg, #120915 0%, #1a0f1e 45%, #281523 100%);
+            --admin-card: rgba(255, 255, 255, 0.06);
+            --admin-card-2: rgba(255, 255, 255, 0.08);
+            --admin-border: rgba(255, 255, 255, 0.10);
+            --admin-text: rgba(255, 255, 255, 0.94);
+            --admin-muted: rgba(255, 255, 255, 0.68);
+            --admin-accent: #ff4fa3;
+            --admin-accent-2: #8d63ff;
+            --admin-success: #49d17c;
+            --admin-warning: #ffcc66;
+            --admin-danger: #ff6b7a;
+            --admin-info: #67c7ff;
+            --admin-radius: 24px;
+            --admin-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        }
+
+        body.admin-body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: var(--admin-bg);
+            color: var(--admin-text);
+            overflow-x: hidden;
+        }
+
+        .admin-shell {
+            position: relative;
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 24px 18px 36px;
+        }
+
+        .admin-shell::before,
+        .admin-shell::after {
+            content: "";
+            position: fixed;
+            inset: auto;
+            width: 280px;
+            height: 280px;
+            filter: blur(40px);
+            opacity: 0.18;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .admin-shell::before {
+            top: -80px;
+            right: -40px;
+            background: var(--admin-accent);
+        }
+
+        .admin-shell::after {
+            bottom: -120px;
+            left: -120px;
+            background: var(--admin-accent-2);
+        }
+
+        .admin-content {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            gap: 22px;
+        }
+
+        .admin-hero {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 18px;
+            align-items: center;
+            padding: 26px 28px;
+            border: 1px solid var(--admin-border);
+            border-radius: 30px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+            backdrop-filter: blur(18px);
+            box-shadow: var(--admin-shadow);
+        }
+
+        .brand-block {
+            display: grid;
+            gap: 10px;
+        }
+
+        .brand-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .brand-title {
+            margin: 0;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1;
+            letter-spacing: -0.03em;
+            background: linear-gradient(90deg, #ffffff, #ff99ce 36%, #b38cff 75%, #ffffff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .brand-subtitle {
+            margin: 0;
+            color: var(--admin-muted);
+            font-size: 0.98rem;
+        }
+
+        .hero-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border: 1px solid var(--admin-border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--admin-text);
+            font-size: 0.86rem;
+            white-space: nowrap;
+        }
+
+        .chip i {
+            color: var(--admin-accent);
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .hero-actions .secondary-action-btn,
+        .hero-actions .toolbar-btn,
+        .hero-actions .danger-action-btn {
+            min-height: 44px;
+        }
+
+        .glass-card {
+            padding: 22px;
+            border-radius: var(--admin-radius);
+            border: 1px solid var(--admin-border);
+            background: var(--admin-card);
+            backdrop-filter: blur(18px);
+            box-shadow: var(--admin-shadow);
+        }
+
+        .status-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1px solid var(--admin-border);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .status-line strong {
+            font-size: 0.95rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.86rem;
+            border: 1px solid var(--admin-border);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--admin-warning);
+            box-shadow: 0 0 0 6px rgba(255, 204, 102, 0.12);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .kpi-card {
+            padding: 18px;
+            border-radius: 22px;
+            border: 1px solid var(--admin-border);
+            background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+        }
+
+        .kpi-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .kpi-label {
+            margin: 0;
+            color: var(--admin-muted);
+            font-size: 0.86rem;
+            font-weight: 500;
+        }
+
+        .kpi-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, rgba(255,79,163,0.22), rgba(141,99,255,0.18));
+            color: var(--admin-accent);
+        }
+
+        .kpi-value {
+            margin: 0;
+            font-size: 1.9rem;
+            line-height: 1.1;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .kpi-note {
+            margin: 8px 0 0;
+            color: var(--admin-muted);
+            font-size: 0.88rem;
+        }
+
+        .admin-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .admin-toolbar h2,
+        .admin-card h2,
+        .admin-card h3 {
+            margin: 0;
+        }
+
+        .toolbar-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .toolbar-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--admin-border);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--admin-text);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .toolbar-btn:hover,
+        .secondary-action-btn:hover,
+        .danger-action-btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+        }
+
+        .admin-grid-two {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 18px;
+        }
+
+        .admin-grid-three {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .admin-card {
+            padding: 22px;
+            border-radius: var(--admin-radius);
+            border: 1px solid var(--admin-border);
+            background: var(--admin-card-2);
+            backdrop-filter: blur(18px);
+            box-shadow: var(--admin-shadow);
+        }
+
+        .admin-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .admin-card-header p {
+            margin: 6px 0 0;
+            color: var(--admin-muted);
+            font-size: 0.9rem;
+        }
+
+        .admin-form-row {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr auto auto;
+            gap: 10px;
+        }
+
+        .admin-form-row input,
+        .admin-form-row select,
+        .admin-search input,
+        .admin-card textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(0, 0, 0, 0.18);
+            color: var(--admin-text);
+            outline: none;
+            font-family: inherit;
+        }
+
+        .admin-form-row input::placeholder,
+        .admin-search input::placeholder,
+        .admin-card textarea::placeholder {
+            color: rgba(255, 255, 255, 0.42);
+        }
+
+        .admin-form-row input:focus,
+        .admin-search input:focus,
+        .admin-card textarea:focus {
+            border-color: rgba(255, 79, 163, 0.55);
+            box-shadow: 0 0 0 4px rgba(255, 79, 163, 0.12);
+        }
+
+        .secondary-action-btn,
+        .danger-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--admin-border);
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+            cursor: pointer;
+        }
+
+        .secondary-action-btn {
+            color: var(--admin-text);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .danger-action-btn {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(255, 107, 122, 0.96), rgba(255, 79, 163, 0.92));
+            border-color: transparent;
+        }
+
+        .admin-list,
+        .timeline-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .list-item {
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .list-item strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .list-item small,
+        .muted {
+            color: var(--admin-muted);
+        }
+
+        .section-stack {
+            display: grid;
+            gap: 18px;
+        }
+
+        .soft-panel {
+            padding: 18px;
+            border-radius: 20px;
+            border: 1px dashed rgba(255, 255, 255, 0.16);
+            background: rgba(0, 0, 0, 0.12);
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 720px;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.92rem;
+        }
+
+        .admin-table th {
+            color: var(--admin-muted);
+            background: rgba(255, 255, 255, 0.04);
+            font-weight: 600;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .pill.success { color: var(--admin-success); background: rgba(73, 209, 124, 0.10); }
+        .pill.warning { color: var(--admin-warning); background: rgba(255, 204, 102, 0.10); }
+        .pill.danger { color: var(--admin-danger); background: rgba(255, 107, 122, 0.10); }
+        .pill.info { color: var(--admin-info); background: rgba(103, 199, 255, 0.10); }
+
+        .admin-footer {
+            padding: 4px 2px 0;
+            color: var(--admin-muted);
+            font-size: 0.86rem;
+            text-align: center;
+        }
+
+        #adminStatus {
+            margin: 0 0 18px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(18px);
+            box-shadow: var(--admin-shadow);
+        }
+
+        #adminContent[hidden] {
+            display: none;
+        }
+
+        @media (max-width: 1120px) {
+            .kpi-grid,
+            .admin-grid-three,
+            .admin-grid-two {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .admin-form-row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .admin-hero {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-actions {
+                justify-content: flex-start;
+            }
+
+            .kpi-grid,
+            .admin-grid-three,
+            .admin-grid-two,
+            .admin-form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-shell {
+                padding: 16px 12px 28px;
+            }
+        }
+    </style>
 </head>
 <body class="admin-body">
-    <main class="admin-container">
-        <header class="admin-header">
-            <div>
-                <h1>Monika AI Admin</h1>
-                <p>Operational metrics, reports, and account controls.</p>
-            </div>
-            <a href="/" class="secondary-action-btn admin-home-link"><i class="fas fa-arrow-left"></i> Back to app</a>
-        </header>
-
-        <div id="adminStatus" class="admin-status">Authenticating...</div>
-
-        <section id="adminContent" hidden>
-            <div id="metricGrid" class="metric-grid"></div>
-
-            <div class="admin-card">
-                <h2>User suspension</h2>
-                <div class="admin-form-row">
-                    <input id="adminUserId" type="text" placeholder="User email or phone number">
-                    <input id="adminReason" type="text" placeholder="Reason">
-                    <button id="suspendUserBtn" class="danger-action-btn" type="button">Suspend</button>
-                    <button id="unsuspendUserBtn" class="secondary-action-btn" type="button">Unsuspend</button>
+    <main class="admin-shell">
+        <div class="admin-content">
+            <section class="admin-hero">
+                <div class="brand-block">
+                    <div class="brand-row">
+                        <h1 class="brand-title">Monika AI Admin</h1>
+                        <span class="pill info"><i class="fas fa-shield-halved"></i> Protected Console</span>
+                        <span class="pill success"><i class="fas fa-wifi"></i> Live</span>
+                    </div>
+                    <p class="brand-subtitle">
+                        Operational metrics, reports, session controls, moderation tools, and release health in one place.
+                    </p>
+                    <div class="hero-chips">
+                        <span class="chip"><i class="fas fa-robot"></i> Gemini-backed AI</span>
+                        <span class="chip"><i class="fas fa-database"></i> MongoDB sessions</span>
+                        <span class="chip"><i class="fas fa-lock"></i> Secure auth</span>
+                        <span class="chip"><i class="fas fa-chart-line"></i> Production analytics</span>
+                    </div>
                 </div>
-            </div>
 
-            <div class="admin-grid-two">
+                <div class="hero-actions">
+                    <button id="refreshDashboardBtn" class="toolbar-btn" type="button"><i class="fas fa-rotate"></i> Refresh</button>
+                    <button id="exportAdminSnapshotBtn" class="toolbar-btn" type="button"><i class="fas fa-file-export"></i> Snapshot</button>
+                    <a href="/" class="secondary-action-btn admin-home-link"><i class="fas fa-arrow-left"></i> Back to app</a>
+                </div>
+            </section>
+
+            <div id="adminStatus" class="admin-status">Authenticating...</div>
+
+            <section id="adminContent" hidden class="section-stack">
+                <div class="status-line">
+                    <div>
+                        <strong>Admin session</strong>
+                        <div class="muted">Protected access, audit logging, and moderation controls enabled.</div>
+                    </div>
+                    <div class="status-badge"><span class="status-dot"></span> Checking live permissions</div>
+                </div>
+
+                <div class="kpi-grid" id="metricGrid"></div>
+
                 <section class="admin-card">
-                    <div class="admin-card-header"><h2>Recent reports</h2><button id="refreshReportsBtn" class="toolbar-btn" type="button">Refresh</button></div>
-                    <div id="reportList" class="admin-list"></div>
+                    <div class="admin-toolbar">
+                        <div>
+                            <h2>Quick actions</h2>
+                            <p>High-frequency operational tasks for moderation and support.</p>
+                        </div>
+                        <div class="toolbar-group">
+                            <button id="refreshReportsBtn" class="toolbar-btn" type="button"><i class="fas fa-flag"></i> Refresh reports</button>
+                            <button id="refreshAuditBtn" class="toolbar-btn" type="button"><i class="fas fa-shield"></i> Refresh audit</button>
+                            <button id="refreshSessionsBtn" class="toolbar-btn" type="button"><i class="fas fa-user-shield"></i> Refresh sessions</button>
+                        </div>
+                    </div>
                 </section>
-                <section class="admin-card">
-                    <div class="admin-card-header"><h2>Security audit</h2><button id="refreshAuditBtn" class="toolbar-btn" type="button">Refresh</button></div>
-                    <div id="auditList" class="admin-list"></div>
-                </section>
-            </div>
-        </section>
+
+                <div class="admin-grid-two">
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>User suspension</h2>
+                                <p>Suspend, unsuspend, or investigate a specific account.</p>
+                            </div>
+                        </div>
+                        <div class="admin-form-row">
+                            <input id="adminUserId" type="text" placeholder="User email or phone number">
+                            <input id="adminReason" type="text" placeholder="Reason">
+                            <button id="suspendUserBtn" class="danger-action-btn" type="button"><i class="fas fa-ban"></i> Suspend</button>
+                            <button id="unsuspendUserBtn" class="secondary-action-btn" type="button"><i class="fas fa-circle-check"></i> Unsuspend</button>
+                        </div>
+                    </section>
+
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>System health</h2>
+                                <p>Quick status of production subsystems.</p>
+                            </div>
+                            <span class="pill success"><i class="fas fa-heart-pulse"></i> Healthy</span>
+                        </div>
+                        <div class="timeline-list">
+                            <div class="list-item">
+                                <strong>Authentication</strong>
+                                <small>Persistent sessions and refresh cookies active.</small>
+                            </div>
+                            <div class="list-item">
+                                <strong>Database</strong>
+                                <small>MongoDB connectivity and indexes monitored.</small>
+                            </div>
+                            <div class="list-item">
+                                <strong>AI pipeline</strong>
+                                <small>Streaming responses and fallback keys supported.</small>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="admin-grid-three">
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Conversation activity</h2>
+                                <p>Recent creation, rename, pin, delete, and export usage.</p>
+                            </div>
+                        </div>
+                        <div class="soft-panel">
+                            <div class="kpi-top">
+                                <p class="kpi-label">This week</p>
+                                <span class="pill info">Live</span>
+                            </div>
+                            <h3 class="kpi-value">—</h3>
+                            <p class="kpi-note">Connect this panel to your analytics feed in admin.js.</p>
+                        </div>
+                    </section>
+
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Security overview</h2>
+                                <p>Auth failures, rate limits, and audit events.</p>
+                            </div>
+                        </div>
+                        <div class="timeline-list" id="auditList"></div>
+                    </section>
+
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Recent reports</h2>
+                                <p>Moderation queue and user feedback.</p>
+                            </div>
+                        </div>
+                        <div class="timeline-list" id="reportList"></div>
+                    </section>
+                </div>
+
+                <div class="admin-grid-two">
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Active sessions</h2>
+                                <p>Visible device list, last active time, and remote logout control.</p>
+                            </div>
+                            <span class="pill warning"><i class="fas fa-laptop"></i> Session control</span>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="admin-table" aria-label="Active sessions">
+                                <thead>
+                                    <tr>
+                                        <th>Device</th>
+                                        <th>Last Active</th>
+                                        <th>Created</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sessionTableBody">
+                                    <tr>
+                                        <td colspan="5" class="muted">Session data loads here from admin.js.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Release notes</h2>
+                                <p>Version summary and deployment reminders.</p>
+                            </div>
+                        </div>
+                        <div class="timeline-list">
+                            <div class="list-item">
+                                <strong>v3.0.1 maintenance</strong>
+                                <small>Typewriter animation, session restoration, and friendlier error states.</small>
+                            </div>
+                            <div class="list-item">
+                                <strong>Safety reminder</strong>
+                                <small>Never expose secrets, keys, or admin tokens in logs or UI output.</small>
+                            </div>
+                            <div class="list-item">
+                                <strong>Operational note</strong>
+                                <small>Keep the release branch separate until the next merge window.</small>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="admin-grid-two">
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Search users and events</h2>
+                                <p>Fast lookup for support, moderation, and debugging.</p>
+                            </div>
+                        </div>
+                        <div class="admin-form-row" style="grid-template-columns: 1fr auto auto;">
+                            <input id="adminSearchQuery" type="search" placeholder="Search by email, phone, request ID, or keyword">
+                            <button id="adminSearchBtn" class="toolbar-btn" type="button"><i class="fas fa-search"></i> Search</button>
+                            <button id="adminClearSearchBtn" class="secondary-action-btn" type="button"><i class="fas fa-xmark"></i> Clear</button>
+                        </div>
+                    </section>
+
+                    <section class="admin-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2>Data export</h2>
+                                <p>Export operational summaries for review or archival.</p>
+                            </div>
+                        </div>
+                        <div class="toolbar-group">
+                            <button id="exportReportsBtn" class="toolbar-btn" type="button"><i class="fas fa-file-lines"></i> Reports</button>
+                            <button id="exportAuditBtn" class="toolbar-btn" type="button"><i class="fas fa-shield-halved"></i> Audit</button>
+                            <button id="exportMetricsBtn" class="toolbar-btn" type="button"><i class="fas fa-chart-column"></i> Metrics</button>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <footer class="admin-footer">
+                Monika AI Admin Console • Protected production tools only
+            </footer>
+        </div>
     </main>
     <script src="/admin.js"></script>
 </body>
