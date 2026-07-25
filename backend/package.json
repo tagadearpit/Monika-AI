@@ -37,7 +37,8 @@
   "author": "Arpit Tagade",
   "license": "MIT",
   "overrides": {
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "brace-expansion": "^5.0.8"
   },
   "devDependencies": {
     "eslint": "^9.39.4",
