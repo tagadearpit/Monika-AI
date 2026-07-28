@@ -221,6 +221,7 @@ app.use(cors({
 app.use(express.json({ limit: '24mb', strict: true }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use(cookieParser());
+app.use(verifyCsrf);
 
 const createLimiter = (auditAction, options) => rateLimit({
     standardHeaders: 'draft-7',
@@ -330,7 +331,10 @@ const verifyTrustedOrigin = (req, res, next) => {
     return next();
 };
 
-const verifyCsrf = (req, res, next) => {
+function verifyCsrf(req, res, next) {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+    }
     const cookieToken = req.cookies[CSRF_COOKIE_NAME];
     const headerToken = req.get('x-csrf-token');
     if (!cookieToken || !headerToken) {
@@ -342,7 +346,7 @@ const verifyCsrf = (req, res, next) => {
         return res.status(403).json({ error: 'CSRF token is invalid.', code: 'CSRF_INVALID' });
     }
     return next();
-};
+}
 
 const refreshCookieOptions = () => ({
     httpOnly: true,
