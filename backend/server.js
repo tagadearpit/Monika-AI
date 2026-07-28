@@ -257,6 +257,11 @@ const emailLimiter = createLimiter('rate_limit.otp', {
     limit: 5,
     message: { error: 'OTP request limit exceeded for this network.', code: 'OTP_RATE_LIMITED' }
 });
+const adminLimiter = createLimiter('rate_limit.admin', {
+    windowMs: 15 * 60 * 1000,
+    limit: positiveInteger(process.env.ADMIN_RATE_LIMIT, 300),
+    message: { error: 'Admin request rate limit exceeded.', code: 'ADMIN_RATE_LIMITED' }
+});
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^\+[1-9]\d{7,14}$/;
@@ -1918,7 +1923,7 @@ app.post('/api/user/delete', verifyTrustedOrigin, verifyCsrf, authenticateToken,
     }
 });
 
-app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/overview', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [
         users,
@@ -1962,7 +1967,7 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
     });
 });
 
-app.get('/api/admin/reports', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/reports', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const reports = await Message.find({ 'feedback.reportType': mongoose.trusted({ $ne: null }) })
         .sort({ 'feedback.updatedAt': -1 })
         .limit(100)
@@ -1971,12 +1976,12 @@ app.get('/api/admin/reports', authenticateToken, requireAdmin, async (req, res) 
     return res.json(reports);
 });
 
-app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/audit', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const events = await AuditEvent.find().sort({ createdAt: -1 }).limit(200).lean();
     return res.json(events);
 });
 
-app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
+app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
     const userId = decodeURIComponent(req.params.userId).slice(0, 254);
     const update = req.validatedBody.suspended
         ? { suspendedAt: new Date(), suspensionReason: req.validatedBody.reason || 'Administrative action' }
@@ -1990,7 +1995,7 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf
     return res.json({ success: true, userId, suspendedAt: user.suspendedAt, suspensionReason: user.suspensionReason });
 });
 
-app.get('/api/admin/sessions', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessions = await Session.find({ revokedAt: null, expiresAt: mongoose.trusted({ $gt: new Date() }) })
         .sort({ lastSeenAt: -1 })
         .limit(100)
@@ -1999,7 +2004,7 @@ app.get('/api/admin/sessions', authenticateToken, requireAdmin, async (req, res)
     return res.json(sessions);
 });
 
-app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, authenticateToken, requireAdmin, async (req, res) => {
+app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
         { _id: sessionId, revokedAt: null },
@@ -2011,7 +2016,7 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, au
     return res.json({ success: true, sessionId });
 });
 
-app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsrf, authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
         { _id: sessionId, revokedAt: null },
@@ -2023,7 +2028,7 @@ app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsr
     return res.json({ success: true, sessionId });
 });
 
-app.get('/api/admin/search', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const query = String(req.query.q || '').trim().slice(0, 100);
     if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
     const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
