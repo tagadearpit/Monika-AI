@@ -36,8 +36,17 @@ async function init() {
         const config = await configResponse.json();
         csrfToken = config.csrfToken || '';
         if (!await refreshSession()) throw new Error('Sign in to Monika AI before opening the admin dashboard.');
-        await loadOverview();
-        await Promise.all([loadReports(), loadAudit()]);
+        
+        $('adminStatus').textContent = 'Loading dashboard...';
+        $('adminStatus').hidden = false;
+        
+        await Promise.all([
+            loadOverview(), 
+            loadReports(), 
+            loadAudit(),
+            loadSessions()
+        ]);
+        
         $('adminStatus').hidden = true;
         $('adminContent').hidden = false;
     } catch (error) {
@@ -50,6 +59,8 @@ async function loadOverview() {
     const response = await apiFetch('/api/admin/overview', { method: 'GET', cache: 'no-store' });
     const data = await parseJson(response);
     if (!response.ok) throw new Error(data.error || 'Administrator access is required.');
+    
+    // Check if new HTML grid elements are present, they are a bit different
     const metrics = [
         ['Users', data.users],
         ['New users (24h)', data.newUsers24h],
@@ -65,7 +76,23 @@ async function loadOverview() {
         ['Estimated tokens', data.usage?.estimatedTokens || 0],
         ['Estimated cost (USD)', Number(data.usage?.estimatedCostUsd || 0).toFixed(4)]
     ];
-    $('metricGrid').innerHTML = metrics.map(([label, value]) => `<article class="metric-card"><span>${label}</span><strong>${Number(value || 0).toLocaleString()}</strong></article>`).join('');
+    
+    const grid = $('metricGrid');
+    if (grid) {
+        grid.innerHTML = metrics.map(([label, value]) => `
+            <div class="kpi-card">
+                <div class="kpi-top">
+                    <p class="kpi-label">${label}</p>
+                    <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+                </div>
+                <h3 class="kpi-value">${Number(value || 0).toLocaleString()}</h3>
+            </div>
+        `).join('');
+    }
+    
+    // Update the "This week" conversation activity panel if it exists
+    const kpiValue = document.querySelector('.soft-panel .kpi-value');
+    if (kpiValue) kpiValue.textContent = Number(data.conversations || 0).toLocaleString();
 }
 
 async function loadReports() {
@@ -73,18 +100,20 @@ async function loadReports() {
     const data = await parseJson(response);
     if (!response.ok) return;
     const list = $('reportList');
+    if (!list) return;
     list.innerHTML = '';
-    if (!data.length) list.innerHTML = '<div class="admin-list-item">No reports.</div>';
+    if (!data.length) {
+        list.innerHTML = '<div class="list-item"><strong class="muted">No reports.</strong></div>';
+        return;
+    }
     for (const report of data) {
-        const item = document.createElement('article');
-        item.className = 'admin-list-item';
-        const title = document.createElement('strong');
-        title.textContent = `${report.feedback?.reportType || 'report'} · ${report.userId}`;
-        const text = document.createElement('p');
-        text.textContent = report.content;
-        const meta = document.createElement('small');
-        meta.textContent = report.feedback?.comment || new Date(report.feedback?.updatedAt || report.createdAt).toLocaleString();
-        item.append(title, text, meta);
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+            <strong>${report.feedback?.reportType || 'report'} · ${report.userId}</strong>
+            <p>${report.content}</p>
+            <small>${report.feedback?.comment || new Date(report.feedback?.updatedAt || report.createdAt).toLocaleString()}</small>
+        `;
         list.appendChild(item);
     }
 }
@@ -94,18 +123,43 @@ async function loadAudit() {
     const data = await parseJson(response);
     if (!response.ok) return;
     const list = $('auditList');
+    if (!list) return;
     list.innerHTML = '';
-    if (!data.length) list.innerHTML = '<div class="admin-list-item">No audit events.</div>';
+    if (!data.length) {
+        list.innerHTML = '<div class="list-item"><strong class="muted">No audit events.</strong></div>';
+        return;
+    }
     for (const event of data) {
-        const item = document.createElement('article');
-        item.className = 'admin-list-item';
-        const title = document.createElement('strong');
-        title.textContent = event.action;
-        const meta = document.createElement('small');
-        meta.textContent = `${event.userId || 'anonymous'} · ${new Date(event.createdAt).toLocaleString()}`;
-        item.append(title, meta);
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+            <strong>${event.action}</strong>
+            <small>${event.userId || 'anonymous'} · ${new Date(event.createdAt).toLocaleString()}</small>
+        `;
         list.appendChild(item);
     }
+}
+
+// Mock implementation since backend /api/admin/sessions doesn't exist
+async function loadSessions() {
+    const tbody = $('sessionTableBody');
+    if (!tbody) return;
+    
+    // Simulated data
+    const sessions = [
+        { device: 'Chrome on Windows', lastActive: new Date().toLocaleString(), created: new Date(Date.now() - 86400000).toLocaleString(), status: 'Active' },
+        { device: 'Safari on iPhone', lastActive: new Date(Date.now() - 3600000).toLocaleString(), created: new Date(Date.now() - 172800000).toLocaleString(), status: 'Inactive' }
+    ];
+    
+    tbody.innerHTML = sessions.map(s => `
+        <tr>
+            <td><strong>${s.device}</strong></td>
+            <td>${s.lastActive}</td>
+            <td>${s.created}</td>
+            <td><span class="pill ${s.status === 'Active' ? 'success' : 'warning'}">${s.status}</span></td>
+            <td><button class="secondary-action-btn" style="padding: 4px 8px; min-height: unset; font-size: 0.8rem;" type="button">Revoke</button></td>
+        </tr>
+    `).join('');
 }
 
 async function setSuspension(suspended) {
@@ -123,8 +177,28 @@ async function setSuspension(suspended) {
     await Promise.all([loadOverview(), loadAudit()]);
 }
 
-$('suspendUserBtn').onclick = () => setSuspension(true);
-$('unsuspendUserBtn').onclick = () => setSuspension(false);
-$('refreshReportsBtn').onclick = loadReports;
-$('refreshAuditBtn').onclick = loadAudit;
+function handleSearch() {
+    const query = $('adminSearchQuery').value.trim();
+    if (!query) return alert('Enter a search query.');
+    alert(`Search for "${query}" is not implemented on the backend yet.`);
+}
+
+function mockExport(type) {
+    alert(`Exporting ${type}... (mock implementation)`);
+}
+
+// Bind events if elements exist
+if ($('suspendUserBtn')) $('suspendUserBtn').onclick = () => setSuspension(true);
+if ($('unsuspendUserBtn')) $('unsuspendUserBtn').onclick = () => setSuspension(false);
+if ($('refreshReportsBtn')) $('refreshReportsBtn').onclick = loadReports;
+if ($('refreshAuditBtn')) $('refreshAuditBtn').onclick = loadAudit;
+if ($('refreshDashboardBtn')) $('refreshDashboardBtn').onclick = init;
+if ($('refreshSessionsBtn')) $('refreshSessionsBtn').onclick = loadSessions;
+if ($('adminSearchBtn')) $('adminSearchBtn').onclick = handleSearch;
+if ($('adminClearSearchBtn')) $('adminClearSearchBtn').onclick = () => $('adminSearchQuery').value = '';
+if ($('exportAdminSnapshotBtn')) $('exportAdminSnapshotBtn').onclick = () => mockExport('Snapshot');
+if ($('exportReportsBtn')) $('exportReportsBtn').onclick = () => mockExport('Reports');
+if ($('exportAuditBtn')) $('exportAuditBtn').onclick = () => mockExport('Audit');
+if ($('exportMetricsBtn')) $('exportMetricsBtn').onclick = () => mockExport('Metrics');
+
 window.addEventListener('load', init);
