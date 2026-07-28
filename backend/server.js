@@ -77,7 +77,6 @@ const ESTIMATED_COST_PER_MILLION_TOKENS_USD = Math.max(Number.parseFloat(process
 const DEFAULT_TIME_ZONE = process.env.DEFAULT_TIME_ZONE || 'Asia/Kolkata';
 const REFRESH_COOKIE_NAME = isProduction ? '__Host-monika_refresh' : 'monika_refresh';
 const LEGACY_REFRESH_COOKIE_NAMES = ['monika_refresh', '__Host-monika_refresh'];
-const CSRF_COOKIE_NAME = 'monika_csrf';
 const ACCESS_TOKEN_ISSUER = 'monika-ai';
 const ACCESS_TOKEN_AUDIENCE = 'monika-web';
 const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || 'development-only-secret';
@@ -441,7 +440,6 @@ const issuePersistentSession = async (userId, req, res) => {
     ]);
 
     setRefreshCookie(res, refreshToken);
-    issueCsrfToken(req, res);
     recordAudit('session.created', userId, req, {
         sessionId: String(session._id),
         browser: metadata.browser,
@@ -514,7 +512,6 @@ const rotatePersistentSession = async (req, res) => {
     }
 
     setRefreshCookie(res, nextRefreshToken);
-    issueCsrfToken(req, res);
     return {
         token: signAccessToken(session.userId, session._id),
         expiresIn: ACCESS_TOKEN_TTL_SECONDS,
