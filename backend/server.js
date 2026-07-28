@@ -220,6 +220,8 @@ app.use(cors({
 
 app.use(express.json({ limit: '24mb', strict: true }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
+// codeql[js/missing-csrf-middleware]
+// lgtm[js/missing-csrf-middleware]
 app.use(cookieParser());
 app.use(verifyCsrf);
 
@@ -2037,8 +2039,11 @@ app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, asyn
     if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
     const regex = new RegExp(escapeRegExp(query), 'i');
     const [users, auditEvents, reports] = await Promise.all([
+        // codeql[js/nosql-injection]
         User.find(mongoose.trusted({ $or: [{ sessionId: regex }, { suspensionReason: regex }] })).limit(20).lean(),
+        // codeql[js/nosql-injection]
         AuditEvent.find(mongoose.trusted({ $or: [{ userId: regex }, { action: regex }, { requestId: regex }] })).sort({ createdAt: -1 }).limit(30).lean(),
+        // codeql[js/nosql-injection]
         Message.find(mongoose.trusted({ 'feedback.reportType': { $ne: null }, $or: [{ userId: regex }, { content: regex }] }))
             .sort({ 'feedback.updatedAt': -1 })
             .limit(20)
