@@ -16,6 +16,7 @@ const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const csurf = require('csurf');
 const PDFDocument = require('pdfkit');
 const webPush = require('web-push');
 const {
@@ -220,10 +221,19 @@ app.use(cors({
 
 app.use(express.json({ limit: '24mb', strict: true }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
-// codeql[js/missing-csrf-middleware]
-// lgtm[js/missing-csrf-middleware]
 app.use(cookieParser());
-app.use(verifyCsrf);
+
+const csrfProtection = csurf({ 
+    cookie: { 
+        key: '_csrfSecret',
+        httpOnly: true, 
+        secure: isProduction, 
+        sameSite: 'lax', 
+        path: '/' 
+    },
+    value: (req) => req.get('x-csrf-token') || req.body?._csrf || req.query?._csrf
+});
+app.use(csrfProtection);
 
 const createLimiter = (auditAction, options) => rateLimit({
     standardHeaders: 'draft-7',
@@ -311,19 +321,6 @@ const validateBody = (schema) => (req, res, next) => {
     return next();
 };
 
-const issueCsrfToken = (req, res) => {
-    let token = req.cookies[CSRF_COOKIE_NAME];
-    if (!token || !/^[a-f\d]{64}$/i.test(token)) token = crypto.randomBytes(32).toString('hex');
-    res.cookie(CSRF_COOKIE_NAME, token, {
-        httpOnly: false,
-        secure: isProduction,
-        sameSite: 'strict',
-        path: '/',
-        maxAge: SESSION_TTL_MS
-    });
-    return token;
-};
-
 const verifyTrustedOrigin = (req, res, next) => {
     const origin = req.get('origin');
     const normalized = origin ? origin.replace(/\/$/, '') : null;
@@ -332,23 +329,6 @@ const verifyTrustedOrigin = (req, res, next) => {
     }
     return next();
 };
-
-function verifyCsrf(req, res, next) {
-    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-        return next();
-    }
-    const cookieToken = req.cookies[CSRF_COOKIE_NAME];
-    const headerToken = req.get('x-csrf-token');
-    if (!cookieToken || !headerToken) {
-        return res.status(403).json({ error: 'CSRF token is required.', code: 'CSRF_REQUIRED' });
-    }
-    const expected = Buffer.from(cookieToken);
-    const supplied = Buffer.from(headerToken);
-    if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) {
-        return res.status(403).json({ error: 'CSRF token is invalid.', code: 'CSRF_INVALID' });
-    }
-    return next();
-}
 
 const refreshCookieOptions = () => ({
     httpOnly: true,
@@ -1146,7 +1126,7 @@ app.use('/api/auth', (req, res, next) => {
 
 app.get('/api/config', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const csrfToken = issueCsrfToken(req, res);
+    const csrfToken = req.csrfToken();
     res.json({
         csrfToken,
         googleClientId: process.env.GOOGLE_CLIENT_ID || '',
