@@ -1990,6 +1990,55 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf
     return res.json({ success: true, userId, suspendedAt: user.suspendedAt, suspensionReason: user.suspensionReason });
 });
 
+app.get('/api/admin/sessions', authenticateToken, requireAdmin, async (req, res) => {
+    const sessions = await Session.find({ revokedAt: null, expiresAt: mongoose.trusted({ $gt: new Date() }) })
+        .sort({ lastSeenAt: -1 })
+        .limit(100)
+        .select('userId deviceName browser operatingSystem createdAt lastSeenAt')
+        .lean();
+    return res.json(sessions);
+});
+
+app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, authenticateToken, requireAdmin, async (req, res) => {
+    const sessionId = String(req.params.sessionId || '').slice(0, 128);
+    const session = await Session.findOneAndUpdate(
+        { _id: sessionId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
+        { new: true }
+    );
+    if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
+    recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
+    return res.json({ success: true, sessionId });
+});
+
+app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsrf, authenticateToken, requireAdmin, async (req, res) => {
+    const sessionId = String(req.params.sessionId || '').slice(0, 128);
+    const session = await Session.findOneAndUpdate(
+        { _id: sessionId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
+        { new: true }
+    );
+    if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
+    recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
+    return res.json({ success: true, sessionId });
+});
+
+app.get('/api/admin/search', authenticateToken, requireAdmin, async (req, res) => {
+    const query = String(req.query.q || '').trim().slice(0, 100);
+    if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
+    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const [users, auditEvents, reports] = await Promise.all([
+        User.find({ $or: [{ sessionId: regex }, { suspensionReason: regex }] }).limit(20).lean(),
+        AuditEvent.find({ $or: [{ userId: regex }, { action: regex }, { requestId: regex }] }).sort({ createdAt: -1 }).limit(30).lean(),
+        Message.find({ 'feedback.reportType': mongoose.trusted({ $ne: null }), $or: [{ userId: regex }, { content: regex }] })
+            .sort({ 'feedback.updatedAt': -1 })
+            .limit(20)
+            .select('userId conversationId content feedback createdAt')
+            .lean()
+    ]);
+    return res.json({ users, auditEvents, reports });
+});
+
 const publicPath = path.join(__dirname, '../public');
 app.use(express.static(publicPath, {
     etag: true,

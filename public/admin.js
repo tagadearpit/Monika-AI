@@ -3,6 +3,11 @@
 let csrfToken = '';
 let authToken = null;
 
+let overviewData = null;
+let reportsData = [];
+let auditData = [];
+let sessionsData = [];
+
 const $ = (id) => document.getElementById(id);
 
 async function parseJson(response) {
@@ -60,7 +65,8 @@ async function loadOverview() {
     const data = await parseJson(response);
     if (!response.ok) throw new Error(data.error || 'Administrator access is required.');
     
-    // Check if new HTML grid elements are present, they are a bit different
+    overviewData = data;
+
     const metrics = [
         ['Users', data.users],
         ['New users (24h)', data.newUsers24h],
@@ -90,23 +96,28 @@ async function loadOverview() {
         `).join('');
     }
     
-    // Update the "This week" conversation activity panel if it exists
     const kpiValue = document.querySelector('.soft-panel .kpi-value');
     if (kpiValue) kpiValue.textContent = Number(data.conversations || 0).toLocaleString();
+
+    const convNote = $('conversationActivityNote');
+    if (convNote) {
+        convNote.textContent = `${Number(data.messages || 0).toLocaleString()} total messages processed across sessions.`;
+    }
 }
 
 async function loadReports() {
     const response = await apiFetch('/api/admin/reports', { method: 'GET', cache: 'no-store' });
     const data = await parseJson(response);
     if (!response.ok) return;
+    reportsData = Array.isArray(data) ? data : [];
     const list = $('reportList');
     if (!list) return;
     list.innerHTML = '';
-    if (!data.length) {
+    if (!reportsData.length) {
         list.innerHTML = '<div class="list-item"><strong class="muted">No reports.</strong></div>';
         return;
     }
-    for (const report of data) {
+    for (const report of reportsData) {
         const item = document.createElement('div');
         item.className = 'list-item';
         item.innerHTML = `
@@ -122,14 +133,15 @@ async function loadAudit() {
     const response = await apiFetch('/api/admin/audit', { method: 'GET', cache: 'no-store' });
     const data = await parseJson(response);
     if (!response.ok) return;
+    auditData = Array.isArray(data) ? data : [];
     const list = $('auditList');
     if (!list) return;
     list.innerHTML = '';
-    if (!data.length) {
+    if (!auditData.length) {
         list.innerHTML = '<div class="list-item"><strong class="muted">No audit events.</strong></div>';
         return;
     }
-    for (const event of data) {
+    for (const event of auditData) {
         const item = document.createElement('div');
         item.className = 'list-item';
         item.innerHTML = `
@@ -140,26 +152,49 @@ async function loadAudit() {
     }
 }
 
-// Mock implementation since backend /api/admin/sessions doesn't exist
 async function loadSessions() {
     const tbody = $('sessionTableBody');
     if (!tbody) return;
-    
-    // Simulated data
-    const sessions = [
-        { device: 'Chrome on Windows', lastActive: new Date().toLocaleString(), created: new Date(Date.now() - 86400000).toLocaleString(), status: 'Active' },
-        { device: 'Safari on iPhone', lastActive: new Date(Date.now() - 3600000).toLocaleString(), created: new Date(Date.now() - 172800000).toLocaleString(), status: 'Inactive' }
-    ];
-    
-    tbody.innerHTML = sessions.map(s => `
+    const response = await apiFetch('/api/admin/sessions', { method: 'GET', cache: 'no-store' });
+    const data = await parseJson(response);
+    if (!response.ok) {
+        tbody.innerHTML = '<tr><td colspan="5" class="muted">Unable to load active sessions.</td></tr>';
+        return;
+    }
+    sessionsData = Array.isArray(data) ? data : [];
+    if (!sessionsData.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="muted">No active sessions found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = sessionsData.map(s => `
         <tr>
-            <td><strong>${s.device}</strong></td>
-            <td>${s.lastActive}</td>
-            <td>${s.created}</td>
-            <td><span class="pill ${s.status === 'Active' ? 'success' : 'warning'}">${s.status}</span></td>
-            <td><button class="secondary-action-btn" style="padding: 4px 8px; min-height: unset; font-size: 0.8rem;" type="button">Revoke</button></td>
+            <td>
+                <strong>${s.deviceName || s.browser || 'Unknown Device'}</strong>
+                <div class="muted" style="font-size:0.78rem;">${s.operatingSystem || 'OS unknown'} · ${s.userId}</div>
+            </td>
+            <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : 'Just now'}</td>
+            <td>${s.createdAt ? new Date(s.createdAt).toLocaleString() : 'N/A'}</td>
+            <td><span class="pill success">Active</span></td>
+            <td>
+                <button class="secondary-action-btn revoke-session-btn" data-session-id="${s._id || ''}" style="padding: 4px 10px; min-height: unset; font-size: 0.82rem;" type="button">
+                    Revoke
+                </button>
+            </td>
         </tr>
     `).join('');
+
+    tbody.querySelectorAll('.revoke-session-btn').forEach(btn => {
+        btn.onclick = () => revokeSession(btn.getAttribute('data-session-id'));
+    });
+}
+
+async function revokeSession(sessionId) {
+    if (!sessionId) return;
+    if (!confirm('Are you sure you want to revoke this session? The device will be signed out immediately.')) return;
+    const response = await apiFetch(`/api/admin/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+    const data = await parseJson(response);
+    if (!response.ok) return alert(data.error || 'Failed to revoke session.');
+    await loadSessions();
 }
 
 async function setSuspension(suspended) {
@@ -174,20 +209,93 @@ async function setSuspension(suspended) {
     const data = await parseJson(response);
     if (!response.ok) return alert(data.error || 'Account update failed.');
     alert(suspended ? 'User suspended and active sessions revoked.' : 'User suspension removed.');
-    await Promise.all([loadOverview(), loadAudit()]);
+    await Promise.all([loadOverview(), loadAudit(), loadSessions()]);
 }
 
-function handleSearch() {
+async function handleSearch() {
     const query = $('adminSearchQuery').value.trim();
     if (!query) return alert('Enter a search query.');
-    alert(`Search for "${query}" is not implemented on the backend yet.`);
+    const resultBox = $('adminSearchResults');
+    if (resultBox) {
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = '<div class="list-item"><strong class="muted">Searching...</strong></div>';
+    }
+    const response = await apiFetch(`/api/admin/search?q=${encodeURIComponent(query)}`, { method: 'GET', cache: 'no-store' });
+    const data = await parseJson(response);
+    if (!response.ok) {
+        if (resultBox) resultBox.innerHTML = '<div class="list-item"><strong class="muted">Search request failed.</strong></div>';
+        return;
+    }
+    const { users = [], auditEvents = [], reports = [] } = data;
+    const count = users.length + auditEvents.length + reports.length;
+    if (!count) {
+        if (resultBox) resultBox.innerHTML = '<div class="list-item"><strong class="muted">No matching users, audit events, or reports found.</strong></div>';
+        return;
+    }
+    let html = '';
+    for (const u of users) {
+        html += `<div class="list-item"><strong>User Account: ${u.sessionId}</strong><small>Status: ${u.suspendedAt ? 'Suspended (' + (u.suspensionReason || 'No reason') + ')' : 'Active'} · Last Active: ${u.lastActive ? new Date(u.lastActive).toLocaleString() : 'N/A'}</small></div>`;
+    }
+    for (const a of auditEvents) {
+        html += `<div class="list-item"><strong>Audit: ${a.action}</strong><small>User: ${a.userId || 'anonymous'} · ${new Date(a.createdAt).toLocaleString()}</small></div>`;
+    }
+    for (const r of reports) {
+        html += `<div class="list-item"><strong>Report: ${r.feedback?.reportType || 'report'}</strong><p>${r.content}</p><small>User: ${r.userId} · ${new Date(r.createdAt).toLocaleString()}</small></div>`;
+    }
+    if (resultBox) resultBox.innerHTML = html;
 }
 
-function mockExport(type) {
-    alert(`Exporting ${type}... (mock implementation)`);
+function clearSearch() {
+    if ($('adminSearchQuery')) $('adminSearchQuery').value = '';
+    const resultBox = $('adminSearchResults');
+    if (resultBox) {
+        resultBox.style.display = 'none';
+        resultBox.innerHTML = '';
+    }
 }
 
-// Bind events if elements exist
+function downloadJsonFile(dataObj, filename) {
+    const jsonStr = JSON.stringify(dataObj, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function handleExport(type) {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    if (type === 'Snapshot') {
+        downloadJsonFile({
+            exportedAt: new Date().toISOString(),
+            overview: overviewData,
+            reports: reportsData,
+            audit: auditData,
+            sessions: sessionsData
+        }, `monika-admin-snapshot-${timestamp}.json`);
+    } else if (type === 'Reports') {
+        downloadJsonFile(reportsData, `monika-admin-reports-${timestamp}.json`);
+    } else if (type === 'Audit') {
+        downloadJsonFile(auditData, `monika-admin-audit-${timestamp}.json`);
+    } else if (type === 'Metrics') {
+        downloadJsonFile(overviewData || {}, `monika-admin-metrics-${timestamp}.json`);
+    }
+}
+
+function setupScrollButtons() {
+    const auditBtn = $('auditScrollDownBtn');
+    const auditList = $('auditList');
+    if (auditBtn && auditList) {
+        auditBtn.onclick = () => {
+            auditList.scrollBy({ top: 260, behavior: 'smooth' });
+        };
+    }
+}
+
 if ($('suspendUserBtn')) $('suspendUserBtn').onclick = () => setSuspension(true);
 if ($('unsuspendUserBtn')) $('unsuspendUserBtn').onclick = () => setSuspension(false);
 if ($('refreshReportsBtn')) $('refreshReportsBtn').onclick = loadReports;
@@ -195,10 +303,21 @@ if ($('refreshAuditBtn')) $('refreshAuditBtn').onclick = loadAudit;
 if ($('refreshDashboardBtn')) $('refreshDashboardBtn').onclick = init;
 if ($('refreshSessionsBtn')) $('refreshSessionsBtn').onclick = loadSessions;
 if ($('adminSearchBtn')) $('adminSearchBtn').onclick = handleSearch;
-if ($('adminClearSearchBtn')) $('adminClearSearchBtn').onclick = () => $('adminSearchQuery').value = '';
-if ($('exportAdminSnapshotBtn')) $('exportAdminSnapshotBtn').onclick = () => mockExport('Snapshot');
-if ($('exportReportsBtn')) $('exportReportsBtn').onclick = () => mockExport('Reports');
-if ($('exportAuditBtn')) $('exportAuditBtn').onclick = () => mockExport('Audit');
-if ($('exportMetricsBtn')) $('exportMetricsBtn').onclick = () => mockExport('Metrics');
+if ($('adminClearSearchBtn')) $('adminClearSearchBtn').onclick = clearSearch;
+if ($('adminSearchQuery')) {
+    $('adminSearchQuery').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSearch();
+        }
+    });
+}
+if ($('exportAdminSnapshotBtn')) $('exportAdminSnapshotBtn').onclick = () => handleExport('Snapshot');
+if ($('exportReportsBtn')) $('exportReportsBtn').onclick = () => handleExport('Reports');
+if ($('exportAuditBtn')) $('exportAuditBtn').onclick = () => handleExport('Audit');
+if ($('exportMetricsBtn')) $('exportMetricsBtn').onclick = () => handleExport('Metrics');
 
-window.addEventListener('load', init);
+window.addEventListener('load', () => {
+    init();
+    setupScrollButtons();
+});
