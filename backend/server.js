@@ -221,6 +221,7 @@ app.use(cors({
 app.use(express.json({ limit: '24mb', strict: true }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use(cookieParser());
+app.use(verifyCsrf);
 
 const createLimiter = (auditAction, options) => rateLimit({
     standardHeaders: 'draft-7',
@@ -256,6 +257,11 @@ const emailLimiter = createLimiter('rate_limit.otp', {
     windowMs: 60 * 60 * 1000,
     limit: 5,
     message: { error: 'OTP request limit exceeded for this network.', code: 'OTP_RATE_LIMITED' }
+});
+const adminLimiter = createLimiter('rate_limit.admin', {
+    windowMs: 15 * 60 * 1000,
+    limit: positiveInteger(process.env.ADMIN_RATE_LIMIT, 300),
+    message: { error: 'Admin request rate limit exceeded.', code: 'ADMIN_RATE_LIMITED' }
 });
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -325,7 +331,10 @@ const verifyTrustedOrigin = (req, res, next) => {
     return next();
 };
 
-const verifyCsrf = (req, res, next) => {
+function verifyCsrf(req, res, next) {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+    }
     const cookieToken = req.cookies[CSRF_COOKIE_NAME];
     const headerToken = req.get('x-csrf-token');
     if (!cookieToken || !headerToken) {
@@ -337,7 +346,7 @@ const verifyCsrf = (req, res, next) => {
         return res.status(403).json({ error: 'CSRF token is invalid.', code: 'CSRF_INVALID' });
     }
     return next();
-};
+}
 
 const refreshCookieOptions = () => ({
     httpOnly: true,
@@ -1918,7 +1927,7 @@ app.post('/api/user/delete', verifyTrustedOrigin, verifyCsrf, authenticateToken,
     }
 });
 
-app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/overview', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [
         users,
@@ -1962,7 +1971,7 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
     });
 });
 
-app.get('/api/admin/reports', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/reports', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const reports = await Message.find({ 'feedback.reportType': mongoose.trusted({ $ne: null }) })
         .sort({ 'feedback.updatedAt': -1 })
         .limit(100)
@@ -1971,12 +1980,12 @@ app.get('/api/admin/reports', authenticateToken, requireAdmin, async (req, res) 
     return res.json(reports);
 });
 
-app.get('/api/admin/audit', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/audit', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const events = await AuditEvent.find().sort({ createdAt: -1 }).limit(200).lean();
     return res.json(events);
 });
 
-app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
+app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
     const userId = decodeURIComponent(req.params.userId).slice(0, 254);
     const update = req.validatedBody.suspended
         ? { suspendedAt: new Date(), suspensionReason: req.validatedBody.reason || 'Administrative action' }
@@ -1988,6 +1997,55 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf
     }
     recordAudit(req.validatedBody.suspended ? 'admin.user_suspended' : 'admin.user_unsuspended', req.user.sessionId, req, { targetUserId: userId });
     return res.json({ success: true, userId, suspendedAt: user.suspendedAt, suspensionReason: user.suspensionReason });
+});
+
+app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+    const sessions = await Session.find(mongoose.trusted({ revokedAt: null, expiresAt: { $gt: new Date() } }))
+        .sort({ lastSeenAt: -1 })
+        .limit(100)
+        .select('userId deviceName browser operatingSystem createdAt lastSeenAt')
+        .lean();
+    return res.json(sessions);
+});
+
+app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+    const sessionId = String(req.params.sessionId || '').slice(0, 128);
+    const session = await Session.findOneAndUpdate(
+        mongoose.trusted({ _id: sessionId, revokedAt: null }),
+        { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
+        { new: true }
+    );
+    if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
+    recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
+    return res.json({ success: true, sessionId });
+});
+
+app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+    const sessionId = String(req.params.sessionId || '').slice(0, 128);
+    const session = await Session.findOneAndUpdate(
+        mongoose.trusted({ _id: sessionId, revokedAt: null }),
+        { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
+        { new: true }
+    );
+    if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
+    recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
+    return res.json({ success: true, sessionId });
+});
+
+app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+    const query = String(req.query.q || '').trim().slice(0, 100);
+    if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
+    const regex = new RegExp(escapeRegExp(query), 'i');
+    const [users, auditEvents, reports] = await Promise.all([
+        User.find(mongoose.trusted({ $or: [{ sessionId: regex }, { suspensionReason: regex }] })).limit(20).lean(),
+        AuditEvent.find(mongoose.trusted({ $or: [{ userId: regex }, { action: regex }, { requestId: regex }] })).sort({ createdAt: -1 }).limit(30).lean(),
+        Message.find(mongoose.trusted({ 'feedback.reportType': { $ne: null }, $or: [{ userId: regex }, { content: regex }] }))
+            .sort({ 'feedback.updatedAt': -1 })
+            .limit(20)
+            .select('userId conversationId content feedback createdAt')
+            .lean()
+    ]);
+    return res.json({ users, auditEvents, reports });
 });
 
 const publicPath = path.join(__dirname, '../public');

@@ -465,6 +465,53 @@
         .pill.danger { color: var(--admin-danger); background: rgba(255, 107, 122, 0.10); }
         .pill.info { color: var(--admin-info); background: rgba(103, 199, 255, 0.10); }
 
+        .scrollable-list {
+            max-height: 360px;
+            overflow-y: auto;
+            padding-right: 6px;
+            scroll-behavior: smooth;
+        }
+        .scrollable-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollable-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+        }
+        .scrollable-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 8px;
+        }
+        .scrollable-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 79, 163, 0.55);
+        }
+        .scroll-down-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 14px;
+            margin-top: 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            color: var(--admin-muted);
+            font-size: 0.86rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .scroll-down-bar:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--admin-text);
+            transform: translateY(1px);
+        }
+        .scroll-down-bar i {
+            color: var(--admin-accent);
+            transition: transform 0.25s ease;
+        }
+
         .admin-footer {
             padding: 4px 2px 0;
             color: var(--admin-muted);
@@ -630,7 +677,7 @@
                                 <span class="pill info">Live</span>
                             </div>
                             <h3 class="kpi-value">—</h3>
-                            <p class="kpi-note">Connect this panel to your analytics feed in admin.js.</p>
+                            <p class="kpi-note" id="conversationActivityNote">Active production conversations and message volume.</p>
                         </div>
                     </section>
 
@@ -641,7 +688,11 @@
                                 <p>Auth failures, rate limits, and audit events.</p>
                             </div>
                         </div>
-                        <div class="timeline-list" id="auditList"></div>
+                        <div class="timeline-list scrollable-list" id="auditList"></div>
+                        <button id="auditScrollDownBtn" class="scroll-down-bar" type="button" title="Scroll down for more audit events">
+                            <span>Scroll for more events</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
                     </section>
 
                     <section class="admin-card">
@@ -651,7 +702,7 @@
                                 <p>Moderation queue and user feedback.</p>
                             </div>
                         </div>
-                        <div class="timeline-list" id="reportList"></div>
+                        <div class="timeline-list scrollable-list" id="reportList"></div>
                     </section>
                 </div>
 
@@ -664,7 +715,7 @@
                             </div>
                             <span class="pill warning"><i class="fas fa-laptop"></i> Session control</span>
                         </div>
-                        <div class="table-wrap">
+                        <div class="table-wrap scrollable-list">
                             <table class="admin-table" aria-label="Active sessions">
                                 <thead>
                                     <tr>
@@ -721,6 +772,7 @@
                             <button id="adminSearchBtn" class="toolbar-btn" type="button"><i class="fas fa-search"></i> Search</button>
                             <button id="adminClearSearchBtn" class="secondary-action-btn" type="button"><i class="fas fa-xmark"></i> Clear</button>
                         </div>
+                        <div id="adminSearchResults" class="timeline-list scrollable-list" style="margin-top: 14px; display: none;"></div>
                     </section>
 
                     <section class="admin-card">
