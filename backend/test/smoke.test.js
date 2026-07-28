@@ -20,16 +20,16 @@ test('health endpoint returns versioned status', async () => {
 
 test('config endpoint issues a CSRF token', async () => {
     const response = await request(app).get('/api/config').expect(200);
-    assert.match(response.body.csrfToken, /^[a-f\d]{64}$/);
-    assert.ok(response.headers['set-cookie'].some((value) => value.startsWith('monika_csrf=')));
+    assert.match(response.body.csrfToken, /^[A-Za-z0-9_-]+$/);
+    assert.ok(response.headers['set-cookie'].some((value) => value.startsWith('_csrfSecret=')));
 });
 
 test('state-changing route rejects missing CSRF token before database work', async () => {
     const response = await request(app)
         .post('/api/auth/refresh')
-        .set('Origin', 'http://localhost:10000')
+        .send({})
         .expect(403);
-    assert.equal(response.body.code, 'CSRF_REQUIRED');
+    assert.strictEqual(response.body.code, 'CSRF_INVALID');
 });
 
 test('CORS rejects unknown origins', async () => {

@@ -1155,7 +1155,7 @@ app.get('/api/ready', (req, res) => {
     res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not_ready' });
 });
 
-app.post('/api/auth/google', verifyTrustedOrigin, verifyCsrf, authLimiter, async (req, res) => {
+app.post('/api/auth/google', verifyTrustedOrigin, authLimiter, async (req, res) => {
     const credential = typeof req.body.credential === 'string' ? req.body.credential : '';
     if (!credential || credential.length > 10_000 || !process.env.GOOGLE_CLIENT_ID) {
         return res.status(400).json({ error: 'Invalid Google credential.', code: 'INVALID_PAYLOAD' });
@@ -1181,7 +1181,7 @@ app.post('/api/auth/google', verifyTrustedOrigin, verifyCsrf, authLimiter, async
     }
 });
 
-app.post('/api/auth/firebase', verifyTrustedOrigin, verifyCsrf, authLimiter, async (req, res) => {
+app.post('/api/auth/firebase', verifyTrustedOrigin, authLimiter, async (req, res) => {
     const idToken = typeof req.body.idToken === 'string' ? req.body.idToken : '';
     if (!firebaseAuth) return res.status(503).json({ error: 'Phone authentication is not configured.', code: 'FIREBASE_NOT_CONFIGURED' });
     if (!idToken || idToken.length > 10_000) {
@@ -1203,7 +1203,7 @@ app.post('/api/auth/firebase', verifyTrustedOrigin, verifyCsrf, authLimiter, asy
     }
 });
 
-app.post('/api/auth/send-otp', verifyTrustedOrigin, verifyCsrf, emailLimiter, async (req, res) => {
+app.post('/api/auth/send-otp', verifyTrustedOrigin, emailLimiter, async (req, res) => {
     const email = normalizeEmail(req.body.email);
     if (!emailRegex.test(email) || email.length > 254) {
         return res.status(400).json({ error: 'Invalid email address.', code: 'INVALID_EMAIL' });
@@ -1237,7 +1237,7 @@ app.post('/api/auth/send-otp', verifyTrustedOrigin, verifyCsrf, emailLimiter, as
     }
 });
 
-app.post('/api/auth/verify-otp', verifyTrustedOrigin, verifyCsrf, authLimiter, async (req, res) => {
+app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, res) => {
     const email = normalizeEmail(req.body.email);
     const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
     if (!emailRegex.test(email) || !/^\d{6}$/.test(code)) {
@@ -1268,7 +1268,7 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, verifyCsrf, authLimiter, a
     }
 });
 
-app.post('/api/auth/refresh', verifyTrustedOrigin, verifyCsrf, refreshLimiter, async (req, res) => {
+app.post('/api/auth/refresh', verifyTrustedOrigin, refreshLimiter, async (req, res) => {
     try {
         const hadRefreshToken = Boolean(getRefreshToken(req));
         const session = await rotatePersistentSession(req, res);
@@ -1285,7 +1285,7 @@ app.post('/api/auth/refresh', verifyTrustedOrigin, verifyCsrf, refreshLimiter, a
     }
 });
 
-app.post('/api/auth/upgrade', verifyTrustedOrigin, verifyCsrf, authLimiter, authenticateLegacyToken, async (req, res) => {
+app.post('/api/auth/upgrade', verifyTrustedOrigin, authLimiter, authenticateLegacyToken, async (req, res) => {
     try {
         const session = await issuePersistentSession(req.user.sessionId, req, res);
         return res.json({ success: true, ...session });
@@ -1294,7 +1294,7 @@ app.post('/api/auth/upgrade', verifyTrustedOrigin, verifyCsrf, authLimiter, auth
     }
 });
 
-app.post('/api/auth/logout', verifyTrustedOrigin, verifyCsrf, refreshLimiter, async (req, res) => {
+app.post('/api/auth/logout', verifyTrustedOrigin, refreshLimiter, async (req, res) => {
     try {
         const refreshToken = getRefreshToken(req);
         const accessToken = extractBearerToken(req);
@@ -1333,7 +1333,7 @@ app.post('/api/auth/logout', verifyTrustedOrigin, verifyCsrf, refreshLimiter, as
     }
 });
 
-app.post('/api/auth/welcome', verifyTrustedOrigin, verifyCsrf, authenticateToken, authLimiter, async (req, res) => {
+app.post('/api/auth/welcome', verifyTrustedOrigin, authenticateToken, authLimiter, async (req, res) => {
     const email = normalizeEmail(req.user.sessionId);
     if (!emailRegex.test(email)) {
         return res.status(400).json({ success: false, error: 'Operation restricted to email accounts.', code: 'EMAIL_ONLY' });
@@ -1378,7 +1378,7 @@ app.get('/api/settings', authenticateToken, async (req, res) => {
     });
 });
 
-app.patch('/api/settings', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.settingsUpdate), async (req, res) => {
+app.patch('/api/settings', verifyTrustedOrigin, authenticateToken, validateBody(validators.settingsUpdate), async (req, res) => {
     const setValues = Object.fromEntries(
         Object.entries(req.validatedBody).map(([key, value]) => [`settings.${key}`, value])
     );
@@ -1400,7 +1400,7 @@ app.get('/api/conversations', authenticateToken, async (req, res) => {
     return res.json(conversations);
 });
 
-app.post('/api/conversations', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.conversationCreate), async (req, res) => {
+app.post('/api/conversations', verifyTrustedOrigin, authenticateToken, validateBody(validators.conversationCreate), async (req, res) => {
     const conversation = await Conversation.create({
         userId: req.user.sessionId,
         title: req.validatedBody.title || 'New conversation'
@@ -1409,7 +1409,7 @@ app.post('/api/conversations', verifyTrustedOrigin, verifyCsrf, authenticateToke
     return res.status(201).json(conversation);
 });
 
-app.patch('/api/conversations/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.conversationUpdate), async (req, res) => {
+app.patch('/api/conversations/:id', verifyTrustedOrigin, authenticateToken, validateBody(validators.conversationUpdate), async (req, res) => {
     const conversation = await Conversation.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId },
         { $set: { ...req.validatedBody, updatedAt: new Date() } },
@@ -1419,7 +1419,7 @@ app.patch('/api/conversations/:id', verifyTrustedOrigin, verifyCsrf, authenticat
     return res.json(conversation);
 });
 
-app.delete('/api/conversations/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/conversations/:id', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const conversation = await getOwnedConversation(req.user.sessionId, req.params.id);
     if (!conversation) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
     await Promise.all([
@@ -1430,7 +1430,7 @@ app.delete('/api/conversations/:id', verifyTrustedOrigin, verifyCsrf, authentica
     return res.status(204).send();
 });
 
-app.delete('/api/conversations', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/conversations', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const ids = await Conversation.find({ userId: req.user.sessionId }).distinct('_id');
     await Promise.all([
         Message.deleteMany({ userId: req.user.sessionId }),
@@ -1531,7 +1531,7 @@ app.get('/api/memories', authenticateToken, async (req, res) => {
     return res.json(memories);
 });
 
-app.post('/api/memories', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.memoryCreate), async (req, res) => {
+app.post('/api/memories', verifyTrustedOrigin, authenticateToken, validateBody(validators.memoryCreate), async (req, res) => {
     try {
         const memory = await Fact.create({
             sessionId: req.user.sessionId,
@@ -1547,7 +1547,7 @@ app.post('/api/memories', verifyTrustedOrigin, verifyCsrf, authenticateToken, va
     }
 });
 
-app.patch('/api/memories/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.memoryUpdate), async (req, res) => {
+app.patch('/api/memories/:id', verifyTrustedOrigin, authenticateToken, validateBody(validators.memoryUpdate), async (req, res) => {
     const memory = await Fact.findOneAndUpdate(
         { _id: req.params.id, sessionId: req.user.sessionId },
         { $set: { ...req.validatedBody, source: 'manual', updatedAt: new Date() } },
@@ -1557,13 +1557,13 @@ app.patch('/api/memories/:id', verifyTrustedOrigin, verifyCsrf, authenticateToke
     return res.json(memory);
 });
 
-app.delete('/api/memories/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/memories/:id', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const result = await Fact.deleteOne({ _id: req.params.id, sessionId: req.user.sessionId });
     if (result.deletedCount === 0) return res.status(404).json({ error: 'Memory not found.', code: 'MEMORY_NOT_FOUND' });
     return res.status(204).send();
 });
 
-app.delete('/api/memories', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/memories', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     await Fact.deleteMany({ sessionId: req.user.sessionId });
     recordAudit('memory.all_cleared', req.user.sessionId, req);
     return res.status(204).send();
@@ -1581,7 +1581,7 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
     })));
 });
 
-app.delete('/api/sessions/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/sessions/:id', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid session identifier.', code: 'INVALID_ID' });
     const session = await Session.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId, revokedAt: null },
@@ -1593,7 +1593,7 @@ app.delete('/api/sessions/:id', verifyTrustedOrigin, verifyCsrf, authenticateTok
     return res.json({ success: true, current: String(req.params.id) === String(req.user.authSessionId) });
 });
 
-app.post('/api/sessions/revoke-others', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.post('/api/sessions/revoke-others', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const result = await Session.updateMany(
         {
             userId: req.user.sessionId,
@@ -1606,7 +1606,7 @@ app.post('/api/sessions/revoke-others', verifyTrustedOrigin, verifyCsrf, authent
     return res.json({ success: true, revoked: result.modifiedCount });
 });
 
-app.post('/api/messages/:id/feedback', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.feedback), async (req, res) => {
+app.post('/api/messages/:id/feedback', verifyTrustedOrigin, authenticateToken, validateBody(validators.feedback), async (req, res) => {
     const update = {};
     if (req.validatedBody.reaction !== undefined) update['feedback.reaction'] = req.validatedBody.reaction;
     if (req.validatedBody.reportType !== undefined) update['feedback.reportType'] = req.validatedBody.reportType;
@@ -1622,7 +1622,7 @@ app.post('/api/messages/:id/feedback', verifyTrustedOrigin, verifyCsrf, authenti
     return res.json(message.feedback);
 });
 
-app.post('/api/ask/stream', verifyTrustedOrigin, verifyCsrf, authenticateToken, askLimiter, validateBody(validators.ask), async (req, res) => {
+app.post('/api/ask/stream', verifyTrustedOrigin, authenticateToken, askLimiter, validateBody(validators.ask), async (req, res) => {
     let disconnected = false;
     res.on('close', () => { disconnected = true; });
     res.status(200);
@@ -1705,7 +1705,7 @@ app.post('/api/ask/stream', verifyTrustedOrigin, verifyCsrf, authenticateToken, 
     }
 });
 
-app.post('/ask', verifyTrustedOrigin, verifyCsrf, authenticateToken, askLimiter, validateBody(validators.ask), async (req, res) => {
+app.post('/ask', verifyTrustedOrigin, authenticateToken, askLimiter, validateBody(validators.ask), async (req, res) => {
     const startedAt = Date.now();
     try {
         const context = await prepareAskContext(req.user.sessionId, req.validatedBody);
@@ -1747,7 +1747,7 @@ app.post('/ask', verifyTrustedOrigin, verifyCsrf, authenticateToken, askLimiter,
     }
 });
 
-app.post('/api/journal/generate', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.journalRequest), async (req, res) => {
+app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, validateBody(validators.journalRequest), async (req, res) => {
     const settings = await getUserSettings(req.user.sessionId);
     if (!settings.journalEnabled) {
         return res.status(403).json({ error: 'Journal summaries are disabled in settings.', code: 'JOURNAL_DISABLED' });
@@ -1776,7 +1776,7 @@ app.get('/api/reminders', authenticateToken, async (req, res) => {
     return res.json(reminders);
 });
 
-app.post('/api/reminders', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.reminderCreate), async (req, res) => {
+app.post('/api/reminders', verifyTrustedOrigin, authenticateToken, validateBody(validators.reminderCreate), async (req, res) => {
     const dueAt = new Date(req.validatedBody.dueAt);
     if (dueAt.getTime() < Date.now() - 60_000) {
         return res.status(400).json({ error: 'Reminder time must be in the future.', code: 'REMINDER_IN_PAST' });
@@ -1791,7 +1791,7 @@ app.post('/api/reminders', verifyTrustedOrigin, verifyCsrf, authenticateToken, v
     return res.status(201).json(reminder);
 });
 
-app.post('/api/reminders/parse', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.post('/api/reminders/parse', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const text = String(req.body.text || '').trim().slice(0, 500);
     const zone = resolveTimeZone(req.body.timeZone, DEFAULT_TIME_ZONE);
     if (!text) return res.status(400).json({ error: 'Reminder text is required.', code: 'INVALID_PAYLOAD' });
@@ -1810,7 +1810,7 @@ app.post('/api/reminders/parse', verifyTrustedOrigin, verifyCsrf, authenticateTo
     }
 });
 
-app.patch('/api/reminders/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.reminderUpdate), async (req, res) => {
+app.patch('/api/reminders/:id', verifyTrustedOrigin, authenticateToken, validateBody(validators.reminderUpdate), async (req, res) => {
     const update = { ...req.validatedBody, updatedAt: new Date() };
     if (update.dueAt) update.dueAt = new Date(update.dueAt);
     const reminder = await Reminder.findOneAndUpdate(
@@ -1822,7 +1822,7 @@ app.patch('/api/reminders/:id', verifyTrustedOrigin, verifyCsrf, authenticateTok
     return res.json(reminder);
 });
 
-app.delete('/api/reminders/:id', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/reminders/:id', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const result = await Reminder.deleteOne({ _id: req.params.id, userId: req.user.sessionId });
     if (result.deletedCount === 0) return res.status(404).json({ error: 'Reminder not found.', code: 'REMINDER_NOT_FOUND' });
     return res.status(204).send();
@@ -1853,7 +1853,7 @@ app.get('/api/push/public-key', authenticateToken, (req, res) => {
     return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
-app.post('/api/push/subscribe', verifyTrustedOrigin, verifyCsrf, authenticateToken, validateBody(validators.pushSubscription), async (req, res) => {
+app.post('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, validateBody(validators.pushSubscription), async (req, res) => {
     if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not configured.', code: 'PUSH_NOT_CONFIGURED' });
     const subscription = await PushSubscription.findOneAndUpdate(
         { endpoint: req.validatedBody.endpoint },
@@ -1863,13 +1863,13 @@ app.post('/api/push/subscribe', verifyTrustedOrigin, verifyCsrf, authenticateTok
     return res.status(201).json({ success: true, id: String(subscription._id) });
 });
 
-app.delete('/api/push/subscribe', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.delete('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const endpoint = String(req.body.endpoint || '').slice(0, 4000);
     if (endpoint) await PushSubscription.deleteOne({ endpoint, userId: req.user.sessionId });
     return res.status(204).send();
 });
 
-app.post('/api/user/delete', verifyTrustedOrigin, verifyCsrf, authenticateToken, async (req, res) => {
+app.post('/api/user/delete', verifyTrustedOrigin, authenticateToken, async (req, res) => {
     const userId = req.user.sessionId;
     const performDelete = async (mongoSession = null) => {
         const options = mongoSession ? { session: mongoSession } : {};
@@ -1967,7 +1967,7 @@ app.get('/api/admin/audit', adminLimiter, authenticateToken, requireAdmin, async
     return res.json(events);
 });
 
-app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
+app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
     const userId = decodeURIComponent(req.params.userId).slice(0, 254);
     const update = req.validatedBody.suspended
         ? { suspendedAt: new Date(), suspensionReason: req.validatedBody.reason || 'Administrative action' }
@@ -1990,7 +1990,7 @@ app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, as
     return res.json(sessions);
 });
 
-app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
         mongoose.trusted({ _id: sessionId, revokedAt: null }),
@@ -2002,7 +2002,7 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, ad
     return res.json({ success: true, sessionId });
 });
 
-app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
         mongoose.trusted({ _id: sessionId, revokedAt: null }),
@@ -2072,13 +2072,13 @@ app.get('/api/admin/analytics', adminLimiter, authenticateToken, requireAdmin, a
 });
 
 let globalMaintenanceMode = false;
-app.post('/api/admin/maintenance', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     globalMaintenanceMode = !globalMaintenanceMode;
     recordAudit(globalMaintenanceMode ? 'admin.maintenance_enabled' : 'admin.maintenance_disabled', req.user.sessionId, req, {});
     return res.json({ success: true, maintenanceMode: globalMaintenanceMode });
 });
 
-app.post('/api/admin/cache', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/cache', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     // In a real app, clear redis or memory cache here
     recordAudit('admin.cache_cleared', req.user.sessionId, req, {});
     return res.json({ success: true });
@@ -2100,6 +2100,9 @@ app.get('*', (req, res) => {
 
 app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
+    if (error?.code === 'EBADCSRFTOKEN') {
+        return res.status(403).json({ error: 'CSRF token is invalid or missing.', code: 'CSRF_INVALID', requestId: req.requestId });
+    }
     if (error?.message === 'Origin is not allowed by CORS policy.') {
         return res.status(403).json({ error: error.message, code: 'ORIGIN_REJECTED', requestId: req.requestId });
     }
