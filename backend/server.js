@@ -1996,7 +1996,7 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, verifyCsrf
 });
 
 app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
-    const sessions = await Session.find({ revokedAt: null, expiresAt: mongoose.trusted({ $gt: new Date() }) })
+    const sessions = await Session.find(mongoose.trusted({ revokedAt: null, expiresAt: { $gt: new Date() } }))
         .sort({ lastSeenAt: -1 })
         .limit(100)
         .select('userId deviceName browser operatingSystem createdAt lastSeenAt')
@@ -2007,7 +2007,7 @@ app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, as
 app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
-        { _id: sessionId, revokedAt: null },
+        mongoose.trusted({ _id: sessionId, revokedAt: null }),
         { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
         { new: true }
     );
@@ -2019,7 +2019,7 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, verifyCsrf, ad
 app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsrf, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
-        { _id: sessionId, revokedAt: null },
+        mongoose.trusted({ _id: sessionId, revokedAt: null }),
         { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
         { new: true }
     );
@@ -2031,11 +2031,11 @@ app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, verifyCsr
 app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const query = String(req.query.q || '').trim().slice(0, 100);
     if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
-    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const regex = new RegExp(escapeRegExp(query), 'i');
     const [users, auditEvents, reports] = await Promise.all([
-        User.find({ $or: [{ sessionId: regex }, { suspensionReason: regex }] }).limit(20).lean(),
-        AuditEvent.find({ $or: [{ userId: regex }, { action: regex }, { requestId: regex }] }).sort({ createdAt: -1 }).limit(30).lean(),
-        Message.find({ 'feedback.reportType': mongoose.trusted({ $ne: null }), $or: [{ userId: regex }, { content: regex }] })
+        User.find(mongoose.trusted({ $or: [{ sessionId: regex }, { suspensionReason: regex }] })).limit(20).lean(),
+        AuditEvent.find(mongoose.trusted({ $or: [{ userId: regex }, { action: regex }, { requestId: regex }] })).sort({ createdAt: -1 }).limit(30).lean(),
+        Message.find(mongoose.trusted({ 'feedback.reportType': { $ne: null }, $or: [{ userId: regex }, { content: regex }] }))
             .sort({ 'feedback.updatedAt': -1 })
             .limit(20)
             .select('userId conversationId content feedback createdAt')
