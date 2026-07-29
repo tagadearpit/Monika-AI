@@ -1,3 +1,4 @@
+/* global Chart */
 'use strict';
 
 const state = {
