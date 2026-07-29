@@ -445,15 +445,19 @@ const pruneOldSessions = async (userId) => {
     }
 };
 
+const escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 const sendLoginNotification = async (userId, metadata) => {
     if (process.env.LOGIN_NOTIFICATION_EMAILS !== 'true' || !emailRegex.test(userId)) return;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
+    const browser = escapeHtml(metadata.browser);
+    const os = escapeHtml(metadata.operatingSystem);
     await transporter.sendMail({
         from: `"Monika AI Security" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`,
         to: userId,
         subject: 'New Monika AI sign-in',
         text: `A new sign-in was detected from ${metadata.browser} on ${metadata.operatingSystem}. If this was not you, open Monika AI and revoke the device session.`,
-        html: `<div style="font-family:sans-serif"><h2>New sign-in detected</h2><p>Browser: ${metadata.browser}</p><p>System: ${metadata.operatingSystem}</p><p>If this was not you, revoke the session from Manage Devices.</p></div>`
+        html: `<div style="font-family:sans-serif"><h2>New sign-in detected</h2><p>Browser: ${browser}</p><p>System: ${os}</p><p>If this was not you, revoke the session from Manage Devices.</p></div>`
     });
 };
 
@@ -1112,6 +1116,14 @@ const deliverReminder = async (reminder) => {
     }
 
     reminder.deliveryAttempts += 1;
+    if (!delivered && reminder.deliveryAttempts >= 50) {
+        reminder.status = 'cancelled';
+        reminder.lastError = 'Maximum delivery attempts reached.';
+        reminder.updatedAt = new Date();
+        await reminder.save();
+        log('warn', 'reminder_delivery_exhausted', { reminderId: String(reminder._id), userId: reminder.userId });
+        return false;
+    }
     reminder.lastError = delivered ? '' : 'No push subscription accepted the notification.';
     if (delivered) await advanceRecurringReminder(reminder);
     else {
@@ -1289,21 +1301,30 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, r
         return res.status(400).json({ error: 'Invalid verification payload.', code: 'INVALID_PAYLOAD' });
     }
     try {
-        const record = await Otp.findOne({ email });
-        if (!record) return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
-        if (record.attempts >= 5) {
-            await Otp.deleteOne({ _id: record._id });
-            return res.status(403).json({ error: 'Maximum attempts reached. Request a new code.', code: 'OTP_LOCKED' });
+        // Atomically claim an attempt slot — prevents concurrent reads from seeing stale counts
+        const record = await Otp.findOneAndUpdate(
+            { email, attempts: { $lt: 5 } },
+            { $inc: { attempts: 1 } },
+            { new: false }
+        );
+        if (!record) {
+            // Either no OTP exists or attempts exhausted — clean up and reject
+            await Otp.deleteOne({ email });
+            return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
         }
         const expected = Buffer.from(record.code, 'hex');
         const provided = Buffer.from(hashOtp(OTP_SECRET, email, code), 'hex');
         const matches = expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
         if (!matches) {
-            await Otp.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
+            if (record.attempts + 1 >= 5) await Otp.deleteOne({ _id: record._id });
             recordAudit('auth.otp_invalid', null, req);
             return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
         }
-        await Otp.deleteOne({ _id: record._id });
+        // Atomically consume — only one concurrent request can succeed
+        const consumed = await Otp.findOneAndDelete({ _id: record._id });
+        if (!consumed) {
+            return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
+        }
         const session = await issuePersistentSession(email, req, res);
         return res.json({ success: true, ...session });
     } catch (error) {
@@ -1332,6 +1353,8 @@ app.post('/api/auth/refresh', verifyTrustedOrigin, refreshLimiter, async (req, r
 
 app.post('/api/auth/upgrade', verifyTrustedOrigin, authLimiter, authenticateLegacyToken, async (req, res) => {
     try {
+        const existing = await User.findOne({ sessionId: req.user.sessionId }).select('suspendedAt').lean();
+        if (existing?.suspendedAt) return res.status(403).json({ error: 'This account is suspended.', code: 'ACCOUNT_SUSPENDED' });
         const session = await issuePersistentSession(req.user.sessionId, req, res);
         return res.json({ success: true, ...session });
     } catch (error) {
@@ -1901,7 +1924,7 @@ app.get('/api/push/public-key', authenticateToken, (req, res) => {
 app.post('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, validateBody(validators.pushSubscription), async (req, res) => {
     if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not configured.', code: 'PUSH_NOT_CONFIGURED' });
     const subscription = await PushSubscription.findOneAndUpdate(
-        { endpoint: req.validatedBody.endpoint },
+        { endpoint: req.validatedBody.endpoint, userId: req.user.sessionId },
         { $set: { ...req.validatedBody, userId: req.user.sessionId, lastUsedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
     );
