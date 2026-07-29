@@ -16,7 +16,7 @@ const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const csurf = require('csurf');
+
 const PDFDocument = require('pdfkit');
 const webPush = require('web-push');
 const {
@@ -79,7 +79,11 @@ const REFRESH_COOKIE_NAME = isProduction ? '__Host-monika_refresh' : 'monika_ref
 const LEGACY_REFRESH_COOKIE_NAMES = ['monika_refresh', '__Host-monika_refresh'];
 const ACCESS_TOKEN_ISSUER = 'monika-ai';
 const ACCESS_TOKEN_AUDIENCE = 'monika-web';
-const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || 'development-only-secret';
+const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET;
+if (!OTP_SECRET) {
+    console.error('CRITICAL ERROR: OTP_SECRET (or JWT_SECRET) must be set.');
+    if (require.main === module) process.exit(1);
+}
 const allowedOrigins = new Set(
     String(process.env.ALLOWED_ORIGINS || 'http://localhost:10000')
         .split(',')
@@ -222,17 +226,53 @@ app.use(express.json({ limit: '24mb', strict: true }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use(cookieParser());
 
-const csrfProtection = csurf({ 
-    cookie: { 
-        key: '_csrfSecret',
-        httpOnly: true, 
-        secure: isProduction, 
-        sameSite: 'lax', 
-        path: '/' 
-    },
-    value: (req) => req.get('x-csrf-token') || req.body?._csrf || req.query?._csrf
+// Custom double-submit CSRF protection (replaces deprecated/archived csurf)
+const CSRF_COOKIE = '_csrfSecret';
+const CSRF_SALT_BYTES = 16;
+const CSRF_SALT_B64_LEN = 22; // base64url(16 bytes)
+const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+const csrfGenerateToken = (secret) => {
+    const salt = crypto.randomBytes(CSRF_SALT_BYTES).toString('base64url');
+    const hash = crypto.createHmac('sha256', secret).update(salt).digest('base64url');
+    return salt + hash;
+};
+
+const csrfValidateToken = (token, secret) => {
+    if (!token || !secret || typeof token !== 'string' || token.length <= CSRF_SALT_B64_LEN) return false;
+    const salt = token.slice(0, CSRF_SALT_B64_LEN);
+    const hash = token.slice(CSRF_SALT_B64_LEN);
+    try {
+        const expected = crypto.createHmac('sha256', secret).update(salt).digest('base64url');
+        if (hash.length !== expected.length) return false;
+        return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(expected));
+    } catch {
+        return false;
+    }
+};
+
+app.use((req, res, next) => {
+    let secret = req.cookies[CSRF_COOKIE];
+    if (!secret) {
+        secret = crypto.randomBytes(32).toString('hex');
+        res.cookie(CSRF_COOKIE, secret, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'lax',
+            path: '/'
+        });
+    }
+    req.csrfToken = () => csrfGenerateToken(secret);
+    if (!CSRF_SAFE_METHODS.has(req.method)) {
+        const token = req.get('x-csrf-token') || req.body?._csrf || req.query?._csrf;
+        if (!csrfValidateToken(token, secret)) {
+            const error = new Error('CSRF token is invalid or missing.');
+            error.code = 'EBADCSRFTOKEN';
+            return next(error);
+        }
+    }
+    return next();
 });
-app.use(csrfProtection);
 
 const createLimiter = (auditAction, options) => rateLimit({
     standardHeaders: 'draft-7',
@@ -1115,6 +1155,14 @@ const startReminderWorker = () => {
     reminderWorkerTimer.unref?.();
 };
 
+let globalMaintenanceMode = false;
+app.use('/api', (req, res, next) => {
+    if (globalMaintenanceMode && !req.path.startsWith('/admin') && req.path !== '/config' && req.path !== '/health') {
+        return res.status(503).json({ error: 'The service is temporarily unavailable for maintenance.', code: 'MAINTENANCE_MODE' });
+    }
+    return next();
+});
+
 app.use('/api/auth', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Pragma', 'no-cache');
@@ -1744,7 +1792,7 @@ app.post('/ask', verifyTrustedOrigin, authenticateToken, askLimiter, validateBod
     }
 });
 
-app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, validateBody(validators.journalRequest), async (req, res) => {
+app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, askLimiter, validateBody(validators.journalRequest), async (req, res) => {
     const settings = await getUserSettings(req.user.sessionId);
     if (!settings.journalEnabled) {
         return res.status(403).json({ error: 'Journal summaries are disabled in settings.', code: 'JOURNAL_DISABLED' });
@@ -1788,7 +1836,7 @@ app.post('/api/reminders', verifyTrustedOrigin, authenticateToken, validateBody(
     return res.status(201).json(reminder);
 });
 
-app.post('/api/reminders/parse', verifyTrustedOrigin, authenticateToken, async (req, res) => {
+app.post('/api/reminders/parse', verifyTrustedOrigin, authenticateToken, askLimiter, async (req, res) => {
     const text = String(req.body.text || '').trim().slice(0, 500);
     const zone = resolveTimeZone(req.body.timeZone, DEFAULT_TIME_ZONE);
     if (!text) return res.status(400).json({ error: 'Reminder text is required.', code: 'INVALID_PAYLOAD' });
@@ -1999,17 +2047,7 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, 
     return res.json({ success: true, sessionId });
 });
 
-app.post('/api/admin/sessions/:sessionId/revoke', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
-    const sessionId = String(req.params.sessionId || '').slice(0, 128);
-    const session = await Session.findOneAndUpdate(
-        mongoose.trusted({ _id: sessionId, revokedAt: null }),
-        { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
-        { new: true }
-    );
-    if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
-    recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
-    return res.json({ success: true, sessionId });
-});
+
 
 app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     const query = String(req.query.q || '').trim().slice(0, 100);
@@ -2068,17 +2106,10 @@ app.get('/api/admin/analytics', adminLimiter, authenticateToken, requireAdmin, a
     return res.json({ dates, users, requests, messages });
 });
 
-let globalMaintenanceMode = false;
 app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
     globalMaintenanceMode = !globalMaintenanceMode;
     recordAudit(globalMaintenanceMode ? 'admin.maintenance_enabled' : 'admin.maintenance_disabled', req.user.sessionId, req, {});
     return res.json({ success: true, maintenanceMode: globalMaintenanceMode });
-});
-
-app.post('/api/admin/cache', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
-    // In a real app, clear redis or memory cache here
-    recordAudit('admin.cache_cleared', req.user.sessionId, req, {});
-    return res.json({ success: true });
 });
 
 const publicPath = path.join(__dirname, '../public');
@@ -2089,6 +2120,8 @@ app.use(express.static(publicPath, {
         if (filePath.endsWith('sw.js') || filePath.endsWith('script.js')) res.setHeader('Cache-Control', 'no-cache');
     }
 }));
+
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.', code: 'NOT_FOUND' }));
 
 app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
