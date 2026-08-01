@@ -421,6 +421,51 @@ async function handleGoogleLogin(response) {
     }
 }
 
+async function requestOtp(mode, value) {
+    if (mode === 'email') {
+        const response = await fetch(`${baseUrl}/api/auth/send-otp`, {
+            method: 'POST', credentials: 'include',
+            headers: mutationHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ email: value })
+        });
+        const data = await parseJsonSafely(response);
+        if (!response.ok) throw new Error(data.error || 'Unable to send login code.');
+    } else {
+        if (!auth) throw new Error('Phone authentication is not configured.');
+        if (recaptchaReady && window.recaptchaVerifier) {
+            try { const wId = await window.recaptchaVerifier.render(); grecaptcha.reset(wId); } catch (_) { /* ignore */ }
+        } else {
+            setupRecaptcha();
+        }
+        confirmationResult = await auth.signInWithPhoneNumber(value, window.recaptchaVerifier);
+    }
+}
+
+function updateOtpNote(mode, value) {
+    $('otpNote').textContent = `Code sent to ${value}! Check your ${mode === 'email' ? 'inbox' : 'SMS'}. 🌸`;
+}
+
+let resendCooldownTimer = null;
+
+function startResendCooldown(seconds = 30) {
+    const btn = $('resendCodeBtn');
+    btn.disabled = true;
+    let remaining = seconds;
+    btn.textContent = `Resend in ${remaining}s`;
+    if (resendCooldownTimer) clearInterval(resendCooldownTimer);
+    resendCooldownTimer = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(resendCooldownTimer);
+            resendCooldownTimer = null;
+            btn.disabled = false;
+            btn.textContent = 'Resend Code';
+        } else {
+            btn.textContent = `Resend in ${remaining}s`;
+        }
+    }, 1000);
+}
+
 $('sendCodeBtn').onclick = async () => {
     const mode = $('showEmailBtn').classList.contains('active') ? 'email' : 'phone';
     const input = $(mode === 'email' ? 'emailInput' : 'phoneInput');
@@ -432,25 +477,33 @@ $('sendCodeBtn').onclick = async () => {
     $('sendCodeBtn').disabled = true;
     $('sendCodeBtn').textContent = 'Processing...';
     try {
-        if (mode === 'email') {
-            const response = await fetch(`${baseUrl}/api/auth/send-otp`, {
-                method: 'POST', credentials: 'include',
-                headers: mutationHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ email: value })
-            });
-            const data = await parseJsonSafely(response);
-            if (!response.ok) throw new Error(data.error || 'Unable to send login code.');
-        } else {
-            if (!auth) throw new Error('Phone authentication is not configured.');
-            setupRecaptcha();
-            confirmationResult = await auth.signInWithPhoneNumber(value, window.recaptchaVerifier);
-        }
+        await requestOtp(mode, value);
+        updateOtpNote(mode, value);
         $('phone-input-section').hidden = true;
         $('otp-input-section').hidden = false;
+        startResendCooldown();
     } catch (error) {
         alert(error.message || 'Unable to send login code.');
         $('sendCodeBtn').disabled = false;
         $('sendCodeBtn').textContent = 'Send Login Code';
+    }
+};
+
+$('resendCodeBtn').onclick = async () => {
+    const mode = $('showEmailBtn').classList.contains('active') ? 'email' : 'phone';
+    const value = $(mode === 'email' ? 'emailInput' : 'phoneInput').value.trim();
+    if (!value) return alert('No destination found. Please go back and enter your details.');
+    $('resendCodeBtn').disabled = true;
+    $('resendCodeBtn').textContent = 'Sending...';
+    try {
+        await requestOtp(mode, value);
+        updateOtpNote(mode, value);
+        $('verificationCode').value = '';
+        startResendCooldown();
+    } catch (error) {
+        alert(error.message || 'Unable to resend login code.');
+        $('resendCodeBtn').disabled = false;
+        $('resendCodeBtn').textContent = 'Resend Code';
     }
 };
 
@@ -697,7 +750,7 @@ function renderMessage(message, { streaming = false } = {}) {
     if (sender !== 'user') prefix.style.color = '#ff8fb7';
     const text = document.createElement('span');
     text.className = 'chat-text';
-    text.textContent = cleanMoodTags(message.content || '');
+    text.textContent = cleanMoodTags(message.content || '') || '…Hmm, I lost my train of thought. Try again? 🌸';
     content.append(prefix, text);
 
     if (message.attachments?.length) {
@@ -1226,7 +1279,7 @@ async function sendMessage(options = {}) {
         placeholder._id = finalData.messageId;
         placeholder.content = finalData.reply || placeholder.content;
         await streamingRenderer.finish(placeholder.content);
-        textNode.textContent = cleanMoodTags(placeholder.content);
+        textNode.textContent = cleanMoodTags(placeholder.content) || '…Hmm, I lost my train of thought. Try again? 🌸';
         streamingWrapper.dataset.messageId = placeholder._id;
         streamingWrapper.dataset.content = placeholder.content;
         const meta = document.createElement('div');

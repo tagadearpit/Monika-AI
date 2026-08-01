@@ -1728,7 +1728,8 @@ app.post('/api/ask/stream', verifyTrustedOrigin, authenticateToken, askLimiter, 
             return undefined;
         }
         reply = reply.trim();
-        if (!reply) throw new Error('Gemini returned no text response.');
+        const strippedForValidation = reply.replace(/^\[(NORMAL|HAPPY|LOVING|ANGRY|SAD)\]\s*/i, '').trim();
+        if (!strippedForValidation) throw new Error('Gemini returned no usable text response.');
 
         const message = await Message.create({
             conversationId: context.conversation._id,
@@ -1783,7 +1784,8 @@ app.post('/ask', verifyTrustedOrigin, authenticateToken, askLimiter, validateBod
             config: { temperature: 0.8 }
         }, false);
         const reply = String(result.text || '').trim();
-        if (!reply) throw new Error('Gemini returned no text response.');
+        const strippedForValidation = reply.replace(/^\[(NORMAL|HAPPY|LOVING|ANGRY|SAD)\]\s*/i, '').trim();
+        if (!strippedForValidation) throw new Error('Gemini returned no usable text response.');
         const message = await Message.create({
             conversationId: context.conversation._id,
             userId: req.user.sessionId,
