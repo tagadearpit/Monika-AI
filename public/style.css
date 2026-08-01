@@ -359,6 +359,23 @@ body.auth-pending {
 #verifyCodeBtn { background: linear-gradient(45deg, #4ade80, #3b82f6) !important; box-shadow: 0 5px 15px rgba(74, 222, 128, 0.3); }
 #verifyCodeBtn:hover { box-shadow: 0 8px 25px rgba(74, 222, 128, 0.6); }
 
+#resendCodeBtn {
+    background: transparent !important;
+    border: 1px solid rgba(255, 20, 147, 0.4) !important;
+    color: #ff90b8;
+    box-shadow: none;
+    font-size: 0.9rem;
+}
+#resendCodeBtn:hover:not(:disabled) {
+    background: rgba(255, 20, 147, 0.12) !important;
+    border-color: #ff1493 !important;
+}
+#resendCodeBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
 /* =========================================
    ✨ ANIMATIONS & EXTRAS
    ========================================= */

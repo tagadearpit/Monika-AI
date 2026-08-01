@@ -50,9 +50,10 @@
                 <button id="sendCodeBtn" class="action-btn" type="button">Send Login Code</button>
             </div>
             <div id="otp-input-section" hidden>
-                <p class="otp-note">Check your Inbox or SMS! 🌸</p>
+                <p class="otp-note" id="otpNote">Check your Inbox or SMS! 🌸</p>
                 <input type="text" inputmode="numeric" maxlength="6" id="verificationCode" placeholder="Enter 6-digit code" autocomplete="one-time-code">
                 <button id="verifyCodeBtn" class="action-btn verify-action" type="button">Verify & Enter</button>
+                <button id="resendCodeBtn" class="action-btn secondary-action" type="button">Resend Code</button>
             </div>
             <div id="recaptcha-container"></div>
         </div>
