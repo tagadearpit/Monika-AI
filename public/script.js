@@ -797,7 +797,8 @@ function renderMessage(message, { streaming = false } = {}) {
     if (sender !== 'user') prefix.style.color = '#ff8fb7';
     const text = document.createElement('span');
     text.className = 'chat-text';
-    text.textContent = cleanMoodTags(message.content || '') || '…Hmm, I lost my train of thought. Try again? 🌸';
+    const cleanedContent = cleanMoodTags(message.content || '');
+    text.textContent = streaming ? cleanedContent : (cleanedContent || '…Hmm, I lost my train of thought. Try again? 🌸');
     content.append(prefix, text);
 
     if (message.attachments?.length) {
@@ -1276,6 +1277,11 @@ async function sendMessage(options = {}) {
 
     let streamingWrapper = null;
     let streamingRenderer = null;
+    let textNode = null;
+    const placeholder = {
+        _id: `temp-model-${Date.now()}`,
+        role: 'model', content: '', createdAt: new Date().toISOString()
+    };
 
     try {
         const response = await apiFetch(`${baseUrl}/api/ask/stream`, {
@@ -1298,23 +1304,25 @@ async function sendMessage(options = {}) {
             const data = await parseJsonSafely(response);
             throw createRequestError(response, data, `Request failed (${response.status})`);
         }
-        hideTypingIndicator();
-        const placeholder = {
-            _id: `temp-model-${Date.now()}`,
-            role: 'model', content: '', createdAt: new Date().toISOString()
+        const ensureStreamingUi = () => {
+            if (streamingWrapper) return;
+            hideTypingIndicator();
+            streamingWrapper = renderMessage(placeholder, { streaming: true });
+            textNode = streamingWrapper.querySelector('.chat-text');
+            streamingRenderer = createTypewriterRenderer(textNode);
+            currentTypewriterRenderer = streamingRenderer;
+            textNode.classList.add('typewriter-active');
         };
-        streamingWrapper = renderMessage(placeholder, { streaming: true });
-        const textNode = streamingWrapper.querySelector('.chat-text');
-        streamingRenderer = createTypewriterRenderer(textNode);
-        currentTypewriterRenderer = streamingRenderer;
-        textNode.classList.add('typewriter-active');
         let finalData = null;
         await consumeSse(response, {
             meta(data) {
                 if (data.conversationId && data.conversationId !== currentConversationId) currentConversationId = data.conversationId;
             },
             delta(data) {
-                placeholder.content += data.text || '';
+                const deltaText = data.text || '';
+                if (!deltaText) return;
+                ensureStreamingUi();
+                placeholder.content += deltaText;
                 streamingWrapper.dataset.content = placeholder.content;
                 streamingRenderer.setRaw(placeholder.content);
             },
@@ -1323,10 +1331,12 @@ async function sendMessage(options = {}) {
         });
 
         if (!finalData) throw new Error('The response stream ended unexpectedly.');
+        ensureStreamingUi();
         placeholder._id = finalData.messageId;
         placeholder.content = finalData.reply || placeholder.content;
         await streamingRenderer.finish(placeholder.content);
-        textNode.textContent = cleanMoodTags(placeholder.content) || '…Hmm, I lost my train of thought. Try again? 🌸';
+        const cleanedContent = cleanMoodTags(placeholder.content);
+        textNode.textContent = cleanedContent || '…Hmm, I lost my train of thought. Try again? 🌸';
         streamingWrapper.dataset.messageId = placeholder._id;
         streamingWrapper.dataset.content = placeholder.content;
         const meta = document.createElement('div');
@@ -1340,7 +1350,20 @@ async function sendMessage(options = {}) {
     } catch (error) {
         hideTypingIndicator();
         streamingRenderer?.cancel();
-        streamingWrapper?.remove();
+        if (error?.name === 'AbortError' && placeholder.content.trim() && streamingWrapper) {
+            if (textNode) {
+                textNode.classList.remove('typewriter-active');
+                textNode.textContent = cleanMoodTags(placeholder.content);
+            }
+            streamingWrapper.dataset.content = placeholder.content;
+            const meta = document.createElement('div');
+            meta.className = 'message-meta';
+            meta.textContent = new Date().toLocaleString();
+            streamingWrapper.append(meta, buildMessageActions(placeholder));
+            currentMessages.push(placeholder);
+        } else {
+            streamingWrapper?.remove();
+        }
         console.error('Message generation failed:', error);
         addSystemMessage(getCuteErrorMessage(error, 'generation'));
     } finally {
