@@ -7,6 +7,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { GoogleGenAI } = require('@google/genai');
 const nodemailer = require('nodemailer');
+const { buildOtpEmail, buildLoginAlertEmail } = require('./email-templates');
 const { rateLimit } = require('express-rate-limit');
 const crypto = require('crypto');
 const xss = require('xss');
@@ -323,6 +324,7 @@ const accountDetails = (identifier) => ({
     identifier
 });
 
+const APP_URL = (process.env.APP_URL || 'https://monika-ai-0jpf.onrender.com').replace(/\/$/, '');
 const transporter = nodemailer.createTransport({
     pool: true,
     host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -445,19 +447,25 @@ const pruneOldSessions = async (userId) => {
     }
 };
 
-const escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
 const sendLoginNotification = async (userId, metadata) => {
     if (process.env.LOGIN_NOTIFICATION_EMAILS !== 'true' || !emailRegex.test(userId)) return;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
-    const browser = escapeHtml(metadata.browser);
-    const os = escapeHtml(metadata.operatingSystem);
+    const loginEmail = buildLoginAlertEmail({
+        browser: metadata.browser,
+        operatingSystem: metadata.operatingSystem,
+        time: new Date().toLocaleString('en-IN', {
+            timeZone: process.env.DEFAULT_TIME_ZONE || 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        }),
+        appUrl: APP_URL
+    });
     await transporter.sendMail({
         from: `"Monika AI Security" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`,
         to: userId,
-        subject: 'New Monika AI sign-in',
-        text: `A new sign-in was detected from ${metadata.browser} on ${metadata.operatingSystem}. If this was not you, open Monika AI and revoke the device session.`,
-        html: `<div style="font-family:sans-serif"><h2>New sign-in detected</h2><p>Browser: ${browser}</p><p>System: ${os}</p><p>If this was not you, revoke the session from Manage Devices.</p></div>`
+        subject: loginEmail.subject,
+        text: loginEmail.text,
+        html: loginEmail.html
     });
 };
 
@@ -1279,12 +1287,13 @@ app.post('/api/auth/send-otp', verifyTrustedOrigin, emailLimiter, async (req, re
             { $set: { code: hashOtp(OTP_SECRET, email, otpCode), attempts: 0, createdAt: now } },
             { upsert: true, setDefaultsOnInsert: true }
         );
+        const otpEmail = buildOtpEmail({ otpCode, appUrl: APP_URL });
         await transporter.sendMail({
             from: `"Monika AI" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`,
             to: email,
-            subject: 'Your Monika AI Login Code',
-            text: `Your Monika AI login code is ${otpCode}. It expires in 5 minutes.`,
-            html: `<div style="text-align:center;padding:20px;border-radius:15px;font-family:sans-serif"><h2>Monika AI</h2><h1>${otpCode}</h1><p>Expires in 5 minutes.</p></div>`
+            subject: otpEmail.subject,
+            text: otpEmail.text,
+            html: otpEmail.html
         });
         return res.json({ success: true });
     } catch (error) {
@@ -2138,6 +2147,15 @@ app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, authentica
 });
 
 const publicPath = path.join(__dirname, '../public');
+
+app.get('/admin', (req, res) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(publicPath, 'admin.html'));
+});
+
+app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
+
 app.use(express.static(publicPath, {
     etag: true,
     maxAge: isProduction ? '5m' : 0,

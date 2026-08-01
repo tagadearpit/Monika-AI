@@ -16,6 +16,8 @@ services:
         value: 10000
       - key: DEFAULT_TIME_ZONE
         value: Asia/Kolkata
+      - key: APP_URL
+        value: https://monika-ai-0jpf.onrender.com
       - key: GEMINI_API_KEY
         sync: false
       - key: MONGO_URI
