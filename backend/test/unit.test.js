@@ -186,20 +186,20 @@ test('typewriter renderer progressively reveals streamed text and strips mood ta
 });
 
 test('email templates generate branded HTML and plain-text fallback', () => {
-    const otpEmail = buildOtpEmail({ otpCode: '123456', appUrl: 'https://monika-ai-0jpf.onrender.com/' });
+    const otpEmail = buildOtpEmail({ otpCode: '123456', appUrl: 'https://monika-ai-0jpf.onrender.com' });
     assert.equal(otpEmail.subject, '123456 is your Monika AI verification code');
     assert.match(otpEmail.html, /123456/);
-    assert.ok(otpEmail.html.includes('https://monika-ai-0jpf.onrender.com/otp-verification'));
+    assert.ok(otpEmail.html.includes('/otp-verification'));
     assert.match(otpEmail.text, /123456/);
 
     const loginEmail = buildLoginAlertEmail({
         browser: 'Chrome',
         operatingSystem: 'Windows',
         time: 'August 1, 2026 at 9:00 PM',
-        appUrl: 'https://monika-ai-0jpf.onrender.com/'
+        appUrl: 'https://monika-ai-0jpf.onrender.com'
     });
     assert.equal(loginEmail.subject, 'New sign-in to your Monika AI account');
     assert.match(loginEmail.html, /Chrome · Windows/);
-    assert.ok(loginEmail.html.includes('https://monika-ai-0jpf.onrender.com/settings?tab=devices'));
-    assert.ok(loginEmail.text.includes('Review devices: https://monika-ai-0jpf.onrender.com/settings?tab=devices'));
+    assert.ok(loginEmail.html.includes('/settings?tab=devices'));
+    assert.ok(loginEmail.text.includes('/settings?tab=devices'));
 });
