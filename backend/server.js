@@ -1303,7 +1303,7 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, r
     try {
         // Atomically claim an attempt slot — prevents concurrent reads from seeing stale counts
         const record = await Otp.findOneAndUpdate(
-            { email, attempts: { $lt: 5 } },
+            { email, attempts: mongoose.trusted({ $lt: 5 }) },
             { $inc: { attempts: 1 } },
             { new: false }
         );
