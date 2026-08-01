@@ -203,3 +203,78 @@ test('email templates generate branded HTML and plain-text fallback', () => {
     assert.ok(loginEmail.html.includes('/settings?tab=devices'));
     assert.ok(loginEmail.text.includes('/settings?tab=devices'));
 });
+
+test('empty streaming placeholder renders empty text without fallback and typing indicator waits for first delta', () => {
+    const vm = require('node:vm');
+    const publicDir = path.resolve(__dirname, '../../public');
+    const source = fs.readFileSync(path.join(publicDir, 'script.js'), 'utf8');
+
+    const extractFunction = (name) => {
+        const start = source.indexOf(`function ${name}(`);
+        assert.notEqual(start, -1, `${name} exists`);
+        const bodyStart = source.indexOf(') {', start) + 2;
+        let depth = 0;
+        for (let index = bodyStart; index < source.length; index += 1) {
+            if (source[index] === '{') depth += 1;
+            if (source[index] === '}') depth -= 1;
+            if (depth === 0) return source.slice(start, index + 1);
+        }
+        throw new Error(`Could not extract ${name}`);
+    };
+
+    const createMockElement = (tag) => {
+        const children = [];
+        const el = {
+            tagName: tag,
+            className: '',
+            textContent: '',
+            dataset: {},
+            style: {},
+            append: (...nodes) => { for (const n of nodes) el.appendChild(n); },
+            appendChild: (node) => { children.push(node); return node; },
+            querySelector: (selector) => {
+                if (selector === '.chat-text' && el.className === 'chat-text') return el;
+                for (const child of children) {
+                    if (child.className && child.className.includes(selector.replace('.', ''))) return child;
+                    const found = child.querySelector && child.querySelector(selector);
+                    if (found) return found;
+                }
+                return null;
+            },
+            remove: () => {},
+            classList: {
+                add: () => {},
+                remove: () => {}
+            }
+        };
+        return el;
+    };
+
+    const context = {
+        document: { createElement: createMockElement },
+        chatMessages: createMockElement('div'),
+        scrollChatToBottom: () => {},
+        buildMessageActions: () => createMockElement('div'),
+        attachmentIcon: () => '📎'
+    };
+
+    vm.runInNewContext(
+        `${extractFunction('cleanMoodTags')}\n${extractFunction('renderMessage')}\nthis.renderMessage = renderMessage;`,
+        context
+    );
+
+    const streamingMsg = context.renderMessage({ role: 'model', content: '' }, { streaming: true });
+    const streamingText = streamingMsg.querySelector('.chat-text');
+    assert.equal(streamingText.textContent, '');
+    assert.doesNotMatch(streamingText.textContent, /lost my train of thought/i);
+
+    const nonStreamingMsg = context.renderMessage({ role: 'model', content: '' }, { streaming: false });
+    const nonStreamingText = nonStreamingMsg.querySelector('.chat-text');
+    assert.match(nonStreamingText.textContent, /lost my train of thought/i);
+
+    assert.match(source, /const ensureStreamingUi = \(\) => \{/);
+    assert.match(source, /if \(!deltaText\) return;\s*ensureStreamingUi\(\);/);
+    assert.match(source, /if \(!finalData\) throw new Error\([^)]*\);\s*ensureStreamingUi\(\);/);
+    assert.match(source, /streamingWrapper\?\.remove\(\);/);
+    assert.match(source, /userSettings\.typingAnimation/);
+});
