@@ -269,7 +269,7 @@ Deployment steps:
 Example:
 
 ```env
-ALLOWED_ORIGINS=https://monika-ai.duckdns.org,https://your-service.onrender.com
+ALLOWED_ORIGINS=https://monika-ai-0jpf.onrender.com
 ```
 
 ---
