@@ -2148,13 +2148,13 @@ app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, authentica
 
 const publicPath = path.join(__dirname, '../public');
 
-app.get('/admin', (req, res) => {
+app.get('/admin', adminLimiter, (req, res) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(publicPath, 'admin.html'));
 });
 
-app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
+app.get('/admin.html', adminLimiter, (req, res) => res.redirect(301, '/admin'));
 
 app.use(express.static(publicPath, {
     etag: true,
