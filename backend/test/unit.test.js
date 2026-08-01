@@ -13,6 +13,7 @@ const {
     dateKeyForTimeZone
 } = require('../utils');
 const validators = require('../validation');
+const { buildOtpEmail, buildLoginAlertEmail } = require('../email-templates');
 
 test('timezone utilities reject invalid zones and format live timestamps', () => {
     assert.equal(resolveTimeZone('Invalid/Zone', 'Asia/Kolkata'), 'Asia/Kolkata');
@@ -182,4 +183,23 @@ test('typewriter renderer progressively reveals streamed text and strips mood ta
     }
     await completion;
     assert.equal(textNode.textContent, 'Hello, Arpit! Welcome back.');
+});
+
+test('email templates generate branded HTML and plain-text fallback', () => {
+    const otpEmail = buildOtpEmail({ otpCode: '123456', appUrl: 'https://monika-ai-0jpf.onrender.com' });
+    assert.equal(otpEmail.subject, '123456 is your Monika AI verification code');
+    assert.match(otpEmail.html, /123456/);
+    assert.ok(otpEmail.html.includes('/otp-verification'));
+    assert.match(otpEmail.text, /123456/);
+
+    const loginEmail = buildLoginAlertEmail({
+        browser: 'Chrome',
+        operatingSystem: 'Windows',
+        time: 'August 1, 2026 at 9:00 PM',
+        appUrl: 'https://monika-ai-0jpf.onrender.com'
+    });
+    assert.equal(loginEmail.subject, 'New sign-in to your Monika AI account');
+    assert.match(loginEmail.html, /Chrome · Windows/);
+    assert.ok(loginEmail.html.includes('/settings?tab=devices'));
+    assert.ok(loginEmail.text.includes('/settings?tab=devices'));
 });

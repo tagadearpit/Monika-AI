@@ -28,6 +28,36 @@ let userSettings = {};
 let userAccount = null;
 let searchTimer = null;
 let reminderPollTimer = null;
+
+function currentPath() {
+    const path = window.location.pathname.replace(/\/+$/, '');
+    return path === '' ? '/' : path;
+}
+
+function navigateTo(path, { replace = false } = {}) {
+    const target = path.startsWith('/') ? path : `/${path}`;
+    const current = window.location.pathname + window.location.search;
+    if (current === target || current.replace(/\/$/, '') === target) return;
+    if (replace) window.history.replaceState({}, '', target);
+    else window.history.pushState({}, '', target);
+}
+
+function closeSettings() {
+    settingsModal.hidden = true;
+    if (currentPath() === '/settings') navigateTo('/chat', { replace: true });
+}
+
+window.addEventListener('popstate', () => {
+    const path = currentPath();
+    if (path === '/settings') {
+        if (authToken) openSettingsTab(new URLSearchParams(window.location.search).get('tab') || 'general');
+        else navigateTo('/login', { replace: true });
+    } else {
+        if (!settingsModal.hidden) settingsModal.hidden = true;
+        if ((path === '/' || path === '/chat') && !authToken) showLogin();
+    }
+});
+
 let lastSpeechTime = 0;
 
 const legacyToken = sessionStorage.getItem('monika_token') || localStorage.getItem('monika_token');
@@ -305,8 +335,17 @@ function showLogin() {
     appShell.hidden = true;
     loginOverlay.hidden = false;
     finishBoot();
-    $('phone-input-section').hidden = false;
-    $('otp-input-section').hidden = true;
+    const pendingIdentifier = sessionStorage.getItem('monika_otp_pending');
+    if (currentPath() === '/otp-verification' && pendingIdentifier) {
+        $('phone-input-section').hidden = true;
+        $('otp-input-section').hidden = false;
+        navigateTo('/otp-verification', { replace: true });
+    } else {
+        sessionStorage.removeItem('monika_otp_pending');
+        $('phone-input-section').hidden = false;
+        $('otp-input-section').hidden = true;
+        navigateTo('/login', { replace: true });
+    }
     $('sendCodeBtn').disabled = false;
     $('sendCodeBtn').textContent = 'Send Login Code';
     $('verifyCodeBtn').disabled = false;
@@ -316,6 +355,7 @@ function showLogin() {
 }
 
 async function enterApplication() {
+    const initialPath = currentPath();
     loginOverlay.hidden = true;
     appShell.hidden = true;
     beginBoot('Loading your conversations…');
@@ -347,6 +387,10 @@ async function enterApplication() {
     setSessionHint(true);
     appShell.hidden = false;
     finishBoot();
+    navigateTo('/chat', { replace: true });
+    if (initialPath === '/settings') {
+        openSettingsTab(new URLSearchParams(window.location.search).get('tab') || 'general');
+    }
     requestAnimationFrame(() => {
         scrollChatToBottom();
         messageInput.focus({ preventScroll: true });
@@ -481,6 +525,8 @@ $('sendCodeBtn').onclick = async () => {
         updateOtpNote(mode, value);
         $('phone-input-section').hidden = true;
         $('otp-input-section').hidden = false;
+        sessionStorage.setItem('monika_otp_pending', value);
+        navigateTo('/otp-verification');
         startResendCooldown();
     } catch (error) {
         alert(error.message || 'Unable to send login code.');
@@ -547,6 +593,7 @@ async function loginSuccess(data, welcomeMessage, name = '') {
     scheduleAccessTokenRefresh(data.expiresIn);
     clearLegacyAuthStorage();
     setSessionHint(true);
+    sessionStorage.removeItem('monika_otp_pending');
     await enterApplication();
     addSystemMessage(welcomeMessage);
     broadcastAuthEvent('login');
@@ -1546,11 +1593,13 @@ sidebarBackdrop.onclick = closeSidebar;
 
 $('settingsBtn').onclick = () => openSettingsTab('general');
 $('manageDataBtn').onclick = () => openSettingsTab('devices');
-$('closeSettingsBtn').onclick = () => { settingsModal.hidden = true; };
-settingsModal.addEventListener('click', (event) => { if (event.target === settingsModal) settingsModal.hidden = true; });
+$('closeSettingsBtn').onclick = () => { closeSettings(); };
+settingsModal.addEventListener('click', (event) => { if (event.target === settingsModal) closeSettings(); });
 
 function openSettingsTab(name) {
     settingsModal.hidden = false;
+    const query = name && name !== 'general' ? `?tab=${encodeURIComponent(name)}` : '';
+    navigateTo(`/settings${query}`);
     document.querySelectorAll('.settings-tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === name));
     document.querySelectorAll('.settings-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === name));
     if (name === 'memory') loadMemories();
@@ -1576,7 +1625,7 @@ $('saveGeneralSettingsBtn').onclick = async () => {
             soundEffects: $('settingSoundEffects').checked,
             handsFree: $('settingHandsFree').checked
         });
-        settingsModal.hidden = true;
+        closeSettings();
         closeSidebar();
         requestAnimationFrame(() => {
             scrollChatToBottom();
@@ -1805,7 +1854,7 @@ async function generateRecap(period) {
 $('dailyRecapBtn').onclick = () => generateRecap('daily');
 $('weeklyRecapBtn').onclick = () => generateRecap('weekly');
 
-$('openAdminBtn').onclick = () => window.open('/admin.html', '_blank', 'noopener');
+$('openAdminBtn').onclick = () => window.open('/admin', '_blank', 'noopener');
 
 $('wipeDataBtn').onclick = async () => {
     if (!confirm('Delete your account, conversations, memories, reminders, and every active session? This cannot be undone.')) return;
@@ -1852,7 +1901,7 @@ document.addEventListener('keydown', (event) => {
     }
     if (event.key === 'Escape') {
         closeSidebar();
-        settingsModal.hidden = true;
+        closeSettings();
     }
 });
 
