@@ -32,7 +32,7 @@ module.exports = [
                 window: 'readonly', document: 'readonly', navigator: 'readonly', localStorage: 'readonly',
                 sessionStorage: 'readonly', fetch: 'readonly', Headers: 'readonly', AbortController: 'readonly',
                 BroadcastChannel: 'readonly', SpeechSynthesisUtterance: 'readonly', firebase: 'readonly',
-                google: 'readonly', alert: 'readonly', confirm: 'readonly', prompt: 'readonly', setTimeout: 'readonly',
+                google: 'readonly', grecaptcha: 'readonly', alert: 'readonly', confirm: 'readonly', prompt: 'readonly', setTimeout: 'readonly',
                 clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', location: 'readonly',
                 console: 'readonly', Notification: 'readonly', URL: 'readonly', TextDecoder: 'readonly',
                 Uint8Array: 'readonly', atob: 'readonly', btoa: 'readonly', Date: 'readonly', Blob: 'readonly', requestAnimationFrame: 'readonly'
