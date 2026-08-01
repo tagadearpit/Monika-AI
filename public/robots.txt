@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://monika-ai.duckdns.org/sitemap.xml
+Sitemap: https://monika-ai-0jpf.onrender.com/sitemap.xml
