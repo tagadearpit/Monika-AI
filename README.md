@@ -1,9 +1,14 @@
-# 🤖 Monika AI v3.0.1
+# 🤖 Monika AI v3.0.2
 
 Monika AI is a full-stack AI companion built with **Node.js, Express, MongoDB, Google Gemini, Firebase, Google Sign-In, email OTP, speech, camera support, reminders, and PWA features**.
 
-Version 3.0.1 keeps the existing Monika visual style while adding conversation management, editable memory, streaming responses, device controls, attachments, personalization, feedback, reminders, usage limits, and an administrator dashboard.
+Version 3.0.2 keeps the existing Monika visual style while adding conversation management, editable memory, streaming responses, device controls, attachments, personalization, feedback, reminders, and usage limits.
 
+### v3.0.2 update
+
+- Production-grade, branded HTML + plain-text templates for the sign-in code and new-sign-in alert emails
+- Clean, bookmarkable URLs for login, OTP verification, chat, and settings
+- New **About** tab in Settings with an app overview, a contact email, and a link to contribute
 
 ### v3.0.1 maintenance update
 
@@ -82,7 +87,7 @@ Attachment contents are processed only for the current AI request. MongoDB store
 - Logout from one device
 - Logout from all other devices
 - Refresh-token reuse detection
-- Optional login notification emails
+- Branded OTP and login-notification emails
 
 ### ⏰ Reminders and journal
 
@@ -106,8 +111,6 @@ Attachment contents are processed only for the current AI request. MongoDB store
 - Graceful shutdown
 - MongoDB connection-pool settings
 - Security audit events
-- Protected administrator dashboard
-- User suspension and report review
 
 ---
 
@@ -116,6 +119,7 @@ Attachment contents are processed only for the current AI request. MongoDB store
 ```text
 Monika-AI-Production-v3/
 ├── backend/
+│   ├── email-templates.js
 │   ├── models.js
 │   ├── server.js
 │   ├── utils.js
@@ -123,6 +127,7 @@ Monika-AI-Production-v3/
 │   ├── package.json
 │   ├── package-lock.json
 │   └── test/
+│       ├── unit.test.js
 │       ├── smoke.test.js
 │       └── integration.test.js
 ├── public/
@@ -131,6 +136,8 @@ Monika-AI-Production-v3/
 │   ├── script.js
 │   ├── manifest.json
 │   ├── sw.js
+│   ├── robots.txt
+│   └── sitemap.xml
 ├── Dockerfile
 ├── SECURITY.md
 ├── CHANGELOG.md
@@ -202,16 +209,9 @@ MAX_SESSIONS_PER_USER=10
 LOGIN_NOTIFICATION_EMAILS=false
 ```
 
-`SESSION_TTL_DAYS` uses rolling expiration. A successful session refresh extends the session. Users still need to log in again after manual logout, cookie deletion, administrator revocation, account deletion, or session expiry.
+`SESSION_TTL_DAYS` uses rolling expiration. A successful session refresh extends the session. Users still need to log in again after manual logout, cookie deletion, account deletion, or session expiry.
 
 ---
-
-
-Limits are enforced by the server. Increasing them can raise Gemini cost, memory usage, request time, and abuse exposure. Set the optional cost variable from your current model pricing; leaving it at `0` disables monetary estimation in the admin dashboard.
-
----
-
-
 
 ## 📧 Email OTP configuration
 
@@ -222,9 +222,10 @@ SMTP_SECURE=false
 SMTP_USER=your_smtp_username
 SMTP_PASS=your_smtp_password
 SMTP_FROM_EMAIL=noreply@your-domain.example
+APP_URL=https://your-domain.example
 ```
 
-Email OTP and login notifications remain unavailable when SMTP is not configured.
+`APP_URL` is used to build the links inside the OTP and login-notification emails, and should match your deployed domain exactly (no trailing slash). Email OTP and login notifications remain unavailable when SMTP is not configured.
 
 ---
 
@@ -241,7 +242,7 @@ Add them to the environment:
 ```env
 VAPID_PUBLIC_KEY=your_public_key
 VAPID_PRIVATE_KEY=your_private_key
-VAPID_SUBJECT=mailto:admin@your-domain.example
+VAPID_SUBJECT=mailto:your-support-address@your-domain.example
 ```
 
 The included reminder worker runs inside the web process every 30 seconds. On a sleeping or frequently restarted hosting instance, notification delivery may be delayed. For strict delivery guarantees, move reminders to a dedicated worker and queue.
@@ -317,7 +318,6 @@ After deployment, verify:
 - Device revocation
 - Reminder delivery and notification permissions
 - User quotas and rate limits
-- Administrator authorization
 - Account deletion
 - `/api/health` and `/api/ready`
 - Browser console and Render runtime logs
@@ -331,6 +331,25 @@ After deployment, verify:
 - Rate limiting is process-local; use a shared store before horizontal scaling.
 - The Content Security Policy still permits inline scripts/styles required by the current interface and third-party login widgets. `unsafe-eval` has been removed.
 - Sentry, full two-factor authentication, account recovery, encrypted object storage, and a distributed background queue are not included in this release.
+
+---
+
+## 🤝 Contributing
+
+Monika AI is open source, and contributions are genuinely welcome — bug fixes, new features, documentation improvements, or even just a clearly written issue all help.
+
+1. Fork the repository: [github.com/tagadearpit/Monika-AI](https://github.com/tagadearpit/Monika-AI.git)
+2. Create a feature branch: `git checkout -b feature/your-idea`
+3. Make your changes and run the validation commands above before opening a pull request
+4. Open a pull request describing what changed and why
+
+Working on a live, production-shaped codebase — real auth, streaming, rate limiting, request validation — is also just a solid way to build genuine full-stack and AI-integration experience.
+
+---
+
+## 📬 Contact & feedback
+
+Found a bug, have a feature idea, or just want to share feedback? Reach out at **tagadearpit@gmail.com** — feedback from people actually using Monika AI is what shapes what gets built next.
 
 ---
 
