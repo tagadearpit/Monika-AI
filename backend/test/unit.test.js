@@ -40,6 +40,8 @@ test('user agent and file helpers return bounded safe metadata', () => {
 test('admin password hashing verifies valid passwords and rejects invalid passwords', () => {
     const hash = hashAdminPassword('StrongAdminPass123!');
     assert.equal(verifyAdminPassword('StrongAdminPass123!', hash), true);
+    const wrappedHash = `${hash.slice(0, 40)}\r\n${hash.slice(40)}`;
+    assert.equal(verifyAdminPassword('StrongAdminPass123!', wrappedHash), true);
     assert.equal(verifyAdminPassword('WrongPass', hash), false);
     assert.equal(verifyAdminPassword('StrongAdminPass123!', 'invalidhash'), false);
     assert.equal(verifyAdminPassword('StrongAdminPass123!', null), false);
