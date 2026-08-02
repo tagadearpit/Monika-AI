@@ -20,7 +20,7 @@ const hashAdminPassword = (password) => {
 };
 
 const verifyAdminPassword = (password, stored) => {
-    const cleanStored = String(stored || '').trim();
+    const cleanStored = String(stored || '').replace(/\s+/g, '');
     if (!cleanStored || !cleanStored.includes(':')) return false;
     const [saltHex, hashHex] = cleanStored.split(':');
     if (!saltHex || !hashHex) return false;

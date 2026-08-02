@@ -68,7 +68,7 @@ if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
 }
 
 const ADMIN_CONSOLE_EMAIL = String(process.env.ADMIN_CONSOLE_EMAIL || '').trim().toLowerCase();
-const ADMIN_CONSOLE_PASSWORD_HASH = String(process.env.ADMIN_CONSOLE_PASSWORD_HASH || '').trim();
+const ADMIN_CONSOLE_PASSWORD_HASH = String(process.env.ADMIN_CONSOLE_PASSWORD_HASH || '').replace(/\s+/g, '');
 if (!ADMIN_CONSOLE_EMAIL || !ADMIN_CONSOLE_PASSWORD_HASH) {
     console.warn('WARNING: ADMIN_CONSOLE_EMAIL / ADMIN_CONSOLE_PASSWORD_HASH not set — the admin console login is disabled.');
 }
