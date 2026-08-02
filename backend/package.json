@@ -8,8 +8,9 @@
     "dev": "node --watch server.js",
     "build": "npm run check",
     "prod": "NODE_ENV=production node server.js",
-    "check": "node --check server.js && node --check models.js && node --check utils.js && node --check validation.js && node --check ../public/script.js && node --check ../public/admin.js && node --check ../public/sw.js",
+    "check": "node --check server.js && node --check models.js && node --check utils.js && node --check validation.js && node --check ../public/script.js && node --check ../public/admin.js && node --check ../public/admin-login.js && node --check ../public/sw.js",
     "lint": "cd .. && ./backend/node_modules/.bin/eslint backend/*.js backend/test/*.js public/*.js",
+    "hash-admin-password": "node scripts/hash-admin-password.js",
     "test": "npm run check && npm run lint && node --test test/*.test.js"
   },
   "dependencies": {

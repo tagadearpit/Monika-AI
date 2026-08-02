@@ -114,6 +114,11 @@ const adminSuspend = z.object({
     reason: z.string().trim().max(500).default('')
 });
 
+const adminLogin = z.object({
+    email: z.string().trim().email().max(254),
+    password: z.string().min(1).max(200)
+});
+
 module.exports = {
     z,
     objectId,
@@ -128,5 +133,6 @@ module.exports = {
     reminderUpdate,
     pushSubscription,
     journalRequest,
-    adminSuspend
+    adminSuspend,
+    adminLogin
 };

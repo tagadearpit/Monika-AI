@@ -11,6 +11,28 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
 const hashOtp = (secret, email, code) => crypto.createHmac('sha256', secret).update(`${email}:${code}`).digest('hex');
 
+const ADMIN_SCRYPT_KEYLEN = 64;
+
+const hashAdminPassword = (password) => {
+    const salt = crypto.randomBytes(16);
+    const derivedKey = crypto.scryptSync(String(password), salt, ADMIN_SCRYPT_KEYLEN);
+    return `${salt.toString('hex')}:${derivedKey.toString('hex')}`;
+};
+
+const verifyAdminPassword = (password, stored) => {
+    if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+    const [saltHex, hashHex] = stored.split(':');
+    if (!saltHex || !hashHex) return false;
+    try {
+        const salt = Buffer.from(saltHex, 'hex');
+        const expected = Buffer.from(hashHex, 'hex');
+        const derivedKey = crypto.scryptSync(String(password), salt, ADMIN_SCRYPT_KEYLEN);
+        return expected.length === derivedKey.length && crypto.timingSafeEqual(expected, derivedKey);
+    } catch (_) {
+        return false;
+    }
+};
+
 const resolveTimeZone = (value, fallback = 'Asia/Kolkata') => {
     const candidate = typeof value === 'string' ? value.trim() : '';
     if (!candidate || candidate.length > 64) return fallback;
@@ -115,6 +137,8 @@ module.exports = {
     normalizeEmail,
     hashValue,
     hashOtp,
+    hashAdminPassword,
+    verifyAdminPassword,
     resolveTimeZone,
     getCurrentDateTime,
     parseUserAgent,

@@ -10,7 +10,9 @@ const {
     parseUserAgent,
     approximateBase64Bytes,
     sanitizeFileName,
-    dateKeyForTimeZone
+    dateKeyForTimeZone,
+    hashAdminPassword,
+    verifyAdminPassword
 } = require('../utils');
 const validators = require('../validation');
 const { buildOtpEmail, buildLoginAlertEmail } = require('../email-templates');
@@ -33,6 +35,14 @@ test('user agent and file helpers return bounded safe metadata', () => {
     assert.equal(metadata.deviceName, 'Android phone');
     assert.equal(approximateBase64Bytes(Buffer.from('hello').toString('base64')), 5);
     assert.equal(sanitizeFileName('../unsafe:file?.txt'), '.._unsafe_file_.txt');
+});
+
+test('admin password hashing verifies valid passwords and rejects invalid passwords', () => {
+    const hash = hashAdminPassword('StrongAdminPass123!');
+    assert.equal(verifyAdminPassword('StrongAdminPass123!', hash), true);
+    assert.equal(verifyAdminPassword('WrongPass', hash), false);
+    assert.equal(verifyAdminPassword('StrongAdminPass123!', 'invalidhash'), false);
+    assert.equal(verifyAdminPassword('StrongAdminPass123!', null), false);
 });
 
 test('ask validation enforces supported attachments and message actions', () => {
@@ -66,7 +76,7 @@ test('async Express route failures reach error middleware', async () => {
 
 test('frontend script references existing HTML element identifiers', () => {
     const publicDir = path.resolve(__dirname, '../../public');
-    for (const [htmlFile, scriptFile] of [['index.html', 'script.js'], ['admin.html', 'admin.js']]) {
+    for (const [htmlFile, scriptFile] of [['index.html', 'script.js'], ['admin.html', 'admin.js'], ['admin-login.html', 'admin-login.js']]) {
         const html = fs.readFileSync(path.join(publicDir, htmlFile), 'utf8');
         const script = fs.readFileSync(path.join(publicDir, scriptFile), 'utf8');
         const ids = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map((match) => match[1]));

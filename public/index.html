@@ -138,6 +138,7 @@
                 <button class="settings-tab" data-tab="devices" type="button">Devices</button>
                 <button class="settings-tab" data-tab="reminders" type="button">Reminders</button>
                 <button class="settings-tab" data-tab="privacy" type="button">Privacy</button>
+                <button class="settings-tab" data-tab="about" type="button">About</button>
             </div>
 
             <div class="settings-panels">
@@ -257,10 +258,25 @@
                         <h4>Security controls</h4>
                         <p>Persistent sessions are revocable. Attachments are sent to the AI provider for analysis but their raw file data is not stored in MongoDB.</p>
                     </div>
-                    <button id="openAdminBtn" class="secondary-action-btn" type="button" hidden><i class="fas fa-shield-halved"></i> Open admin dashboard</button>
                     <div class="danger-zone">
                         <label><i class="fas fa-triangle-exclamation"></i> Danger zone</label>
                         <button id="wipeDataBtn" class="danger-action-btn" type="button">Delete my account and all data</button>
+                    </div>
+                </section>
+                <section class="settings-panel" data-panel="about">
+                    <div class="privacy-card">
+                        <h4>How Monika AI works</h4>
+                        <p>Monika AI is a companion chatbot powered by Google Gemini. Conversations are private to your account. You can shape how she responds from the <strong>General</strong> tab — pick a personality, adjust response length, and set a preferred language. <strong>Memory</strong> lets Monika recall useful facts across conversations. <strong>Devices</strong> shows every browser you're signed into and lets you revoke ones you don't recognize. <strong>Reminders</strong> lets Monika nudge you at a time you choose, with optional daily or weekly recaps of your conversations.</p>
+                    </div>
+                    <div class="privacy-card">
+                        <h4><i class="fas fa-envelope"></i> Contact us</h4>
+                        <p>Found a bug, have an idea, or just want to say hi? Feedback from people actually using Monika AI is what shapes what gets built next — we'd genuinely like to hear it.</p>
+                        <a href="mailto:tagadearpit@gmail.com" class="settings-action-btn compact">Email tagadearpit@gmail.com</a>
+                    </div>
+                    <div class="privacy-card">
+                        <h4><i class="fab fa-github"></i> Contribute</h4>
+                        <p>Monika AI is open source. Fixing a bug, adding a feature, improving docs, or filing a clear issue all genuinely help — and it's a solid way to get real full-stack and AI-integration experience on a live, production codebase.</p>
+                        <a href="https://github.com/tagadearpit/Monika-AI.git" target="_blank" rel="noopener" class="settings-action-btn compact">View on GitHub</a>
                     </div>
                 </section>
             </div>

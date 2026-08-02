@@ -577,6 +577,7 @@ body.theme-yandere .send-btn, body.theme-yandere .avatar-img { border-color: #ff
 .setting-group select option { background: #281523; color: white; }
 
 .settings-action-btn {
+    display: inline-block; text-decoration: none; text-align: center;
     background: linear-gradient(45deg, #ff1493, #ff6b9d); border: none; color: white;
     padding: 10px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 5px;
 }
