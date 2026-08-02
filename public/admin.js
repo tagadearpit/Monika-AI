@@ -3,7 +3,6 @@
 
 const state = {
     csrfToken: '',
-    authToken: null,
     overview: null,
     reports: [],
     audit: [],
@@ -85,24 +84,14 @@ async function parseJson(response) {
     try { return await response.json(); } catch (_) { return {}; }
 }
 
-async function refreshSession() {
-    const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrfToken }
-    });
-    if (!response.ok) return false;
-    const data = await response.json();
-    state.authToken = data.token;
-    return true;
-}
-
-async function apiFetch(url, options = {}, retry = true) {
+async function apiFetch(url, options = {}) {
     const headers = new Headers(options.headers || {});
-    if (state.authToken) headers.set('Authorization', `Bearer ${state.authToken}`);
     if (options.method && options.method !== 'GET') headers.set('X-CSRF-Token', state.csrfToken);
     const response = await fetch(url, { ...options, headers, credentials: 'include' });
-    if (response.status === 401 && retry && await refreshSession()) return apiFetch(url, options, false);
+    if (response.status === 401) {
+        window.location.href = '/admin-login';
+        throw new Error('Admin session expired.');
+    }
     return response;
 }
 
@@ -111,8 +100,16 @@ async function init() {
         const configResponse = await fetch('/api/config', { credentials: 'include', cache: 'no-store' });
         const config = await configResponse.json();
         state.csrfToken = config.csrfToken || '';
-        if (!await refreshSession()) throw new Error('Sign in to Monika AI before opening the admin dashboard.');
-        
+
+        const sessionResponse = await fetch('/api/admin/session', { credentials: 'include', cache: 'no-store' });
+        if (!sessionResponse.ok) {
+            window.location.href = '/admin-login';
+            return;
+        }
+
+        const statusBadge = document.querySelector('.status-badge');
+        if (statusBadge) statusBadge.innerHTML = '<span class="status-dot"></span> Session verified';
+
         $('adminStatus').textContent = 'Loading dashboard...';
         $('adminStatus').hidden = false;
         
@@ -446,6 +443,14 @@ window.addEventListener('load', () => {
     if ($('refreshReportsBtn')) $('refreshReportsBtn').onclick = () => { showSkeleton('reportList'); loadReports(); };
     if ($('refreshAuditBtn')) $('refreshAuditBtn').onclick = () => { showSkeleton('auditList', 5); loadAudit(); };
     if ($('refreshDashboardBtn')) $('refreshDashboardBtn').onclick = init;
+    if ($('adminLogoutBtn')) $('adminLogoutBtn').onclick = async () => {
+        try {
+            await apiFetch('/api/admin/logout', { method: 'POST' });
+        } catch (_) {
+            // already redirecting to /admin-login if the session was invalid — ignore
+        }
+        window.location.href = '/admin-login';
+    };
     if ($('refreshSessionsBtn')) $('refreshSessionsBtn').onclick = loadSessions;
     if ($('adminSearchBtn')) $('adminSearchBtn').onclick = handleSearch;
     if ($('adminClearSearchBtn')) $('adminClearSearchBtn').onclick = clearSearch;

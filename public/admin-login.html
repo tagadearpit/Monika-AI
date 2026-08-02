@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#281523">
+    <meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Monika AI Admin — Sign in</title>
+    <link rel="icon" href="/icon-192.png" type="image/png">
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .admin-login-back-link { display: block; text-align: center; margin-top: 18px; text-decoration: none; opacity: 0.7; }
+        .admin-login-back-link:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="login-overlay">
+        <div class="login-box">
+            <h2 class="title-gradient login-title"><i class="fas fa-shield-halved"></i> Admin Console</h2>
+            <p class="muted-copy">Sign in with your admin credentials.</p>
+
+            <input type="email" id="adminEmailInput" placeholder="Admin email" autocomplete="username">
+            <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="current-password">
+            <button id="adminLoginBtn" class="action-btn" type="button">Sign in</button>
+
+            <p class="otp-note" id="adminLoginError" hidden></p>
+
+            <a href="/" class="muted-copy admin-login-back-link">← Back to Monika AI</a>
+        </div>
+    </div>
+    <script src="/admin-login.js"></script>
+</body>
+</html>

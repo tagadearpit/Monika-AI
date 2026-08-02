@@ -48,7 +48,8 @@ const {
     sanitizeFileName,
     approximateBase64Bytes,
     dateKeyForTimeZone,
-    estimateTokens
+    estimateTokens,
+    verifyAdminPassword
 } = require('./utils');
 require('dotenv').config();
 
@@ -66,6 +67,12 @@ if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
     if (require.main === module) process.exit(1);
 }
 
+const ADMIN_CONSOLE_EMAIL = String(process.env.ADMIN_CONSOLE_EMAIL || '').trim().toLowerCase();
+const ADMIN_CONSOLE_PASSWORD_HASH = process.env.ADMIN_CONSOLE_PASSWORD_HASH || '';
+if (!ADMIN_CONSOLE_EMAIL || !ADMIN_CONSOLE_PASSWORD_HASH) {
+    console.warn('WARNING: ADMIN_CONSOLE_EMAIL / ADMIN_CONSOLE_PASSWORD_HASH not set — the admin console login is disabled.');
+}
+
 const ACCESS_TOKEN_TTL_SECONDS = positiveInteger(process.env.ACCESS_TOKEN_TTL_SECONDS, 900);
 const SESSION_TTL_DAYS = positiveInteger(process.env.SESSION_TTL_DAYS, 365);
 const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -80,6 +87,10 @@ const REFRESH_COOKIE_NAME = isProduction ? '__Host-monika_refresh' : 'monika_ref
 const LEGACY_REFRESH_COOKIE_NAMES = ['monika_refresh', '__Host-monika_refresh'];
 const ACCESS_TOKEN_ISSUER = 'monika-ai';
 const ACCESS_TOKEN_AUDIENCE = 'monika-web';
+const ADMIN_SESSION_TTL_SECONDS = positiveInteger(process.env.ADMIN_SESSION_TTL_SECONDS, 3600);
+const ADMIN_COOKIE_NAME = isProduction ? '__Host-monika_admin' : 'monika_admin';
+const ADMIN_TOKEN_ISSUER = 'monika-ai';
+const ADMIN_TOKEN_AUDIENCE = 'monika-admin-console';
 const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET;
 if (!OTP_SECRET) {
     console.error('CRITICAL ERROR: OTP_SECRET (or JWT_SECRET) must be set.');
@@ -386,6 +397,29 @@ const clearRefreshCookies = (res) => {
     }
 };
 
+const adminCookieOptions = () => ({
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: ADMIN_SESSION_TTL_SECONDS * 1000
+});
+
+const clearAdminCookie = (res) => {
+    res.clearCookie(ADMIN_COOKIE_NAME, { httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/' });
+};
+
+const signAdminToken = () => jwt.sign(
+    { role: 'admin-console', type: 'admin' },
+    process.env.JWT_SECRET,
+    {
+        algorithm: 'HS256',
+        expiresIn: ADMIN_SESSION_TTL_SECONDS,
+        issuer: ADMIN_TOKEN_ISSUER,
+        audience: ADMIN_TOKEN_AUDIENCE
+    }
+);
+
 const getRefreshToken = (req) => {
     for (const cookieName of new Set([REFRESH_COOKIE_NAME, ...LEGACY_REFRESH_COOKIE_NAMES])) {
         if (req.cookies[cookieName]) return req.cookies[cookieName];
@@ -635,11 +669,26 @@ const authenticateLegacyToken = (req, res, next) => {
     }
 };
 
-const requireAdmin = (req, res, next) => {
-    if (!req.user?.isAdmin) {
-        return res.status(403).json({ error: 'Administrator access is required.', code: 'ADMIN_REQUIRED' });
+const requireAdminSession = (req, res, next) => {
+    const token = req.cookies[ADMIN_COOKIE_NAME];
+    if (!token) return res.status(401).json({ error: 'Admin session required.', code: 'ADMIN_AUTH_REQUIRED' });
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET, {
+            algorithms: ['HS256'],
+            issuer: ADMIN_TOKEN_ISSUER,
+            audience: ADMIN_TOKEN_AUDIENCE
+        });
+        if (payload.type !== 'admin' || payload.role !== 'admin-console') {
+            return res.status(401).json({ error: 'Invalid admin session.', code: 'ADMIN_AUTH_INVALID' });
+        }
+        req.user = { sessionId: ADMIN_CONSOLE_EMAIL || 'admin-console', isAdmin: true };
+        return next();
+    } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ error: 'Admin session expired.', code: 'ADMIN_AUTH_EXPIRED' });
+        }
+        return res.status(401).json({ error: 'Invalid admin session.', code: 'ADMIN_AUTH_INVALID' });
     }
-    return next();
 };
 
 const ensureDefaultConversation = async (userId) => {
@@ -1988,7 +2037,36 @@ app.post('/api/user/delete', verifyTrustedOrigin, authenticateToken, async (req,
     }
 });
 
-app.get('/api/admin/overview', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+const adminLoginLimiter = createLimiter('rate_limit.admin_login', {
+    windowMs: 15 * 60 * 1000,
+    limit: 8,
+    message: { error: 'Too many admin login attempts. Try again later.', code: 'RATE_LIMITED' }
+});
+
+app.post('/api/admin/login', verifyTrustedOrigin, adminLoginLimiter, validateBody(validators.adminLogin), async (req, res) => {
+    if (!ADMIN_CONSOLE_EMAIL || !ADMIN_CONSOLE_PASSWORD_HASH) {
+        return res.status(503).json({ error: 'Admin console is not configured.', code: 'ADMIN_NOT_CONFIGURED' });
+    }
+    const email = normalizeEmail(req.body.email);
+    const { password } = req.body;
+    const matches = email === ADMIN_CONSOLE_EMAIL && verifyAdminPassword(password, ADMIN_CONSOLE_PASSWORD_HASH);
+    if (!matches) {
+        AuditEvent.create({ action: 'admin_login_failed', requestId: req.requestId, metadata: { email } }).catch(() => {});
+        return res.status(401).json({ error: 'Invalid email or password.', code: 'ADMIN_LOGIN_INVALID' });
+    }
+    res.cookie(ADMIN_COOKIE_NAME, signAdminToken(), adminCookieOptions());
+    AuditEvent.create({ action: 'admin_login_success', requestId: req.requestId }).catch(() => {});
+    return res.json({ success: true });
+});
+
+app.post('/api/admin/logout', verifyTrustedOrigin, (req, res) => {
+    clearAdminCookie(res);
+    return res.json({ success: true });
+});
+
+app.get('/api/admin/session', requireAdminSession, (req, res) => res.json({ success: true }));
+
+app.get('/api/admin/overview', adminLimiter, requireAdminSession, async (req, res) => {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [
         users,
@@ -2032,7 +2110,7 @@ app.get('/api/admin/overview', adminLimiter, authenticateToken, requireAdmin, as
     });
 });
 
-app.get('/api/admin/reports', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/reports', adminLimiter, requireAdminSession, async (req, res) => {
     const reports = await Message.find({ 'feedback.reportType': mongoose.trusted({ $ne: null }) })
         .sort({ 'feedback.updatedAt': -1 })
         .limit(100)
@@ -2041,12 +2119,12 @@ app.get('/api/admin/reports', adminLimiter, authenticateToken, requireAdmin, asy
     return res.json(reports);
 });
 
-app.get('/api/admin/audit', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/audit', adminLimiter, requireAdminSession, async (req, res) => {
     const events = await AuditEvent.find().sort({ createdAt: -1 }).limit(200).lean();
     return res.json(events);
 });
 
-app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, validateBody(validators.adminSuspend), async (req, res) => {
+app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimiter, requireAdminSession, validateBody(validators.adminSuspend), async (req, res) => {
     const userId = decodeURIComponent(req.params.userId).slice(0, 254);
     const update = req.validatedBody.suspended
         ? { suspendedAt: new Date(), suspensionReason: req.validatedBody.reason || 'Administrative action' }
@@ -2060,7 +2138,7 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimit
     return res.json({ success: true, userId, suspendedAt: user.suspendedAt, suspensionReason: user.suspensionReason });
 });
 
-app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/sessions', adminLimiter, requireAdminSession, async (req, res) => {
     const sessions = await Session.find(mongoose.trusted({ revokedAt: null, expiresAt: { $gt: new Date() } }))
         .sort({ lastSeenAt: -1 })
         .limit(100)
@@ -2069,7 +2147,7 @@ app.get('/api/admin/sessions', adminLimiter, authenticateToken, requireAdmin, as
     return res.json(sessions);
 });
 
-app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, requireAdminSession, async (req, res) => {
     const sessionId = String(req.params.sessionId || '').slice(0, 128);
     const session = await Session.findOneAndUpdate(
         mongoose.trusted({ _id: sessionId, revokedAt: null }),
@@ -2083,7 +2161,7 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, 
 
 
 
-app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/search', adminLimiter, requireAdminSession, async (req, res) => {
     const query = String(req.query.q || '').trim().slice(0, 100);
     if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
     const regex = new RegExp(escapeRegExp(query), 'i');
@@ -2101,7 +2179,7 @@ app.get('/api/admin/search', adminLimiter, authenticateToken, requireAdmin, asyn
     ]);
     return res.json({ users, auditEvents, reports });
 });
-app.get('/api/admin/analytics', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/analytics', adminLimiter, requireAdminSession, async (req, res) => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     sevenDaysAgo.setHours(0, 0, 0, 0);
@@ -2140,7 +2218,7 @@ app.get('/api/admin/analytics', adminLimiter, authenticateToken, requireAdmin, a
     return res.json({ dates, users, requests, messages });
 });
 
-app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, requireAdminSession, async (req, res) => {
     globalMaintenanceMode = !globalMaintenanceMode;
     recordAudit(globalMaintenanceMode ? 'admin.maintenance_enabled' : 'admin.maintenance_disabled', req.user.sessionId, req, {});
     return res.json({ success: true, maintenanceMode: globalMaintenanceMode });
@@ -2148,13 +2226,23 @@ app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, authentica
 
 const publicPath = path.join(__dirname, '../public');
 
-app.get('/admin', adminLimiter, (req, res) => {
+app.get('/admin-login', adminLimiter, (req, res) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(publicPath, 'admin-login.html'));
+});
+
+app.get('/admin-dashboard', adminLimiter, (req, res) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(publicPath, 'admin.html'));
 });
 
-app.get('/admin.html', adminLimiter, (req, res) => res.redirect(301, '/admin'));
+app.get('/admin', adminLimiter, (req, res) => {
+    res.redirect(302, req.cookies[ADMIN_COOKIE_NAME] ? '/admin-dashboard' : '/admin-login');
+});
+
+app.get('/admin.html', adminLimiter, (req, res) => res.redirect(301, '/admin-login'));
 
 app.use(express.static(publicPath, {
     etag: true,

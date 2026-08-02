@@ -632,7 +632,6 @@ async function loadSettings() {
         ? data.account
         : null;
     userSettings.isAdmin = Boolean(data.isAdmin);
-    $('openAdminBtn').hidden = !userSettings.isAdmin;
 }
 
 function applySettingsToUi() {
@@ -1876,8 +1875,6 @@ async function generateRecap(period) {
 }
 $('dailyRecapBtn').onclick = () => generateRecap('daily');
 $('weeklyRecapBtn').onclick = () => generateRecap('weekly');
-
-$('openAdminBtn').onclick = () => window.open('/admin', '_blank', 'noopener');
 
 $('wipeDataBtn').onclick = async () => {
     if (!confirm('Delete your account, conversations, memories, reminders, and every active session? This cannot be undone.')) return;
