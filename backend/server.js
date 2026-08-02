@@ -2051,11 +2051,11 @@ app.post('/api/admin/login', verifyTrustedOrigin, adminLoginLimiter, validateBod
     const { password } = req.body;
     const matches = email === ADMIN_CONSOLE_EMAIL && verifyAdminPassword(password, ADMIN_CONSOLE_PASSWORD_HASH);
     if (!matches) {
-        AuditEvent.create({ action: 'admin_login_failed', requestId: req.requestId, metadata: { email } }).catch(() => {});
+        recordAudit('admin_login_failed', email || 'unknown-admin', req, { email });
         return res.status(401).json({ error: 'Invalid email or password.', code: 'ADMIN_LOGIN_INVALID' });
     }
     res.cookie(ADMIN_COOKIE_NAME, signAdminToken(), adminCookieOptions());
-    AuditEvent.create({ action: 'admin_login_success', requestId: req.requestId }).catch(() => {});
+    recordAudit('admin_login_success', email || ADMIN_CONSOLE_EMAIL || 'admin', req, { email: email || ADMIN_CONSOLE_EMAIL });
     return res.json({ success: true });
 });
 

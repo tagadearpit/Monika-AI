@@ -207,7 +207,7 @@ async function loadAudit() {
     list.innerHTML = state.audit.map(event => `
         <div class="list-item fade-in">
             <strong>${event.action}</strong>
-            <small class="muted">${event.userId || 'anonymous'} · ${new Date(event.createdAt).toLocaleString()}</small>
+            <small class="muted">${event.userId || event.metadata?.email || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anonymous')} · ${new Date(event.createdAt).toLocaleString()}</small>
         </div>
     `).join('');
 }
