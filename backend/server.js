@@ -2059,12 +2059,12 @@ app.post('/api/admin/login', verifyTrustedOrigin, adminLoginLimiter, validateBod
     return res.json({ success: true });
 });
 
-app.post('/api/admin/logout', verifyTrustedOrigin, (req, res) => {
+app.post('/api/admin/logout', verifyTrustedOrigin, adminLimiter, (req, res) => {
     clearAdminCookie(res);
     return res.json({ success: true });
 });
 
-app.get('/api/admin/session', requireAdminSession, (req, res) => res.json({ success: true }));
+app.get('/api/admin/session', adminLimiter, requireAdminSession, (req, res) => res.json({ success: true }));
 
 app.get('/api/admin/overview', adminLimiter, requireAdminSession, async (req, res) => {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
