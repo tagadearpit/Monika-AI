@@ -20,8 +20,9 @@ const hashAdminPassword = (password) => {
 };
 
 const verifyAdminPassword = (password, stored) => {
-    if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
-    const [saltHex, hashHex] = stored.split(':');
+    const cleanStored = String(stored || '').trim();
+    if (!cleanStored || !cleanStored.includes(':')) return false;
+    const [saltHex, hashHex] = cleanStored.split(':');
     if (!saltHex || !hashHex) return false;
     try {
         const salt = Buffer.from(saltHex, 'hex');
