@@ -1417,7 +1417,7 @@ app.post('/api/auth/refresh', verifyTrustedOrigin, refreshLimiter, async (req, r
     }
 });
 
-app.post('/api/auth/accept-terms', verifyTrustedOrigin, authenticateToken, authLimiter, async (req, res) => {
+app.post('/api/auth/accept-terms', verifyTrustedOrigin, authLimiter, authenticateToken, async (req, res) => {
     try {
         const now = new Date();
         await User.findOneAndUpdate(
