@@ -1,9 +1,11 @@
 'use strict';
 
-const CACHE_NAME = 'monika-shell-v3.0.1-20260719';
+const CACHE_NAME = 'monika-shell-v3.0.2-20260803';
 const APP_SHELL = [
     '/',
     '/index.html',
+    '/privacy-policy.html',
+    '/terms.html',
     '/style.css',
     '/script.js',
     '/manifest.json',

@@ -314,7 +314,7 @@ const authLimiter = createLimiter('rate_limit.auth', {
 });
 const refreshLimiter = createLimiter('rate_limit.refresh', {
     windowMs: 15 * 60 * 1000,
-    limit: 120,
+    limit: positiveInteger(process.env.REFRESH_RATE_LIMIT, 60),
     message: { error: 'Too many session refresh requests.', code: 'REFRESH_RATE_LIMITED' }
 });
 const emailLimiter = createLimiter('rate_limit.otp', {
@@ -1417,7 +1417,7 @@ app.post('/api/auth/refresh', verifyTrustedOrigin, refreshLimiter, async (req, r
     }
 });
 
-app.post('/api/auth/accept-terms', verifyTrustedOrigin, authenticateToken, async (req, res) => {
+app.post('/api/auth/accept-terms', verifyTrustedOrigin, authenticateToken, authLimiter, async (req, res) => {
     try {
         const now = new Date();
         await User.findOneAndUpdate(
