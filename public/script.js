@@ -28,6 +28,8 @@ let userSettings = {};
 let userAccount = null;
 let searchTimer = null;
 let reminderPollTimer = null;
+let pendingLegalAcceptance = false;
+let pendingLoginWelcome = null;
 
 function currentPath() {
     const path = window.location.pathname.replace(/\/+$/, '');
@@ -240,6 +242,7 @@ async function restorePersistentSession({ allowLegacyUpgrade = true } = {}) {
                 scheduleAccessTokenRefresh(data.expiresIn);
                 clearLegacyAuthStorage();
                 setSessionHint(true);
+                pendingLegalAcceptance = Boolean(data.requiresLegalAcceptance);
                 return true;
             }
             if (allowLegacyUpgrade && legacyToken) {
@@ -346,10 +349,14 @@ function showLogin() {
         $('otp-input-section').hidden = true;
         navigateTo('/login', { replace: true });
     }
-    $('sendCodeBtn').disabled = false;
+    const consentChecked = $('legalConsentCheckbox')?.checked || false;
+    $('sendCodeBtn').disabled = !consentChecked;
     $('sendCodeBtn').textContent = 'Send Login Code';
-    $('verifyCodeBtn').disabled = false;
+    $('verifyCodeBtn').disabled = !consentChecked;
     $('verifyCodeBtn').textContent = 'Verify & Enter';
+    const googleBtn = $('googleButton');
+    if (consentChecked) googleBtn?.classList.remove('consent-blocked');
+    else googleBtn?.classList.add('consent-blocked');
     setupRecaptcha();
     renderGoogleButton();
 }
@@ -423,8 +430,18 @@ async function initializeApplication() {
         }
 
         const restored = await restorePersistentSession({ allowLegacyUpgrade: true });
-        if (restored) await enterApplication();
-        else showLogin();
+        if (restored) {
+            if (pendingLegalAcceptance) {
+                finishBoot();
+                loginOverlay.hidden = true;
+                $('legalAcceptModal').hidden = false;
+                pendingLoginWelcome = null;
+            } else {
+                await enterApplication();
+            }
+        } else {
+            showLogin();
+        }
         registerServiceWorker();
         bootCompleted = true;
     } catch (error) {
@@ -434,6 +451,46 @@ async function initializeApplication() {
 }
 
 window.addEventListener('load', initializeApplication);
+
+$('legalConsentCheckbox').onchange = function () {
+    const checked = this.checked;
+    $('sendCodeBtn').disabled = !checked;
+    $('verifyCodeBtn').disabled = !checked;
+    const googleBtn = $('googleButton');
+    if (checked) googleBtn?.classList.remove('consent-blocked');
+    else googleBtn?.classList.add('consent-blocked');
+};
+
+$('acceptLegalBtn').onclick = async () => {
+    const btn = $('acceptLegalBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    try {
+        const response = await apiFetch(`${baseUrl}/api/auth/accept-terms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await parseJsonSafely(response);
+        if (!response.ok) throw new Error(data.error || 'Unable to record acceptance.');
+        pendingLegalAcceptance = false;
+        $('legalAcceptModal').hidden = true;
+        await enterApplication();
+        if (pendingLoginWelcome) {
+            addSystemMessage(pendingLoginWelcome.message);
+            broadcastAuthEvent('login');
+            apiFetch(`${baseUrl}/api/auth/welcome`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: pendingLoginWelcome.name || '' })
+            }).catch((error) => console.error('Welcome email check failed:', error));
+            pendingLoginWelcome = null;
+        }
+    } catch (error) {
+        alert(error.message || 'Something went wrong. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'I Accept';
+    }
+};
 
 $('showEmailBtn').onclick = () => {
     $('showEmailBtn').classList.add('active');
@@ -594,6 +651,13 @@ async function loginSuccess(data, welcomeMessage, name = '') {
     clearLegacyAuthStorage();
     setSessionHint(true);
     sessionStorage.removeItem('monika_otp_pending');
+    if (data.requiresLegalAcceptance) {
+        pendingLegalAcceptance = true;
+        pendingLoginWelcome = { message: welcomeMessage, name };
+        loginOverlay.hidden = true;
+        $('legalAcceptModal').hidden = false;
+        return;
+    }
     await enterApplication();
     addSystemMessage(welcomeMessage);
     broadcastAuthEvent('login');

@@ -34,7 +34,11 @@
         <div class="login-box">
             <h2 class="title-gradient login-title">Monika AI</h2>
             <p class="muted-copy">Choose how you want to connect.</p>
-            <div id="googleButton" class="google-button"></div>
+            <label class="legal-consent-row" id="legalConsentLabel">
+                <input type="checkbox" id="legalConsentCheckbox">
+                <span>I agree to the <a href="/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener">Terms of Service</a></span>
+            </label>
+            <div id="googleButton" class="google-button consent-blocked"></div>
             <div id="phone-input-section">
                 <div class="auth-separator">— OR LOGIN WITH —</div>
                 <div class="auth-toggle-row">
@@ -56,6 +60,10 @@
                 <button id="resendCodeBtn" class="action-btn secondary-action" type="button">Resend Code</button>
             </div>
             <div id="recaptcha-container"></div>
+            <div class="login-legal-footer">
+                <a href="/privacy-policy.html" target="_blank" rel="noopener">Privacy</a>
+                <a href="/terms.html" target="_blank" rel="noopener">Terms</a>
+            </div>
         </div>
     </div>
 
@@ -258,6 +266,10 @@
                         <h4>Security controls</h4>
                         <p>Persistent sessions are revocable. Attachments are sent to the AI provider for analysis but their raw file data is not stored in MongoDB.</p>
                     </div>
+                    <div class="privacy-card" style="margin-top:12px">
+                        <h4>Legal</h4>
+                        <p><a href="/privacy-policy.html" target="_blank" rel="noopener" style="color:#ff99bb">Privacy Policy</a> · <a href="/terms.html" target="_blank" rel="noopener" style="color:#ff99bb">Terms of Service</a></p>
+                    </div>
                     <div class="danger-zone">
                         <label><i class="fas fa-triangle-exclamation"></i> Danger zone</label>
                         <button id="wipeDataBtn" class="danger-action-btn" type="button">Delete my account and all data</button>
@@ -280,6 +292,16 @@
                     </div>
                 </section>
             </div>
+        </div>
+    </div>
+
+    <div id="legalAcceptModal" class="settings-overlay" hidden>
+        <div class="settings-box" role="dialog" aria-modal="true" aria-labelledby="legalAcceptTitle">
+            <h3 id="legalAcceptTitle" class="title-gradient" style="font-size:1.6rem;margin-bottom:12px">Updated Policies</h3>
+            <div class="privacy-card" style="margin-bottom:16px">
+                <p>By continuing, you agree to the Monika AI <a href="/privacy-policy.html" target="_blank" rel="noopener" style="color:#ff99bb">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener" style="color:#ff99bb">Terms of Service</a>. These outline how your data is handled, your rights as a user, and the rules for using this service.</p>
+            </div>
+            <button id="acceptLegalBtn" class="settings-action-btn" type="button" style="width:100%">I Accept</button>
         </div>
     </div>
 

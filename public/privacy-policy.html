@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#281523">
+    <meta name="description" content="Monika AI Privacy Policy — how your data is collected, used, and protected.">
+    <title>Privacy Policy — Monika AI</title>
+    <link rel="icon" href="/icon-192.png" type="image/png">
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@300;400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body.legal-page {
+            display: block;
+            background: #281523;
+            min-height: 100vh;
+            padding: 40px 20px 60px;
+        }
+        .legal-container {
+            max-width: 780px;
+            margin: 0 auto;
+        }
+        .legal-header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .legal-header .title-gradient {
+            font-size: 2.4rem;
+            margin-bottom: 6px;
+        }
+        .legal-updated {
+            color: rgba(255,255,255,.45);
+            font-size: .78rem;
+        }
+        .legal-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: #ff99bb;
+            text-decoration: none;
+            font-size: .88rem;
+            margin-bottom: 20px;
+            transition: color .2s;
+        }
+        .legal-back:hover { color: #ff6b9d; }
+        .legal-section {
+            padding: 18px;
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 14px;
+            background: rgba(0,0,0,.18);
+            margin-bottom: 16px;
+        }
+        .legal-section h2 {
+            color: #ffb0c9;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+        .legal-section p,
+        .legal-section li {
+            color: rgba(255,255,255,.68);
+            font-size: .86rem;
+            line-height: 1.65;
+            margin-bottom: 8px;
+        }
+        .legal-section ul {
+            padding-left: 22px;
+            margin-bottom: 10px;
+        }
+        .legal-section ul li { margin-bottom: 5px; }
+        .legal-section a {
+            color: #ff99bb;
+            text-decoration: underline;
+            text-decoration-color: rgba(255,153,187,.3);
+        }
+        .legal-section a:hover { color: #ff6b9d; }
+        .legal-section strong { color: rgba(255,255,255,.82); }
+        .legal-footer {
+            text-align: center;
+            margin-top: 30px;
+            color: rgba(255,255,255,.35);
+            font-size: .75rem;
+        }
+    </style>
+</head>
+<body class="legal-page">
+    <div class="legal-container">
+        <a href="/" class="legal-back">← Back to Monika AI</a>
+        <div class="legal-header">
+            <h1 class="title-gradient">Privacy Policy</h1>
+            <p class="legal-updated">Last updated: August 3, 2026</p>
+        </div>
+
+        <div class="legal-section">
+            <h2>1. Introduction</h2>
+            <p>Monika AI ("we," "us," or "the Service") is an AI companion chatbot powered by Google Gemini. This Privacy Policy explains what personal data we collect, how we use it, who we share it with, and the choices you have regarding your information.</p>
+            <p>By creating an account or using Monika AI, you acknowledge that you have read and understand this Privacy Policy.</p>
+        </div>
+
+        <div class="legal-section">
+            <h2>2. Data We Collect</h2>
+            <p>We collect the following categories of personal data:</p>
+            <ul>
+                <li><strong>Account identifiers</strong> — Your email address (for email/Google Sign-In login) or phone number (for phone/SMS login). If you sign in with Google, we also receive your Google profile name.</li>
+                <li><strong>Chat messages</strong> — The text content of every message you send and every response Monika generates, stored per-conversation in our database.</li>
+                <li><strong>Memories (facts)</strong> — Short preference or profile facts extracted from your conversations (e.g., "User likes coffee"), used to personalize responses across sessions.</li>
+                <li><strong>User settings</strong> — Preferences you configure such as personality mode, response length, language, theme, voice, and notification preferences.</li>
+                <li><strong>Device and session information</strong> — Browser name, operating system, a cryptographic hash of your IP address, and a hash of your User-Agent string. These are stored per login session to let you review and revoke active devices.</li>
+                <li><strong>Attachments metadata</strong> — File name, MIME type, size, and kind (image/PDF/text) for files you attach to messages. Raw file data is transmitted to the AI provider for analysis but is <strong>not</strong> persistently stored in our database.</li>
+                <li><strong>Reminders</strong> — Reminder text, scheduled time, recurrence, and delivery status for reminders you create.</li>
+                <li><strong>Usage metrics</strong> — Daily counts of messages sent, images processed, and estimated token usage, aggregated per user per day.</li>
+            </ul>
+        </div>
+
+        <div class="legal-section">
+            <h2>3. How We Use Your Data</h2>
+            <ul>
+                <li><strong>Providing the Service</strong> — Your messages and memories are sent to the Google Gemini API to generate Monika's responses. Conversation history (up to 16 recent messages) and up to 20 stored memories are included as context in each request.</li>
+                <li><strong>Authentication</strong> — Your email or phone number is used to verify your identity via Google Sign-In, Firebase Phone Authentication, or our email OTP system.</li>
+                <li><strong>Session management</strong> — Device and session data lets you see which browsers are signed in and revoke access from unrecognized devices.</li>
+                <li><strong>Personalization</strong> — Your settings and memories customize Monika's behavior, language, personality, and response style.</li>
+                <li><strong>Notifications</strong> — If you enable browser notifications, we use Web Push to deliver reminders you've scheduled.</li>
+                <li><strong>Security and abuse prevention</strong> — We log rate-limit events and authentication failures in an audit log (retained for 180 days) to detect and prevent abuse.</li>
+            </ul>
+        </div>
+
+        <div class="legal-section">
+            <h2>4. Third-Party Services</h2>
+            <p>We integrate with the following third-party services:</p>
+            <ul>
+                <li><strong>Google Gemini / Google GenAI</strong> — Your messages, conversation history, memories, and attachment content are sent to the Gemini API for response generation. Google's <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener">Gemini API Terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a> apply to this processing.</li>
+                <li><strong>Google Sign-In (GSI)</strong> — If you log in with Google, your email and profile name are provided by Google's Identity Services. Google's own privacy policy governs how Google handles your credentials.</li>
+                <li><strong>Firebase Authentication</strong> — If you log in with a phone number, Firebase Phone Authentication and reCAPTCHA are used to verify your identity. <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase Privacy</a> applies.</li>
+                <li><strong>SMTP Email Service (Brevo)</strong> — For email OTP codes, welcome emails, and login alert notifications, we use an SMTP relay service. Your email address and the message content are transmitted through this service.</li>
+            </ul>
+        </div>
+
+        <div class="legal-section">
+            <h2>5. Cookies, Local Storage, and Session Data</h2>
+            <p>We use the following browser-side storage:</p>
+            <ul>
+                <li><strong>Session cookie</strong> (<code>__Host-monika_refresh</code> or <code>monika_refresh</code>) — An HTTP-only, secure cookie containing a cryptographically random refresh token. This keeps you signed in across page loads and is rotated on every session refresh.</li>
+                <li><strong>CSRF cookie</strong> (<code>_csrfSecret</code>) — An HTTP-only cookie used for cross-site request forgery protection on all state-changing requests.</li>
+                <li><strong>localStorage keys</strong> — <code>monika_session_hint</code> (boolean flag for fast session detection), <code>monika_theme</code> (your selected theme), <code>monika_current_conversation</code> (last active conversation ID), and <code>monika_draft</code> (unsent message draft). These contain no sensitive personal data.</li>
+            </ul>
+            <p>We do not use third-party tracking cookies or advertising cookies.</p>
+        </div>
+
+        <div class="legal-section">
+            <h2>6. Data Retention</h2>
+            <ul>
+                <li><strong>Chat messages and conversations</strong> — Retained indefinitely until you delete individual conversations or your entire account.</li>
+                <li><strong>Memories</strong> — Retained indefinitely, capped at the 100 most recent per user. You can delete individual memories or clear all memories from the Memory settings tab.</li>
+                <li><strong>Sessions</strong> — Expire after the configured session TTL (default: 365 days) or when you manually revoke them.</li>
+                <li><strong>OTP codes</strong> — Automatically expire and are deleted after 5 minutes.</li>
+                <li><strong>Audit events</strong> — Automatically deleted after 180 days.</li>
+                <li><strong>Usage metrics</strong> — Retained indefinitely in aggregate form (daily counts only, no message content).</li>
+            </ul>
+        </div>
+
+        <div class="legal-section">
+            <h2>7. Your Rights</h2>
+            <p>You have the following rights over your data:</p>
+            <ul>
+                <li><strong>Export</strong> — You can export any conversation as a TXT, Markdown, or PDF file using the toolbar buttons in the chat interface.</li>
+                <li><strong>Delete conversations</strong> — You can delete individual conversations from the sidebar, or clear all chat history from the sidebar footer.</li>
+                <li><strong>Delete memories</strong> — You can remove individual memories or clear all stored memories from Settings → Memory.</li>
+                <li><strong>Revoke sessions</strong> — You can log out individual devices or all other devices from Settings → Devices.</li>
+                <li><strong>Delete your account</strong> — You can permanently delete your account and all associated data (messages, conversations, memories, sessions, reminders, push subscriptions, settings, and usage data) from Settings → Privacy → "Delete my account and all data." This action is irreversible.</li>
+            </ul>
+            <p>If you need assistance exercising your rights, contact us at <strong>tagadearpit@gmail.com</strong>.</p>
+        </div>
+
+        <div class="legal-section">
+            <h2>8. Data Security</h2>
+            <p>We implement the following security measures:</p>
+            <ul>
+                <li>All connections are encrypted via HTTPS/TLS.</li>
+                <li>Refresh tokens are hashed before storage; raw tokens are never persisted.</li>
+                <li>OTP codes are cryptographically hashed (HMAC-SHA256) before storage.</li>
+                <li>IP addresses are hashed and never stored in plain text.</li>
+                <li>CSRF double-submit token protection on all state-changing requests.</li>
+                <li>Content Security Policy (CSP) headers restrict script and resource loading.</li>
+                <li>Rate limiting on authentication and API endpoints to prevent brute-force attacks.</li>
+            </ul>
+        </div>
+
+        <div class="legal-section">
+            <h2>9. Children's Privacy</h2>
+            <p>Monika AI is not intended for children under the age of 13. We do not knowingly collect personal data from children under 13. If you believe a child has provided us with personal data, please contact us so we can delete it.</p>
+        </div>
+
+        <div class="legal-section">
+            <h2>10. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. When we make material changes, we will notify you by requiring re-acceptance of the updated policy upon your next login. The "Last updated" date at the top of this page indicates when the policy was last revised.</p>
+        </div>
+
+        <div class="legal-section">
+            <h2>11. Contact</h2>
+            <p>If you have questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
+            <p><strong>tagadearpit@gmail.com</strong></p>
+        </div>
+
+        <div class="legal-footer">
+            <p>© 2026 Monika AI. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
