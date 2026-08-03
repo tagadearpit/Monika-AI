@@ -97,7 +97,10 @@ const userSchema = new mongoose.Schema({
     lastActive: { type: Date, default: Date.now },
     settings: { type: userSettingsSchema, default: () => ({}) },
     suspendedAt: { type: Date, default: null },
-    suspensionReason: { type: String, default: '', maxlength: 500 }
+    suspensionReason: { type: String, default: '', maxlength: 500 },
+    termsAcceptedAt: { type: Date, default: null },
+    privacyAcceptedAt: { type: Date, default: null },
+    legalVersion: { type: String, default: null, maxlength: 20 }
 }, { collection: 'users' });
 
 const sessionSchema = new mongoose.Schema({

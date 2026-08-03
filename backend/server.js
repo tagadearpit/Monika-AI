@@ -91,6 +91,7 @@ const ADMIN_SESSION_TTL_SECONDS = positiveInteger(process.env.ADMIN_SESSION_TTL_
 const ADMIN_COOKIE_NAME = isProduction ? '__Host-monika_admin' : 'monika_admin';
 const ADMIN_TOKEN_ISSUER = 'monika-ai';
 const ADMIN_TOKEN_AUDIENCE = 'monika-admin-console';
+const CURRENT_LEGAL_VERSION = '2026-08-01';
 const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET;
 if (!OTP_SECRET) {
     console.error('CRITICAL ERROR: OTP_SECRET (or JWT_SECRET) must be set.');
@@ -313,7 +314,7 @@ const authLimiter = createLimiter('rate_limit.auth', {
 });
 const refreshLimiter = createLimiter('rate_limit.refresh', {
     windowMs: 15 * 60 * 1000,
-    limit: 120,
+    limit: positiveInteger(process.env.REFRESH_RATE_LIMIT, 60),
     message: { error: 'Too many session refresh requests.', code: 'REFRESH_RATE_LIMITED' }
 });
 const emailLimiter = createLimiter('rate_limit.otp', {
@@ -1253,6 +1254,7 @@ app.get('/api/config', (req, res) => {
             appId: process.env.FIREBASE_APP_ID || ''
         },
         pushPublicKey: pushConfigured ? process.env.VAPID_PUBLIC_KEY : '',
+        legalVersion: CURRENT_LEGAL_VERSION,
         features: {
             pushNotifications: pushConfigured,
             admin: false
@@ -1261,7 +1263,7 @@ app.get('/api/config', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptimeSeconds: Math.floor(process.uptime()), version: '3.0.1' });
+    res.json({ status: 'ok', uptimeSeconds: Math.floor(process.uptime()), version: '3.0.2' });
 });
 
 app.get('/api/ready', (req, res) => {
@@ -1284,10 +1286,11 @@ app.post('/api/auth/google', verifyTrustedOrigin, authLimiter, async (req, res) 
             return res.status(403).json({ error: 'Google email is not verified.', code: 'EMAIL_NOT_VERIFIED' });
         }
         const email = normalizeEmail(payload.email);
-        const existing = await User.findOne({ sessionId: email }).select('suspendedAt').lean();
+        const existing = await User.findOne({ sessionId: email }).select('suspendedAt termsAcceptedAt privacyAcceptedAt legalVersion').lean();
         if (existing?.suspendedAt) return res.status(403).json({ error: 'This account is suspended.', code: 'ACCOUNT_SUSPENDED' });
         const session = await issuePersistentSession(email, req, res);
-        return res.json({ success: true, ...session, email, name: payload.given_name || '' });
+        const requiresLegalAcceptance = !existing?.termsAcceptedAt || !existing?.privacyAcceptedAt || existing?.legalVersion !== CURRENT_LEGAL_VERSION;
+        return res.json({ success: true, ...session, email, name: payload.given_name || '', requiresLegalAcceptance });
     } catch (error) {
         log('warn', 'google_auth_failed', { requestId: req.requestId, message: error.message });
         recordAudit('auth.google_failed', null, req);
@@ -1306,10 +1309,11 @@ app.post('/api/auth/firebase', verifyTrustedOrigin, authLimiter, async (req, res
         if (!decodedToken.phone_number) {
             return res.status(400).json({ error: 'Verified account has no phone number.', code: 'PHONE_MISSING' });
         }
-        const existing = await User.findOne({ sessionId: decodedToken.phone_number }).select('suspendedAt').lean();
+        const existing = await User.findOne({ sessionId: decodedToken.phone_number }).select('suspendedAt termsAcceptedAt privacyAcceptedAt legalVersion').lean();
         if (existing?.suspendedAt) return res.status(403).json({ error: 'This account is suspended.', code: 'ACCOUNT_SUSPENDED' });
         const session = await issuePersistentSession(decodedToken.phone_number, req, res);
-        return res.json({ success: true, ...session, phone: decodedToken.phone_number });
+        const requiresLegalAcceptance = !existing?.termsAcceptedAt || !existing?.privacyAcceptedAt || existing?.legalVersion !== CURRENT_LEGAL_VERSION;
+        return res.json({ success: true, ...session, phone: decodedToken.phone_number, requiresLegalAcceptance });
     } catch (error) {
         log('warn', 'firebase_auth_failed', { requestId: req.requestId, message: error.message });
         recordAudit('auth.firebase_failed', null, req);
@@ -1384,7 +1388,9 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, r
             return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
         }
         const session = await issuePersistentSession(email, req, res);
-        return res.json({ success: true, ...session });
+        const user = await User.findOne({ sessionId: email }).select('termsAcceptedAt privacyAcceptedAt legalVersion').lean();
+        const requiresLegalAcceptance = !user?.termsAcceptedAt || !user?.privacyAcceptedAt || user?.legalVersion !== CURRENT_LEGAL_VERSION;
+        return res.json({ success: true, ...session, requiresLegalAcceptance });
     } catch (error) {
         log('error', 'otp_verification_failed', { requestId: req.requestId, message: error.message });
         recordAudit('auth.otp_verification_failed', null, req);
@@ -1401,11 +1407,35 @@ app.post('/api/auth/refresh', verifyTrustedOrigin, refreshLimiter, async (req, r
             if (hadRefreshToken) recordAudit('auth.refresh_rejected', null, req);
             return res.status(401).json({ error: 'Persistent session is unavailable.', code: 'SESSION_EXPIRED' });
         }
-        return res.json({ success: true, token: session.token, expiresIn: session.expiresIn });
+        const user = await User.findOne({ sessionId: session.userId }).select('termsAcceptedAt privacyAcceptedAt legalVersion').lean();
+        const requiresLegalAcceptance = !user?.termsAcceptedAt || !user?.privacyAcceptedAt || user?.legalVersion !== CURRENT_LEGAL_VERSION;
+        return res.json({ success: true, token: session.token, expiresIn: session.expiresIn, requiresLegalAcceptance });
     } catch (error) {
         log('error', 'session_refresh_failed', { requestId: req.requestId, message: error.message });
         recordAudit('auth.refresh_failed', null, req);
         return res.status(500).json({ error: 'Session refresh failed.', code: 'SESSION_REFRESH_FAILED' });
+    }
+});
+
+app.post('/api/auth/accept-terms', verifyTrustedOrigin, authLimiter, authenticateToken, async (req, res) => {
+    try {
+        const now = new Date();
+        await User.findOneAndUpdate(
+            { sessionId: req.user.sessionId },
+            {
+                $set: {
+                    termsAcceptedAt: now,
+                    privacyAcceptedAt: now,
+                    legalVersion: CURRENT_LEGAL_VERSION
+                }
+            },
+            { upsert: true, setDefaultsOnInsert: true }
+        );
+        recordAudit('auth.legal_accepted', req.user.sessionId, req, { legalVersion: CURRENT_LEGAL_VERSION });
+        return res.json({ success: true });
+    } catch (error) {
+        log('error', 'legal_acceptance_failed', { requestId: req.requestId, message: error.message });
+        return res.status(500).json({ error: 'Unable to record legal acceptance.', code: 'LEGAL_ACCEPTANCE_FAILED' });
     }
 });
 
