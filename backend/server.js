@@ -1247,7 +1247,7 @@ const runReminderWorker = async () => {
     if (mongoose.connection.readyState === 1) {
         try {
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            await Session.deleteMany({ revokedAt: mongoose.trusted({ $lt: oneDayAgo }) });
+            await Session.deleteMany(mongoose.trusted({ revokedAt: { $lt: oneDayAgo } }));
         } catch (error) {
             log('error', 'session_cleanup_failed', { message: error.message });
         }
@@ -2110,7 +2110,7 @@ app.get('/api/push/public-key', authenticateToken, (req, res) => {
     return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
-app.post('/api/push/subscribe', verifyTrustedOrigin, pushSubscribeLimiter, authenticateToken, validateBody(validators.pushSubscription), async (req, res) => {
+app.post('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, pushSubscribeLimiter, validateBody(validators.pushSubscription), async (req, res) => {
     if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not configured.', code: 'PUSH_NOT_CONFIGURED' });
     const subscription = await PushSubscription.findOneAndUpdate(
         { endpoint: req.validatedBody.endpoint, userId: req.user.sessionId },
