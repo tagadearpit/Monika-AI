@@ -1216,7 +1216,7 @@ const runReminderWorker = async () => {
     if (mongoose.connection.readyState === 1) {
         try {
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            await Session.deleteMany(mongoose.trusted({ revokedAt: { $lt: oneDayAgo } }));
+            await Session.deleteMany({ revokedAt: mongoose.trusted({ $lt: oneDayAgo }) });
         } catch (error) {
             log('error', 'session_cleanup_failed', { message: error.message });
         }
@@ -2220,7 +2220,7 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimit
 });
 
 app.get('/api/admin/sessions', adminLimiter, requireAdminSession, async (req, res) => {
-    const sessions = await Session.find(mongoose.trusted({ revokedAt: null, expiresAt: { $gt: new Date() } }))
+    const sessions = await Session.find({ revokedAt: null, expiresAt: mongoose.trusted({ $gt: new Date() }) })
         .sort({ lastSeenAt: -1 })
         .limit(100)
         .select('userId deviceName browser operatingSystem createdAt lastSeenAt lastIpHash')
