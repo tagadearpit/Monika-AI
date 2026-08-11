@@ -1,6 +1,22 @@
 # Changelog
 
 
+## 3.0.2 - 2026-08-11
+
+### Security
+- Masked PII in admin API responses.
+- Cleared CSRF secret cookie on logout.
+- Stopped reusing JWT_SECRET as fallback for OTP_SECRET (breaking change).
+- Added issuer/audience checks to legacy token verifier.
+- Hardened admin login against brute force.
+- Rate-limited push subscription requests.
+- Filtered sensitive content out of extracted memories.
+- Removed hardcoded APP_URL fallback (breaking change).
+- Rate-limited /api/health and /api/ready.
+- Added session cleanup/TTL index for revoked sessions.
+- Removed legacy localStorage token fallback.
+- Lowered PDF export memory footprint using Mongoose cursor.
+
 ## 3.0.1 - 2026-07-19
 
 ### Fixed

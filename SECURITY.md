@@ -36,7 +36,7 @@ Monika AI v3 includes:
 - Use HTTPS in production.
 - Use Node.js 22 or newer.
 - Keep `.env`, database credentials, Gemini keys, SMTP credentials, VAPID private keys, JWT secrets, OTP secrets, and Firebase service-account data outside source control.
-- Generate `JWT_SECRET` and `OTP_SECRET` independently with strong randomness.
+- Generate `JWT_SECRET` and `OTP_SECRET` independently with strong randomness. Both are explicitly required.
 - Set `ALLOWED_ORIGINS` to exact trusted origins only.
 - Never use `*` with credentialed CORS.
 - Restrict MongoDB network access and use a least-privilege database user.

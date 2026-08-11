@@ -186,7 +186,7 @@ async function loadReports() {
     }
     list.innerHTML = state.reports.map(report => `
         <div class="list-item fade-in">
-            <strong>${report.feedback?.reportType || 'report'} · ${report.userId}</strong>
+            <strong>${report.feedback?.reportType || 'report'} · ${report.userIdMasked || report.userId}</strong>
             <p>${report.content}</p>
             <small class="muted">${report.feedback?.comment || new Date(report.feedback?.updatedAt || report.createdAt).toLocaleString()}</small>
         </div>
@@ -207,7 +207,7 @@ async function loadAudit() {
     list.innerHTML = state.audit.map(event => `
         <div class="list-item fade-in">
             <strong>${event.action}</strong>
-            <small class="muted">${event.userId || event.metadata?.email || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anonymous')} · ${new Date(event.createdAt).toLocaleString()}</small>
+            <small class="muted">${event.userIdMasked || event.userId || event.metadata?.email || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anonymous')} · ${new Date(event.createdAt).toLocaleString()}</small>
         </div>
     `).join('');
 }
@@ -231,7 +231,7 @@ async function loadSessions() {
         <tr class="fade-in">
             <td>
                 <strong>${s.deviceName || s.browser || 'Unknown Device'}</strong>
-                <div class="muted" style="font-size:0.78rem;">${s.operatingSystem || 'OS unknown'} · ${s.userId}</div>
+                <div class="muted" style="font-size:0.78rem;">${s.operatingSystem || 'OS unknown'} · ${s.userIdMasked || s.userId}</div>
                 ${s.lastIpHash ? `<div class="muted" style="font-size:0.75rem;">IP Hash: ${s.lastIpHash.substring(0,8)}...</div>` : ''}
             </td>
             <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : 'Just now'}</td>
@@ -387,9 +387,9 @@ async function handleSearch() {
         return;
     }
     let html = '';
-    users.forEach(u => html += `<div class="list-item fade-in"><strong>User: ${u.sessionId}</strong><small class="muted">Status: ${u.suspendedAt ? 'Suspended' : 'Active'} · Last Active: ${u.lastActive ? new Date(u.lastActive).toLocaleString() : 'N/A'}</small></div>`);
-    auditEvents.forEach(a => html += `<div class="list-item fade-in"><strong>Audit: ${a.action}</strong><small class="muted">User: ${a.userId || 'anon'} · ${new Date(a.createdAt).toLocaleString()}</small></div>`);
-    reports.forEach(r => html += `<div class="list-item fade-in"><strong>Report: ${r.feedback?.reportType || 'report'}</strong><p style="margin:4px 0">${r.content}</p><small class="muted">User: ${r.userId} · ${new Date(r.createdAt).toLocaleString()}</small></div>`);
+    users.forEach(u => html += `<div class="list-item fade-in"><strong>User: ${u.sessionIdMasked || u.sessionId}</strong><small class="muted">Status: ${u.suspendedAt ? 'Suspended' : 'Active'} · Last Active: ${u.lastActive ? new Date(u.lastActive).toLocaleString() : 'N/A'}</small></div>`);
+    auditEvents.forEach(a => html += `<div class="list-item fade-in"><strong>Audit: ${a.action}</strong><small class="muted">User: ${a.userIdMasked || a.userId || 'anon'} · ${new Date(a.createdAt).toLocaleString()}</small></div>`);
+    reports.forEach(r => html += `<div class="list-item fade-in"><strong>Report: ${r.feedback?.reportType || 'report'}</strong><p style="margin:4px 0">${r.content}</p><small class="muted">User: ${r.userIdMasked || r.userId} · ${new Date(r.createdAt).toLocaleString()}</small></div>`);
     if (resultBox) resultBox.innerHTML = html;
 }
 
