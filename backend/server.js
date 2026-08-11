@@ -601,7 +601,7 @@ const rotatePersistentSession = async (req, res) => {
     const user = await User.findOneAndUpdate(
         { sessionId: session.userId },
         { $set: { lastActive: now } },
-        { new: true, setDefaultsOnInsert: true, upsert: true }
+        { returnDocument: 'after', setDefaultsOnInsert: true, upsert: true }
     ).lean();
     if (user?.suspendedAt) {
         session.revokedAt = now;
@@ -750,7 +750,7 @@ const getUserSettings = async (userId) => {
     const user = await User.findOneAndUpdate(
         { sessionId: userId },
         { $setOnInsert: { firstLogin: new Date(), lastActive: new Date() } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     ).lean();
     return user.settings || {};
 };
@@ -1237,7 +1237,7 @@ const runReminderWorker = async () => {
             const reminder = await Reminder.findOneAndUpdate(
                 { _id: candidate._id, status: 'pending' },
                 { $set: { status: 'processing', updatedAt: new Date() } },
-                { new: true }
+                { returnDocument: 'after' }
             );
             if (reminder) await deliverReminder(reminder);
         }
@@ -1394,7 +1394,7 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, r
         const record = await Otp.findOneAndUpdate(
             { email, attempts: mongoose.trusted({ $lt: 5 }) },
             { $inc: { attempts: 1 } },
-            { new: false }
+            { returnDocument: 'before' }
         );
         if (!record) {
             // Either no OTP exists or attempts exhausted — clean up and reject
@@ -1569,7 +1569,7 @@ app.patch('/api/settings', verifyTrustedOrigin, authenticateToken, validateBody(
     const user = await User.findOneAndUpdate(
         { sessionId: req.user.sessionId },
         { $set: { ...setValues, lastActive: new Date() } },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
+        { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
     ).lean();
     recordAudit('settings.updated', req.user.sessionId, req, { fields: Object.keys(req.validatedBody) });
     return res.json({ settings: user.settings });
@@ -1597,7 +1597,7 @@ app.patch('/api/conversations/:id', verifyTrustedOrigin, authenticateToken, vali
     const conversation = await Conversation.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId },
         { $set: { ...req.validatedBody, updatedAt: new Date() } },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     );
     if (!conversation) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
     return res.json(conversation);
@@ -1739,7 +1739,7 @@ app.patch('/api/memories/:id', verifyTrustedOrigin, authenticateToken, validateB
     const memory = await Fact.findOneAndUpdate(
         { _id: req.params.id, sessionId: req.user.sessionId },
         { $set: { ...req.validatedBody, source: 'manual', updatedAt: new Date() } },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     );
     if (!memory) return res.status(404).json({ error: 'Memory not found.', code: 'MEMORY_NOT_FOUND' });
     return res.json(memory);
@@ -1774,7 +1774,7 @@ app.delete('/api/sessions/:id', verifyTrustedOrigin, authenticateToken, async (r
     const session = await Session.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId, revokedAt: null },
         { $set: { revokedAt: new Date(), revocationReason: 'device_revoked' } },
-        { new: true }
+        { returnDocument: 'after' }
     );
     if (!session) return res.status(404).json({ error: 'Session not found.', code: 'SESSION_NOT_FOUND' });
     recordAudit('session.revoked', req.user.sessionId, req, { sessionId: req.params.id });
@@ -1803,7 +1803,7 @@ app.post('/api/messages/:id/feedback', verifyTrustedOrigin, authenticateToken, v
     const message = await Message.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId, role: 'model' },
         { $set: update },
-        { new: true }
+        { returnDocument: 'after' }
     );
     if (!message) return res.status(404).json({ error: 'Message not found.', code: 'MESSAGE_NOT_FOUND' });
     if (req.validatedBody.reportType) recordAudit('message.reported', req.user.sessionId, req, { messageId: req.params.id, type: req.validatedBody.reportType });
@@ -2006,7 +2006,7 @@ app.patch('/api/reminders/:id', verifyTrustedOrigin, authenticateToken, validate
     const reminder = await Reminder.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId },
         { $set: update },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     );
     if (!reminder) return res.status(404).json({ error: 'Reminder not found.', code: 'REMINDER_NOT_FOUND' });
     return res.json(reminder);
@@ -2029,7 +2029,7 @@ app.get('/api/reminders/due', authenticateToken, async (req, res) => {
         const reminder = await Reminder.findOneAndUpdate(
             { _id: candidate._id, userId: req.user.sessionId, status: 'pending' },
             { $set: { status: 'processing', updatedAt: new Date() } },
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!reminder) continue;
         payload.push(reminder.toObject());
@@ -2048,7 +2048,7 @@ app.post('/api/push/subscribe', verifyTrustedOrigin, pushSubscribeLimiter, authe
     const subscription = await PushSubscription.findOneAndUpdate(
         { endpoint: req.validatedBody.endpoint, userId: req.user.sessionId },
         { $set: { ...req.validatedBody, userId: req.user.sessionId, lastUsedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
     return res.status(201).json({ success: true, id: String(subscription._id) });
 });
@@ -2210,7 +2210,7 @@ app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimit
     const update = req.validatedBody.suspended
         ? { suspendedAt: new Date(), suspensionReason: req.validatedBody.reason || 'Administrative action' }
         : { suspendedAt: null, suspensionReason: '' };
-    const user = await User.findOneAndUpdate({ sessionId: userId }, { $set: update }, { new: true });
+    const user = await User.findOneAndUpdate({ sessionId: userId }, { $set: update }, { returnDocument: 'after' });
     if (!user) return res.status(404).json({ error: 'User not found.', code: 'USER_NOT_FOUND' });
     if (req.validatedBody.suspended) {
         await Session.updateMany({ userId, revokedAt: null }, { $set: { revokedAt: new Date(), revocationReason: 'account_suspended' } });
@@ -2233,7 +2233,7 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, 
     const session = await Session.findOneAndUpdate(
         mongoose.trusted({ _id: sessionId, revokedAt: null }),
         { $set: { revokedAt: new Date(), revocationReason: 'admin_revoked' } },
-        { new: true }
+        { returnDocument: 'after' }
     );
     if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
     recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
@@ -2396,3 +2396,4 @@ if (require.main === module) {
 }
 
 module.exports = { app, startServer, shutdown };
+
