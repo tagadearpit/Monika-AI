@@ -2043,7 +2043,7 @@ app.get('/api/push/public-key', authenticateToken, (req, res) => {
     return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
-app.post('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, pushSubscribeLimiter, validateBody(validators.pushSubscription), async (req, res) => {
+app.post('/api/push/subscribe', verifyTrustedOrigin, pushSubscribeLimiter, authenticateToken, validateBody(validators.pushSubscription), async (req, res) => {
     if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not configured.', code: 'PUSH_NOT_CONFIGURED' });
     const subscription = await PushSubscription.findOneAndUpdate(
         { endpoint: req.validatedBody.endpoint, userId: req.user.sessionId },
