@@ -1676,7 +1676,7 @@ app.get('/api/conversations/:id/export', authenticateToken, async (req, res) => 
 
     if (format === 'pdf') {
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="conversation.pdf"; filename*=UTF-8''${encodeURIComponent(fileBase)}.pdf`);
         const doc = new PDFDocument({ margin: 48, size: 'A4', info: { Title: conversation.title } });
         doc.pipe(res);
         doc.fontSize(20).text(conversation.title, { align: 'center' });
@@ -1707,7 +1707,8 @@ app.get('/api/conversations/:id/export', authenticateToken, async (req, res) => 
             : `[${date}] ${label}:\n${message.content}\n`;
     }).join('\n');
     res.setHeader('Content-Type', markdown ? 'text/markdown; charset=utf-8' : 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.${markdown ? 'md' : 'txt'}"`);
+    const ext = markdown ? 'md' : 'txt';
+    res.setHeader('Content-Disposition', `attachment; filename="conversation.${ext}"; filename*=UTF-8''${encodeURIComponent(fileBase)}.${ext}`);
     return res.send(markdown ? `# ${conversation.title}\n\n${body}` : `${conversation.title}\n${'='.repeat(conversation.title.length)}\n\n${body}`);
 });
 
