@@ -11,6 +11,22 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
 const hashOtp = (secret, email, code) => crypto.createHmac('sha256', secret).update(`${email}:${code}`).digest('hex');
 
+const maskIdentifier = (value) => {
+    if (!value) return '';
+    const str = String(value);
+    if (str.includes('@')) {
+        const [local, domain] = str.split('@');
+        return `${local.charAt(0)}***@${domain}`;
+    }
+    if (str.startsWith('+') && str.length > 5) {
+        return `${str.slice(0, 3)}****${str.slice(-4)}`;
+    }
+    if (str.length > 4) {
+        return `${str.slice(0, 2)}***${str.slice(-2)}`;
+    }
+    return '***';
+};
+
 const ADMIN_SCRYPT_KEYLEN = 64;
 
 const hashAdminPassword = (password) => {
@@ -138,6 +154,7 @@ module.exports = {
     normalizeEmail,
     hashValue,
     hashOtp,
+    maskIdentifier,
     hashAdminPassword,
     verifyAdminPassword,
     resolveTimeZone,

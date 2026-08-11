@@ -40,6 +40,7 @@ const {
     normalizeEmail,
     hashValue,
     hashOtp,
+    maskIdentifier,
     resolveTimeZone,
     getCurrentDateTime,
     parseUserAgent,
@@ -54,7 +55,7 @@ const {
 require('dotenv').config();
 
 const isProduction = process.env.NODE_ENV === 'production';
-const requiredEnvironment = ['GEMINI_API_KEY', 'MONGO_URI', 'JWT_SECRET', 'ALLOWED_ORIGINS'];
+const requiredEnvironment = ['GEMINI_API_KEY', 'MONGO_URI', 'JWT_SECRET', 'OTP_SECRET', 'APP_URL', 'ALLOWED_ORIGINS'];
 const missingEnvironment = requiredEnvironment.filter((name) => !process.env[name]);
 
 if (missingEnvironment.length > 0) {
@@ -92,9 +93,9 @@ const ADMIN_COOKIE_NAME = isProduction ? '__Host-monika_admin' : 'monika_admin';
 const ADMIN_TOKEN_ISSUER = 'monika-ai';
 const ADMIN_TOKEN_AUDIENCE = 'monika-admin-console';
 const CURRENT_LEGAL_VERSION = '2026-08-01';
-const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET;
+const OTP_SECRET = process.env.OTP_SECRET;
 if (!OTP_SECRET) {
-    console.error('CRITICAL ERROR: OTP_SECRET (or JWT_SECRET) must be set.');
+    console.error('CRITICAL ERROR: OTP_SECRET must be set.');
     if (require.main === module) process.exit(1);
 }
 const allowedOrigins = new Set(
@@ -327,6 +328,17 @@ const adminLimiter = createLimiter('rate_limit.admin', {
     limit: positiveInteger(process.env.ADMIN_RATE_LIMIT, 300),
     message: { error: 'Admin request rate limit exceeded.', code: 'ADMIN_RATE_LIMITED' }
 });
+const pushSubscribeLimiter = createLimiter('rate_limit.push_subscribe', {
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    message: { error: 'Too many push subscription attempts. Try again later.', code: 'RATE_LIMITED' },
+    keyGenerator: (req) => req.user?.sessionId || getClientIpHash(req, process.env.JWT_SECRET)
+});
+const healthLimiter = createLimiter('rate_limit.health', {
+    windowMs: 60 * 1000,
+    limit: 120,
+    message: { error: 'Too many health check requests.', code: 'RATE_LIMITED' }
+});
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^\+[1-9]\d{7,14}$/;
@@ -336,7 +348,7 @@ const accountDetails = (identifier) => ({
     identifier
 });
 
-const APP_URL = (process.env.APP_URL || 'https://monika-ai-0jpf.onrender.com').replace(/\/$/, '');
+const APP_URL = String(process.env.APP_URL).replace(/\/$/, '');
 const transporter = nodemailer.createTransport({
     pool: true,
     host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -660,7 +672,11 @@ const authenticateLegacyToken = (req, res, next) => {
     const token = extractBearerToken(req);
     if (!token) return res.status(401).json({ error: 'Authentication required.', code: 'AUTH_REQUIRED' });
     try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+        const payload = jwt.verify(token, process.env.JWT_SECRET, { 
+            algorithms: ['HS256'],
+            issuer: ACCESS_TOKEN_ISSUER,
+            audience: ACCESS_TOKEN_AUDIENCE
+        });
         const userId = payload.sessionId || payload.sub;
         if (!userId) return res.status(401).json({ error: 'Invalid legacy token.', code: 'AUTH_INVALID' });
         req.user = { sessionId: userId };
@@ -962,11 +978,14 @@ const extractMemoryInBackground = async (userId, question) => {
 
         const result = await genAI.models.generateContent({
             model: process.env.GEMINI_FACT_MODEL || 'gemini-2.5-flash-lite',
-            contents: `Extract one durable user preference or profile fact from this sentence. Return only the fact, or NONE. Do not infer sensitive traits. Sentence: "${question}"`,
+            contents: `Extract one durable user preference or profile fact from this sentence. Return only the fact, or NONE. Do not infer sensitive traits. Return NONE if the fact resembles a credential, password, token, API key, or credit card number. Sentence: "${question}"`,
             config: { temperature: 0.1 }
         });
         const fact = xss(String(result.text || '').trim(), { whiteList: {}, stripIgnoredTag: true }).slice(0, 500);
         if (!fact || fact.toUpperCase() === 'NONE') return;
+        
+        const sensitivePattern = /(password|secret|api[_-]?key|token)|\b\d{13,19}\b|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/i;
+        if (sensitivePattern.test(fact)) return;
 
         await Fact.updateOne(
             { sessionId: userId, fact },
@@ -1194,6 +1213,14 @@ const deliverReminder = async (reminder) => {
 
 let reminderWorkerTimer = null;
 const runReminderWorker = async () => {
+    if (mongoose.connection.readyState === 1) {
+        try {
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            await Session.deleteMany(mongoose.trusted({ revokedAt: { $lt: oneDayAgo } }));
+        } catch (error) {
+            log('error', 'session_cleanup_failed', { message: error.message });
+        }
+    }
     if (!pushConfigured || mongoose.connection.readyState !== 1) return;
     try {
         const staleClaimTime = new Date(Date.now() - 5 * 60 * 1000);
@@ -1262,11 +1289,11 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', healthLimiter, (req, res) => {
     res.json({ status: 'ok', uptimeSeconds: Math.floor(process.uptime()), version: '3.0.2' });
 });
 
-app.get('/api/ready', (req, res) => {
+app.get('/api/ready', healthLimiter, (req, res) => {
     const ready = mongoose.connection.readyState === 1;
     res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not_ready' });
 });
@@ -1481,6 +1508,7 @@ app.post('/api/auth/logout', verifyTrustedOrigin, refreshLimiter, async (req, re
             );
         }
         clearRefreshCookies(res);
+        res.clearCookie(CSRF_COOKIE, { httpOnly: true, secure: isProduction, sameSite: 'lax', path: '/' });
         recordAudit('session.logout', userId, req);
         return res.status(204).send();
     } catch (error) {
@@ -1638,12 +1666,13 @@ app.get('/api/search', authenticateToken, async (req, res) => {
 app.get('/api/conversations/:id/export', authenticateToken, async (req, res) => {
     const conversation = await getOwnedConversation(req.user.sessionId, req.params.id);
     if (!conversation) return res.status(404).json({ error: 'Conversation not found.', code: 'CONVERSATION_NOT_FOUND' });
-    const messages = await Message.find({ conversationId: conversation._id, userId: req.user.sessionId })
-        .sort({ createdAt: 1 })
-        .limit(5000)
-        .lean();
+    
     const format = String(req.query.format || 'txt').toLowerCase();
     const fileBase = sanitizeFileName(conversation.title).replace(/\s+/g, '-').toLowerCase() || 'conversation';
+    
+    const query = Message.find({ conversationId: conversation._id, userId: req.user.sessionId })
+        .sort({ createdAt: 1 })
+        .limit(5000);
 
     if (format === 'pdf') {
         res.setHeader('Content-Type', 'application/pdf');
@@ -1652,7 +1681,9 @@ app.get('/api/conversations/:id/export', authenticateToken, async (req, res) => 
         doc.pipe(res);
         doc.fontSize(20).text(conversation.title, { align: 'center' });
         doc.moveDown();
-        for (const message of messages) {
+        
+        const cursor = query.cursor();
+        for await (const message of cursor) {
             const label = message.role === 'model' ? 'Monika' : message.role === 'user' ? 'You' : 'System';
             doc.fontSize(10).fillColor('#666666').text(`${label} · ${new Date(message.createdAt).toLocaleString()}`);
             doc.fontSize(12).fillColor('#111111').text(message.content, { paragraphGap: 6 });
@@ -1666,6 +1697,7 @@ app.get('/api/conversations/:id/export', authenticateToken, async (req, res) => 
         return undefined;
     }
 
+    const messages = await query.lean();
     const markdown = format === 'md';
     const body = messages.map((message) => {
         const label = message.role === 'model' ? 'Monika' : message.role === 'user' ? 'You' : 'System';
@@ -2011,7 +2043,7 @@ app.get('/api/push/public-key', authenticateToken, (req, res) => {
     return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
-app.post('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, validateBody(validators.pushSubscription), async (req, res) => {
+app.post('/api/push/subscribe', verifyTrustedOrigin, authenticateToken, pushSubscribeLimiter, validateBody(validators.pushSubscription), async (req, res) => {
     if (!pushConfigured) return res.status(503).json({ error: 'Push notifications are not configured.', code: 'PUSH_NOT_CONFIGURED' });
     const subscription = await PushSubscription.findOneAndUpdate(
         { endpoint: req.validatedBody.endpoint, userId: req.user.sessionId },
@@ -2073,17 +2105,35 @@ const adminLoginLimiter = createLimiter('rate_limit.admin_login', {
     message: { error: 'Too many admin login attempts. Try again later.', code: 'RATE_LIMITED' }
 });
 
+const adminFailedAttempts = new Map();
+
 app.post('/api/admin/login', verifyTrustedOrigin, adminLoginLimiter, validateBody(validators.adminLogin), async (req, res) => {
     if (!ADMIN_CONSOLE_EMAIL || !ADMIN_CONSOLE_PASSWORD_HASH) {
         return res.status(503).json({ error: 'Admin console is not configured.', code: 'ADMIN_NOT_CONFIGURED' });
     }
     const email = normalizeEmail(req.body.email);
+    const now = Date.now();
+    const attempts = adminFailedAttempts.get(email) || { count: 0, lockedUntil: 0 };
+    
+    if (attempts.lockedUntil > now) {
+        return res.status(429).json({ error: 'Account temporarily locked due to too many failed attempts.', code: 'ACCOUNT_LOCKED' });
+    }
+
     const { password } = req.body;
     const matches = email === ADMIN_CONSOLE_EMAIL && verifyAdminPassword(password, ADMIN_CONSOLE_PASSWORD_HASH);
+    
     if (!matches) {
+        attempts.count += 1;
+        if (attempts.count >= 5) {
+            attempts.lockedUntil = now + 15 * 60 * 1000;
+            recordAudit('admin_login_locked', email || 'unknown-admin', req, { email, lockedUntil: attempts.lockedUntil });
+        }
+        adminFailedAttempts.set(email, attempts);
         recordAudit('admin_login_failed', email || 'unknown-admin', req, { email });
         return res.status(401).json({ error: 'Invalid email or password.', code: 'ADMIN_LOGIN_INVALID' });
     }
+    
+    adminFailedAttempts.delete(email);
     res.cookie(ADMIN_COOKIE_NAME, signAdminToken(), adminCookieOptions());
     recordAudit('admin_login_success', email || ADMIN_CONSOLE_EMAIL || 'admin', req, { email: email || ADMIN_CONSOLE_EMAIL });
     return res.json({ success: true });
@@ -2091,6 +2141,7 @@ app.post('/api/admin/login', verifyTrustedOrigin, adminLoginLimiter, validateBod
 
 app.post('/api/admin/logout', verifyTrustedOrigin, adminLimiter, (req, res) => {
     clearAdminCookie(res);
+    res.clearCookie(CSRF_COOKIE, { httpOnly: true, secure: isProduction, sameSite: 'lax', path: '/' });
     return res.json({ success: true });
 });
 
@@ -2146,7 +2197,7 @@ app.get('/api/admin/reports', adminLimiter, requireAdminSession, async (req, res
         .limit(100)
         .select('userId conversationId content feedback createdAt')
         .lean();
-    return res.json(reports);
+    return res.json(reports.map(r => ({ ...r, userIdMasked: maskIdentifier(r.userId) })));
 });
 
 app.get('/api/admin/audit', adminLimiter, requireAdminSession, async (req, res) => {
@@ -2172,9 +2223,9 @@ app.get('/api/admin/sessions', adminLimiter, requireAdminSession, async (req, re
     const sessions = await Session.find(mongoose.trusted({ revokedAt: null, expiresAt: { $gt: new Date() } }))
         .sort({ lastSeenAt: -1 })
         .limit(100)
-        .select('userId deviceName browser operatingSystem createdAt lastSeenAt')
+        .select('userId deviceName browser operatingSystem createdAt lastSeenAt lastIpHash')
         .lean();
-    return res.json(sessions);
+    return res.json(sessions.map(s => ({ ...s, userIdMasked: maskIdentifier(s.userId) })));
 });
 
 app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, requireAdminSession, async (req, res) => {
@@ -2207,7 +2258,11 @@ app.get('/api/admin/search', adminLimiter, requireAdminSession, async (req, res)
             .select('userId conversationId content feedback createdAt')
             .lean()
     ]);
-    return res.json({ users, auditEvents, reports });
+    return res.json({
+        users: users.map(u => ({ ...u, sessionIdMasked: maskIdentifier(u.sessionId) })),
+        auditEvents: auditEvents.map(a => ({ ...a, userIdMasked: a.userId ? maskIdentifier(a.userId) : null })),
+        reports: reports.map(r => ({ ...r, userIdMasked: maskIdentifier(r.userId) }))
+    });
 });
 app.get('/api/admin/analytics', adminLimiter, requireAdminSession, async (req, res) => {
     const sevenDaysAgo = new Date();

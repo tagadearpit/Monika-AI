@@ -225,7 +225,7 @@ SMTP_FROM_EMAIL=noreply@your-domain.example
 APP_URL=https://your-domain.example
 ```
 
-`APP_URL` is used to build the links inside the OTP and login-notification emails, and should match your deployed domain exactly (no trailing slash). Email OTP and login notifications remain unavailable when SMTP is not configured.
+`APP_URL` is used to build the links inside the OTP and login-notification emails, and should match your deployed domain exactly (no trailing slash). It is required at startup. Email OTP and login notifications remain unavailable when SMTP is not configured.
 
 ---
 

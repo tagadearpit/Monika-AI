@@ -62,7 +62,6 @@ window.addEventListener('popstate', () => {
 
 let lastSpeechTime = 0;
 
-const legacyToken = sessionStorage.getItem('monika_token') || localStorage.getItem('monika_token');
 const $ = (id) => document.getElementById(id);
 
 const appShell = $('appShell');
@@ -91,11 +90,6 @@ const globalUtterance = new SpeechSynthesisUtterance();
 const AUTH_CHANNEL_NAME = 'monika-auth';
 const authChannel = 'BroadcastChannel' in window ? new BroadcastChannel(AUTH_CHANNEL_NAME) : null;
 
-function clearLegacyAuthStorage() {
-    sessionStorage.removeItem('monika_token');
-    localStorage.removeItem('monika_token');
-}
-
 function broadcastAuthEvent(type) {
     const event = { type, timestamp: Date.now() };
     authChannel?.postMessage(event);
@@ -111,7 +105,7 @@ function handleExternalAuthEvent(event) {
         setSessionHint(false);
         location.reload();
     } else if (event.type === 'login' && !authToken) {
-        restorePersistentSession({ allowLegacyUpgrade: false }).then((restored) => {
+        restorePersistentSession().then((restored) => {
             if (restored) enterApplication();
         });
     }
@@ -128,7 +122,7 @@ function scheduleAccessTokenRefresh(expiresInSeconds) {
     const expiresIn = Number(expiresInSeconds) || 900;
     authTokenExpiresAt = Date.now() + expiresIn * 1000;
     refreshTimer = setTimeout(() => {
-        restorePersistentSession({ allowLegacyUpgrade: false }).catch(() => undefined);
+        restorePersistentSession().catch(() => undefined);
     }, Math.max((expiresIn - 60) * 1000, 30_000));
 }
 
@@ -227,7 +221,7 @@ function mutationHeaders(headers = {}) {
     return result;
 }
 
-async function restorePersistentSession({ allowLegacyUpgrade = true } = {}) {
+async function restorePersistentSession() {
     if (refreshPromise) return refreshPromise;
     const executeRefresh = async () => {
         try {
@@ -240,28 +234,9 @@ async function restorePersistentSession({ allowLegacyUpgrade = true } = {}) {
                 const data = await response.json();
                 authToken = data.token;
                 scheduleAccessTokenRefresh(data.expiresIn);
-                clearLegacyAuthStorage();
                 setSessionHint(true);
                 pendingLegalAcceptance = Boolean(data.requiresLegalAcceptance);
                 return true;
-            }
-            if (allowLegacyUpgrade && legacyToken) {
-                const upgradeResponse = await fetch(`${baseUrl}/api/auth/upgrade`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: mutationHeaders({
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${legacyToken}`
-                    })
-                });
-                if (upgradeResponse.ok) {
-                    const data = await upgradeResponse.json();
-                    authToken = data.token;
-                    scheduleAccessTokenRefresh(data.expiresIn);
-                    clearLegacyAuthStorage();
-                    setSessionHint(true);
-                    return true;
-                }
             }
             authToken = null;
             clearTimeout(refreshTimer);
@@ -289,7 +264,7 @@ async function apiFetch(url, options = {}, retryOnUnauthorized = true) {
     if (options.method && options.method.toUpperCase() !== 'GET' && csrfToken) headers.set('X-CSRF-Token', csrfToken);
     const response = await fetch(url, { ...options, headers, credentials: 'include' });
     if (response.status === 401 && retryOnUnauthorized) {
-        const restored = await restorePersistentSession({ allowLegacyUpgrade: false });
+        const restored = await restorePersistentSession();
         if (restored) return apiFetch(url, options, false);
     }
     return response;
@@ -429,7 +404,7 @@ async function initializeApplication() {
             });
         }
 
-        const restored = await restorePersistentSession({ allowLegacyUpgrade: true });
+        const restored = await restorePersistentSession();
         if (restored) {
             if (pendingLegalAcceptance) {
                 finishBoot();
@@ -648,7 +623,7 @@ $('verifyCodeBtn').onclick = async () => {
 async function loginSuccess(data, welcomeMessage, name = '') {
     authToken = data.token;
     scheduleAccessTokenRefresh(data.expiresIn);
-    clearLegacyAuthStorage();
+
     setSessionHint(true);
     sessionStorage.removeItem('monika_otp_pending');
     if (data.requiresLegalAcceptance) {
@@ -1277,7 +1252,7 @@ async function sendMessage(options = {}) {
     const specialAction = options.regenerateFromMessageId || options.continueFromMessageId;
     if (!specialAction && !question && pendingAttachments.length === 0 && !isVisionActive) return;
     if (!authToken) {
-        const restored = await restorePersistentSession({ allowLegacyUpgrade: false });
+        const restored = await restorePersistentSession();
         if (!restored) return showLogin();
     }
 
@@ -1956,7 +1931,7 @@ $('wipeDataBtn').onclick = async () => {
 window.addEventListener('online', () => {
     $('connectionStatus').className = 'connection-status online';
     $('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Online';
-    if (bootCompleted && authToken) restorePersistentSession({ allowLegacyUpgrade: false }).catch(() => undefined);
+    if (bootCompleted && authToken) restorePersistentSession().catch(() => undefined);
 });
 window.addEventListener('offline', () => {
     $('connectionStatus').className = 'connection-status offline';
@@ -1965,7 +1940,7 @@ window.addEventListener('offline', () => {
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && authToken && authTokenExpiresAt - Date.now() < 120_000) {
-        restorePersistentSession({ allowLegacyUpgrade: false }).catch(() => undefined);
+        restorePersistentSession().catch(() => undefined);
     }
 });
 
@@ -1993,3 +1968,4 @@ function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js').catch((error) => console.error('Service worker registration failed:', error));
 }
+
