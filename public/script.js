@@ -1,3 +1,4 @@
+/* global Audio, window, document */
 'use strict';
 
 const baseUrl = '';
@@ -86,6 +87,29 @@ const camBtn = $('camButton');
 const pipBtn = $('pipButton');
 const settingsModal = $('settingsModal');
 const globalUtterance = new SpeechSynthesisUtterance();
+let currentTtsAudio = null;
+
+const KOKORO_VOICES = [
+    { id: 'af_bella', name: 'Bella (Warm American - AI)' },
+    { id: 'af_heart', name: 'Heart (Friendly American - AI)' },
+    { id: 'af_sky', name: 'Sky (Bright American - AI)' },
+    { id: 'af_nicole', name: 'Nicole (Natural American - AI)' },
+    { id: 'bf_emma', name: 'Emma (Soft British - AI)' }
+];
+
+function stopCurrentSpeech() {
+    if (currentTtsAudio) {
+        try {
+            currentTtsAudio.pause();
+            currentTtsAudio.currentTime = 0;
+            if (currentTtsAudio.src) URL.revokeObjectURL(currentTtsAudio.src);
+        } catch (_) {}
+        currentTtsAudio = null;
+    }
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
 
 const AUTH_CHANNEL_NAME = 'monika-auth';
 const authChannel = 'BroadcastChannel' in window ? new BroadcastChannel(AUTH_CHANNEL_NAME) : null;
@@ -1564,7 +1588,7 @@ if (SpeechRecognition) {
 function startListening() {
     if (!recognition || isListening || isMonikaBusy) return;
     recognition.lang = userSettings.speechLanguage || 'en-IN';
-    window.speechSynthesis.cancel();
+    stopCurrentSpeech();
     recognition.start();
 }
 
@@ -1576,15 +1600,40 @@ micBtn.onclick = () => {
 function populateVoices() {
     const select = $('settingVoiceSelect');
     if (!select) return;
-    const voices = window.speechSynthesis.getVoices();
-    const selected = userSettings.voiceName || '';
-    select.innerHTML = '<option value="">System default</option>';
-    for (const voice of voices) {
+    const selected = userSettings.voiceName !== undefined ? userSettings.voiceName : 'af_bella';
+    select.innerHTML = '';
+
+    const kokoroGroup = document.createElement('optgroup');
+    kokoroGroup.label = 'AI Voices (Kokoro-82M)';
+    for (const v of KOKORO_VOICES) {
         const option = document.createElement('option');
-        option.value = voice.name;
-        option.textContent = `${voice.name} (${voice.lang})`;
-        option.selected = voice.name === selected;
-        select.appendChild(option);
+        option.value = v.id;
+        option.textContent = v.name;
+        option.selected = v.id === selected;
+        kokoroGroup.appendChild(option);
+    }
+    select.appendChild(kokoroGroup);
+
+    if ('speechSynthesis' in window) {
+        const browserVoices = window.speechSynthesis.getVoices();
+        if (browserVoices.length > 0) {
+            const browserGroup = document.createElement('optgroup');
+            browserGroup.label = 'Browser Voices (Fallback)';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = 'System default (Browser)';
+            defaultOpt.selected = selected === '';
+            browserGroup.appendChild(defaultOpt);
+
+            for (const voice of browserVoices) {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.selected = voice.name === selected;
+                browserGroup.appendChild(option);
+            }
+            select.appendChild(browserGroup);
+        }
     }
 }
 window.speechSynthesis.onvoiceschanged = populateVoices;
@@ -1608,9 +1657,10 @@ function playResponseChime() {
     } catch (_) { /* Audio feedback is best effort. */ }
 }
 
-function monikaSpeak(text) {
+function fallbackBrowserSpeak(cleanedText) {
+    if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-    globalUtterance.text = cleanMoodTags(text);
+    globalUtterance.text = cleanedText;
     globalUtterance.lang = userSettings.speechLanguage || 'en-IN';
     globalUtterance.rate = 1.02;
     globalUtterance.pitch = 1.25;
@@ -1623,6 +1673,66 @@ function monikaSpeak(text) {
         if (userSettings.handsFree && !isListening && !isMonikaBusy) setTimeout(startListening, 400);
     };
     window.speechSynthesis.speak(globalUtterance);
+}
+
+async function monikaSpeak(text) {
+    stopCurrentSpeech();
+    const cleanedText = cleanMoodTags(text);
+    if (!cleanedText) return;
+
+    const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'af_bella';
+    const isKokoroVoice = KOKORO_VOICES.some((v) => v.id === selectedVoice);
+
+    if (!authToken || !isKokoroVoice) {
+        fallbackBrowserSpeak(cleanedText);
+        return;
+    }
+
+    try {
+        const response = await fetch(`${baseUrl}/api/tts`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: mutationHeaders({
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }),
+            body: JSON.stringify({
+                text: cleanedText.slice(0, 2000),
+                voice: selectedVoice
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`TTS API error: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        currentTtsAudio = audio;
+
+        audio.onended = () => {
+            if (currentTtsAudio === audio) {
+                URL.revokeObjectURL(audioUrl);
+                currentTtsAudio = null;
+            }
+            if (userSettings.handsFree && !isListening && !isMonikaBusy) setTimeout(startListening, 400);
+        };
+
+        audio.onerror = (e) => {
+            console.warn('Audio playback error, falling back to browser synthesis:', e);
+            if (currentTtsAudio === audio) {
+                URL.revokeObjectURL(audioUrl);
+                currentTtsAudio = null;
+            }
+            fallbackBrowserSpeak(cleanedText);
+        };
+
+        await audio.play();
+    } catch (err) {
+        console.warn('Server TTS failed, falling back to browser synthesis:', err);
+        fallbackBrowserSpeak(cleanedText);
+    }
 }
 
 pipBtn.onclick = async () => {
@@ -1947,7 +2057,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
     if (isVisionActive) stopVisionMode();
     if (isListening && recognition) recognition.stop();
-    window.speechSynthesis.cancel();
+    stopCurrentSpeech();
 });
 
 $('phoneInput').addEventListener('input', function () { this.value = this.value.replace(/[^\d+]/g, ''); });

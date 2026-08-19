@@ -8,7 +8,7 @@
     "dev": "node --watch server.js",
     "build": "npm run check",
     "prod": "NODE_ENV=production node server.js",
-    "check": "node --check server.js && node --check models.js && node --check utils.js && node --check validation.js && node --check ../public/script.js && node --check ../public/admin.js && node --check ../public/admin-login.js && node --check ../public/sw.js",
+    "check": "node --check server.js && node --check models.js && node --check utils.js && node --check validation.js && node --check tts.js && node --check ../public/script.js && node --check ../public/admin.js && node --check ../public/admin-login.js && node --check ../public/sw.js",
     "lint": "cd .. && ./backend/node_modules/.bin/eslint backend/*.js backend/test/*.js public/*.js",
     "hash-admin-password": "node scripts/hash-admin-password.js",
     "test": "npm run check && npm run lint && node --test test/*.test.js"
@@ -25,6 +25,7 @@
     "google-auth-library": "^11.0.0",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
+    "kokoro-js": "^1.1.0",
     "mongoose": "^9.9.1",
     "nodemailer": "^9.0.3",
     "pdfkit": "^0.19.1",
@@ -39,7 +40,8 @@
   "license": "MIT",
   "overrides": {
     "uuid": "^11.1.1",
-    "brace-expansion": "^5.0.8"
+    "brace-expansion": "^5.0.8",
+    "sharp": "^0.35.0"
   },
   "devDependencies": {
     "eslint": "^10.8.0",
