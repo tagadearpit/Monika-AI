@@ -213,6 +213,19 @@ LOGIN_NOTIFICATION_EMAILS=false
 
 ---
 
+## 🗣️ Text-to-Speech settings
+
+```env
+KOKORO_MODEL_ID=onnx-community/Kokoro-82M-v1.0-ONNX
+KOKORO_DTYPE=q8
+TTS_RATE_LIMIT=30
+HF_HOME=/opt/render/.cache/huggingface
+```
+
+`KOKORO_MODEL_ID` and `KOKORO_DTYPE` configure the Kokoro-82M model identity and quantization level (e.g., `q8`, `fp32`, `fp16`). `TTS_RATE_LIMIT` sets the maximum TTS generation requests per 15 minutes per user. `HF_HOME` specifies where the model downloads and caches at runtime (highly recommended to point this to a persistent disk path like `/opt/render/.cache/huggingface` in production so the ~82MB model doesn't re-download on every cold start).
+
+---
+
 ## 📧 Email OTP configuration
 
 ```env

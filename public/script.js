@@ -1599,7 +1599,7 @@ micBtn.onclick = () => {
 function populateVoices() {
     const select = $('settingVoiceSelect');
     if (!select) return;
-    const selected = userSettings.voiceName || 'af_bella';
+    const selected = userSettings.voiceName !== undefined ? userSettings.voiceName : 'af_bella';
     select.innerHTML = '';
 
     const kokoroGroup = document.createElement('optgroup');
@@ -1679,7 +1679,7 @@ async function monikaSpeak(text) {
     const cleanedText = cleanMoodTags(text);
     if (!cleanedText) return;
 
-    const selectedVoice = userSettings.voiceName || 'af_bella';
+    const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'af_bella';
     const isKokoroVoice = KOKORO_VOICES.some((v) => v.id === selectedVoice);
 
     if (!authToken || !isKokoroVoice) {

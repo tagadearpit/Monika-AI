@@ -1965,7 +1965,7 @@ app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, askLim
     return res.json({ period: req.validatedBody.period, summary: String(result.text || '').trim() });
 });
 
-app.post('/api/tts', verifyTrustedOrigin, authenticateToken, ttsLimiter, validateBody(validators.ttsRequest), async (req, res) => {
+app.post('/api/tts', verifyTrustedOrigin, ttsLimiter, authenticateToken, validateBody(validators.ttsRequest), async (req, res) => {
     try {
         const { text, voice } = req.validatedBody;
         const wavBuffer = await generateSpeech(text, voice);
