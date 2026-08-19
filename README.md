@@ -219,10 +219,10 @@ LOGIN_NOTIFICATION_EMAILS=false
 KOKORO_MODEL_ID=onnx-community/Kokoro-82M-v1.0-ONNX
 KOKORO_DTYPE=q8
 TTS_RATE_LIMIT=30
-HF_HOME=/opt/render/.cache/huggingface
+KOKORO_CACHE_DIR=.cache/kokoro
 ```
 
-`KOKORO_MODEL_ID` and `KOKORO_DTYPE` configure the Kokoro-82M model identity and quantization level (e.g., `q8`, `fp32`, `fp16`). `TTS_RATE_LIMIT` sets the maximum TTS generation requests per 15 minutes per user. `HF_HOME` specifies where the model downloads and caches at runtime (highly recommended to point this to a persistent disk path like `/opt/render/.cache/huggingface` in production so the ~82MB model doesn't re-download on every cold start).
+`KOKORO_MODEL_ID` and `KOKORO_DTYPE` configure the Kokoro-82M model identity and quantization level (e.g., `q8`, `fp32`, `fp16`). `TTS_RATE_LIMIT` sets the maximum TTS generation requests per 15 minutes per user. `KOKORO_CACHE_DIR` configures the directory where the ONNX model files and voice embeddings are cached. Note that on Render's free plan, this cache does not persist across deploys or cold-start restarts because there is no attached persistent disk. Eager startup pre-warming ensures the model loads in the background upon container startup.
 
 ---
 

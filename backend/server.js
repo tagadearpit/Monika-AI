@@ -35,7 +35,7 @@ const {
     UsageDaily
 } = require('./models');
 const validators = require('./validation');
-const { generateSpeech } = require('./tts');
+const { generateSpeech, initTTS } = require('./tts');
 const {
     positiveInteger,
     normalizeEmail,
@@ -2416,6 +2416,15 @@ const shutdown = async (signal) => {
 
 const startServer = async () => {
     await connectDB();
+    initTTS().then((res) => {
+        if (res.success) {
+            log('info', 'tts_prewarm_ok', { durationMs: res.durationMs, modelId: res.modelId, dtype: res.dtype });
+        } else {
+            log('error', 'tts_prewarm_failed', { message: res.error?.message || String(res.error), durationMs: res.durationMs });
+        }
+    }).catch((err) => {
+        log('error', 'tts_prewarm_failed', { message: err.message });
+    });
     startReminderWorker();
     server = app.listen(PORT, () => {
         log('info', 'server_started', {

@@ -1675,6 +1675,47 @@ function fallbackBrowserSpeak(cleanedText) {
     window.speechSynthesis.speak(globalUtterance);
 }
 
+let ttsFailureToastShown = false;
+
+function showToast(message, type = 'info') {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.position = 'fixed';
+        container.style.bottom = '24px';
+        container.style.right = '24px';
+        container.style.zIndex = '9999';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '10px';
+        container.style.maxWidth = '360px';
+        container.style.pointerEvents = 'none';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'glass-card toast-notice';
+    toast.style.padding = '12px 16px';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.gap = '10px';
+    toast.style.pointerEvents = 'auto';
+    toast.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+    toast.style.borderRadius = '12px';
+    toast.style.fontSize = '0.9rem';
+    toast.style.background = 'rgba(25, 20, 35, 0.9)';
+    toast.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+    toast.style.color = '#fff';
+    toast.innerHTML = `
+        <span style="font-size:1.1rem;">${type === 'error' ? '⚠️' : '🌸'}</span>
+        <span style="flex:1;">${message}</span>
+        <button type="button" style="background:transparent; border:none; color:rgba(255,255,255,0.7); cursor:pointer; font-size:1rem; padding:0 4px;" aria-label="Close">&times;</button>
+    `;
+    toast.querySelector('button').onclick = () => toast.remove();
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
+}
+
 async function monikaSpeak(text) {
     stopCurrentSpeech();
     const cleanedText = cleanMoodTags(text);
@@ -1725,12 +1766,21 @@ async function monikaSpeak(text) {
                 URL.revokeObjectURL(audioUrl);
                 currentTtsAudio = null;
             }
+            if (!ttsFailureToastShown) {
+                ttsFailureToastShown = true;
+                showToast('AI voice unavailable — using device voice instead.', 'error');
+            }
             fallbackBrowserSpeak(cleanedText);
         };
 
         await audio.play();
+        ttsFailureToastShown = false;
     } catch (err) {
         console.warn('Server TTS failed, falling back to browser synthesis:', err);
+        if (!ttsFailureToastShown) {
+            ttsFailureToastShown = true;
+            showToast('AI voice unavailable — using device voice instead.', 'error');
+        }
         fallbackBrowserSpeak(cleanedText);
     }
 }

@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('path');
+
 const ALLOWED_VOICES = new Set(['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma']);
 const DEFAULT_VOICE = 'af_bella';
 
@@ -7,8 +9,8 @@ let ttsInstance = null;
 let initPromise = null;
 
 /**
- * Lazily loads and returns the singleton KokoroTTS instance.
- * Configured with cpu device and q8 dtype for minimal memory footprint.
+ * Loads and returns the singleton KokoroTTS instance.
+ * Configured with explicit cacheDir, cpu device and q8 dtype for minimal memory footprint.
  */
 async function getTTSInstance() {
     if (ttsInstance) return ttsInstance;
@@ -16,16 +18,42 @@ async function getTTSInstance() {
 
     initPromise = (async () => {
         const { KokoroTTS } = await import('kokoro-js');
+        const { env } = await import('@huggingface/transformers');
+        const cacheDir = process.env.KOKORO_CACHE_DIR || path.join(process.cwd(), '.cache', 'kokoro');
+        env.cacheDir = cacheDir;
+
         const modelId = process.env.KOKORO_MODEL_ID || 'onnx-community/Kokoro-82M-v1.0-ONNX';
+        const dtype = process.env.KOKORO_DTYPE || 'q8';
         const tts = await KokoroTTS.from_pretrained(modelId, {
-            dtype: process.env.KOKORO_DTYPE || 'q8',
+            dtype,
             device: 'cpu'
         });
         ttsInstance = tts;
         return tts;
-    })();
+    })().catch((err) => {
+        initPromise = null;
+        throw err;
+    });
 
     return initPromise;
+}
+
+/**
+ * Eagerly pre-warms the Kokoro model and measures startup readiness.
+ * @returns {Promise<{ success: boolean, durationMs: number, modelId: string, dtype: string, error?: Error }>}
+ */
+async function initTTS() {
+    const startedAt = Date.now();
+    const modelId = process.env.KOKORO_MODEL_ID || 'onnx-community/Kokoro-82M-v1.0-ONNX';
+    const dtype = process.env.KOKORO_DTYPE || 'q8';
+    try {
+        await getTTSInstance();
+        const durationMs = Date.now() - startedAt;
+        return { success: true, durationMs, modelId, dtype };
+    } catch (error) {
+        const durationMs = Date.now() - startedAt;
+        return { success: false, durationMs, modelId, dtype, error };
+    }
 }
 
 /**
@@ -119,5 +147,6 @@ module.exports = {
     generateSpeech,
     ALLOWED_VOICES,
     DEFAULT_VOICE,
-    getTTSInstance
+    getTTSInstance,
+    initTTS
 };
