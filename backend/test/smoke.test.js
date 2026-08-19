@@ -6,6 +6,7 @@ process.env.MONGO_URI = 'mongodb://127.0.0.1:27017/monika-test';
 process.env.JWT_SECRET = '0123456789abcdef0123456789abcdef';
 process.env.OTP_SECRET = 'abcdef0123456789abcdef0123456789';
 process.env.ALLOWED_ORIGINS = 'http://localhost:10000';
+process.env.APP_URL = 'http://localhost:10000';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
