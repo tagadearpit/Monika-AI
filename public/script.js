@@ -1,3 +1,4 @@
+/* global Audio, window, document */
 'use strict';
 
 const baseUrl = '';
