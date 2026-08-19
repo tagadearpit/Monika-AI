@@ -200,7 +200,10 @@ app.use(helmet({
                 'https://www.gstatic.com',
                 'https://apis.google.com',
                 'https://www.google.com',
-                'https://www.recaptcha.net'
+                'https://www.recaptcha.net',
+                'https://www.googletagmanager.com',
+                'https://*.googletagmanager.com',
+                'https://*.google-analytics.com'
             ],
             styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com', 'https://accounts.google.com'],
             fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
@@ -213,15 +216,25 @@ app.use(helmet({
                 'https://identitytoolkit.googleapis.com',
                 'https://www.gstatic.com',
                 'https://www.google.com',
-                'https://www.recaptcha.net'
+                'https://www.recaptcha.net',
+                'https://www.googletagmanager.com',
+                'https://*.googletagmanager.com',
+                'https://*.google-analytics.com',
+                'https://*.analytics.google.com'
             ],
-            frameSrc: ["'self'", 'https://accounts.google.com', 'https://www.google.com', 'https://www.recaptcha.net'],
+            frameSrc: [
+                "'self'",
+                'https://accounts.google.com',
+                'https://www.google.com',
+                'https://www.recaptcha.net',
+                'https://www.googletagmanager.com'
+            ],
             workerSrc: ["'self'", 'blob:'],
             manifestSrc: ["'self'"]
         }
     },
     crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginOpenerPolicy: false,
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
