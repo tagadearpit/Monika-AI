@@ -472,6 +472,11 @@ const recordAudit = (action, userId, req, metadata = {}) => {
     }).catch((error) => log('error', 'audit_write_failed', { action, message: error.message }));
 };
 
+const auditIdentifier = (event) => {
+    const raw = event.userId || event.metadata?.email || event.metadata?.phone || event.metadata?.uid || null;
+    return raw ? maskIdentifier(raw) : null;
+};
+
 const sessionMetadata = (req) => {
     const parsed = parseUserAgent(req.get('user-agent'));
     return {
@@ -516,7 +521,7 @@ const sendLoginNotification = async (userId, metadata) => {
     });
 };
 
-const issuePersistentSession = async (userId, req, res) => {
+const issuePersistentSession = async (userId, req, res, method = 'unknown') => {
     const refreshToken = crypto.randomBytes(64).toString('base64url');
     const now = new Date();
     const metadata = sessionMetadata(req);
@@ -542,7 +547,8 @@ const issuePersistentSession = async (userId, req, res) => {
     recordAudit('session.created', userId, req, {
         sessionId: String(session._id),
         browser: metadata.browser,
-        operatingSystem: metadata.operatingSystem
+        operatingSystem: metadata.operatingSystem,
+        method
     });
     sendLoginNotification(userId, metadata).catch((error) => {
         log('error', 'login_notification_failed', { requestId: req.requestId, message: error.message });
@@ -1310,17 +1316,18 @@ app.post('/api/auth/google', verifyTrustedOrigin, authLimiter, async (req, res) 
         });
         const payload = ticket.getPayload();
         if (!payload.email_verified) {
+            recordAudit('auth.google_failed', null, req, { email: normalizeEmail(payload.email), method: 'google', reason: 'email_not_verified' });
             return res.status(403).json({ error: 'Google email is not verified.', code: 'EMAIL_NOT_VERIFIED' });
         }
         const email = normalizeEmail(payload.email);
         const existing = await User.findOne({ sessionId: email }).select('suspendedAt termsAcceptedAt privacyAcceptedAt legalVersion').lean();
         if (existing?.suspendedAt) return res.status(403).json({ error: 'This account is suspended.', code: 'ACCOUNT_SUSPENDED' });
-        const session = await issuePersistentSession(email, req, res);
+        const session = await issuePersistentSession(email, req, res, 'google');
         const requiresLegalAcceptance = !existing?.termsAcceptedAt || !existing?.privacyAcceptedAt || existing?.legalVersion !== CURRENT_LEGAL_VERSION;
         return res.json({ success: true, ...session, email, name: payload.given_name || '', requiresLegalAcceptance });
     } catch (error) {
         log('warn', 'google_auth_failed', { requestId: req.requestId, message: error.message });
-        recordAudit('auth.google_failed', null, req);
+        recordAudit('auth.google_failed', null, req, { method: 'google' });
         return res.status(401).json({ error: 'Google authentication failed.', code: 'GOOGLE_AUTH_FAILED' });
     }
 });
@@ -1334,16 +1341,17 @@ app.post('/api/auth/firebase', verifyTrustedOrigin, authLimiter, async (req, res
     try {
         const decodedToken = await firebaseAuth.verifyIdToken(idToken, checkFirebaseRevocation);
         if (!decodedToken.phone_number) {
+            recordAudit('auth.firebase_failed', null, req, { method: 'phone', reason: 'phone_missing' });
             return res.status(400).json({ error: 'Verified account has no phone number.', code: 'PHONE_MISSING' });
         }
         const existing = await User.findOne({ sessionId: decodedToken.phone_number }).select('suspendedAt termsAcceptedAt privacyAcceptedAt legalVersion').lean();
         if (existing?.suspendedAt) return res.status(403).json({ error: 'This account is suspended.', code: 'ACCOUNT_SUSPENDED' });
-        const session = await issuePersistentSession(decodedToken.phone_number, req, res);
+        const session = await issuePersistentSession(decodedToken.phone_number, req, res, 'phone');
         const requiresLegalAcceptance = !existing?.termsAcceptedAt || !existing?.privacyAcceptedAt || existing?.legalVersion !== CURRENT_LEGAL_VERSION;
         return res.json({ success: true, ...session, phone: decodedToken.phone_number, requiresLegalAcceptance });
     } catch (error) {
         log('warn', 'firebase_auth_failed', { requestId: req.requestId, message: error.message });
-        recordAudit('auth.firebase_failed', null, req);
+        recordAudit('auth.firebase_failed', null, req, { method: 'phone' });
         return res.status(401).json({ error: 'Phone authentication failed.', code: 'FIREBASE_AUTH_FAILED' });
     }
 });
@@ -1378,7 +1386,7 @@ app.post('/api/auth/send-otp', verifyTrustedOrigin, emailLimiter, async (req, re
         return res.json({ success: true });
     } catch (error) {
         log('error', 'otp_delivery_failed', { requestId: req.requestId, message: error.message });
-        recordAudit('auth.otp_delivery_failed', null, req);
+        recordAudit('auth.otp_delivery_failed', null, req, { email, method: 'email' });
         return res.status(500).json({ error: 'Email delivery failed.', code: 'OTP_DELIVERY_FAILED' });
     }
 });
@@ -1406,7 +1414,7 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, r
         const matches = expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
         if (!matches) {
             if (record.attempts + 1 >= 5) await Otp.deleteOne({ _id: record._id });
-            recordAudit('auth.otp_invalid', null, req);
+            recordAudit('auth.otp_invalid', null, req, { email, method: 'email' });
             return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
         }
         // Atomically consume — only one concurrent request can succeed
@@ -1414,13 +1422,13 @@ app.post('/api/auth/verify-otp', verifyTrustedOrigin, authLimiter, async (req, r
         if (!consumed) {
             return res.status(400).json({ error: 'Code is invalid or expired.', code: 'OTP_INVALID' });
         }
-        const session = await issuePersistentSession(email, req, res);
+        const session = await issuePersistentSession(email, req, res, 'email');
         const user = await User.findOne({ sessionId: email }).select('termsAcceptedAt privacyAcceptedAt legalVersion').lean();
         const requiresLegalAcceptance = !user?.termsAcceptedAt || !user?.privacyAcceptedAt || user?.legalVersion !== CURRENT_LEGAL_VERSION;
         return res.json({ success: true, ...session, requiresLegalAcceptance });
     } catch (error) {
         log('error', 'otp_verification_failed', { requestId: req.requestId, message: error.message });
-        recordAudit('auth.otp_verification_failed', null, req);
+        recordAudit('auth.otp_verification_failed', null, req, { email, method: 'email' });
         return res.status(500).json({ error: 'Verification failed.', code: 'OTP_VERIFICATION_FAILED' });
     }
 });
@@ -2203,7 +2211,11 @@ app.get('/api/admin/reports', adminLimiter, requireAdminSession, async (req, res
 
 app.get('/api/admin/audit', adminLimiter, requireAdminSession, async (req, res) => {
     const events = await AuditEvent.find().sort({ createdAt: -1 }).limit(200).lean();
-    return res.json(events);
+    return res.json(events.map(event => ({
+        ...event,
+        identifierMasked: auditIdentifier(event),
+        method: event.metadata?.method || null
+    })));
 });
 
 app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimiter, requireAdminSession, validateBody(validators.adminSuspend), async (req, res) => {
@@ -2261,7 +2273,7 @@ app.get('/api/admin/search', adminLimiter, requireAdminSession, async (req, res)
     ]);
     return res.json({
         users: users.map(u => ({ ...u, sessionIdMasked: maskIdentifier(u.sessionId) })),
-        auditEvents: auditEvents.map(a => ({ ...a, userIdMasked: a.userId ? maskIdentifier(a.userId) : null })),
+        auditEvents: auditEvents.map(a => ({ ...a, identifierMasked: auditIdentifier(a), method: a.metadata?.method || null })),
         reports: reports.map(r => ({ ...r, userIdMasked: maskIdentifier(r.userId) }))
     });
 });

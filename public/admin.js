@@ -204,12 +204,17 @@ async function loadAudit() {
         list.innerHTML = '<div class="list-item"><strong class="muted">No audit events.</strong></div>';
         return;
     }
-    list.innerHTML = state.audit.map(event => `
+    list.innerHTML = state.audit.map(event => {
+        const identifier = event.identifierMasked || event.userIdMasked || event.userId || event.metadata?.email
+            || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anonymous');
+        const methodLabel = event.method ? ` (${event.method})` : '';
+        return `
         <div class="list-item fade-in">
             <strong>${event.action}</strong>
-            <small class="muted">${event.userIdMasked || event.userId || event.metadata?.email || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anonymous')} · ${new Date(event.createdAt).toLocaleString()}</small>
+            <small class="muted">${identifier}${methodLabel} · ${new Date(event.createdAt).toLocaleString()}</small>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 async function loadSessions() {
