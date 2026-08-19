@@ -3,7 +3,7 @@ services:
     name: monika-ai
     runtime: node
     plan: free
-    buildCommand: cd backend && npm ci --omit=dev --no-audit --no-fund
+    buildCommand: cd backend && npm install --omit=dev --no-audit --no-fund
     startCommand: node backend/server.js
     healthCheckPath: /api/health
     autoDeploy: true

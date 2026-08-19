@@ -36,7 +36,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefix backend --no-audit --no-fund
+        run: npm install --prefix backend --no-audit --no-fund
 
       - name: Run static checks and tests
         run: npm test
