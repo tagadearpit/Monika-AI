@@ -119,6 +119,11 @@ const adminLogin = z.object({
     password: z.string().min(1).max(200)
 });
 
+const ttsRequest = z.object({
+    text: z.string().trim().min(1).max(2000),
+    voice: z.enum(['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma']).default('af_bella')
+});
+
 module.exports = {
     z,
     objectId,
@@ -134,5 +139,6 @@ module.exports = {
     pushSubscription,
     journalRequest,
     adminSuspend,
-    adminLogin
+    adminLogin,
+    ttsRequest
 };

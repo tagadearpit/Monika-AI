@@ -35,6 +35,7 @@ const {
     UsageDaily
 } = require('./models');
 const validators = require('./validation');
+const { generateSpeech } = require('./tts');
 const {
     positiveInteger,
     normalizeEmail,
@@ -338,6 +339,11 @@ const healthLimiter = createLimiter('rate_limit.health', {
     windowMs: 60 * 1000,
     limit: 120,
     message: { error: 'Too many health check requests.', code: 'RATE_LIMITED' }
+});
+const ttsLimiter = createLimiter('rate_limit.tts', {
+    windowMs: 15 * 60 * 1000,
+    limit: positiveInteger(process.env.TTS_RATE_LIMIT, 30),
+    message: { error: 'Too many text-to-speech requests. Please try again later.', code: 'RATE_LIMITED' }
 });
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1957,6 +1963,19 @@ app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, askLim
         config: { temperature: 0.3 }
     }, false);
     return res.json({ period: req.validatedBody.period, summary: String(result.text || '').trim() });
+});
+
+app.post('/api/tts', verifyTrustedOrigin, authenticateToken, ttsLimiter, validateBody(validators.ttsRequest), async (req, res) => {
+    try {
+        const { text, voice } = req.validatedBody;
+        const wavBuffer = await generateSpeech(text, voice);
+        res.setHeader('Content-Type', 'audio/wav');
+        res.setHeader('Content-Length', wavBuffer.length);
+        return res.send(wavBuffer);
+    } catch (error) {
+        log('error', 'tts_generation_failed', { requestId: req.requestId, message: error.message });
+        return res.status(500).json({ error: 'Failed to generate speech.', code: 'TTS_GENERATION_FAILED' });
+    }
 });
 
 app.get('/api/reminders', authenticateToken, async (req, res) => {
