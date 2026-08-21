@@ -352,6 +352,11 @@ const healthLimiter = createLimiter('rate_limit.health', {
     limit: 120,
     message: { error: 'Too many health check requests.', code: 'RATE_LIMITED' }
 });
+const ttsIpLimiter = createLimiter('rate_limit.tts_ip', {
+    windowMs: 15 * 60 * 1000,
+    limit: positiveInteger(process.env.TTS_RATE_LIMIT, 30) * 2,
+    message: { error: 'Too many text-to-speech requests from this IP. Please try again later.', code: 'RATE_LIMITED' }
+});
 const ttsLimiter = createLimiter('rate_limit.tts', {
     windowMs: 15 * 60 * 1000,
     limit: positiveInteger(process.env.TTS_RATE_LIMIT, 30),
@@ -1986,7 +1991,7 @@ app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, askLim
     return res.json({ period: req.validatedBody.period, summary: String(result.text || '').trim() });
 });
 
-app.post('/api/tts', verifyTrustedOrigin, authenticateToken, ttsLimiter, validateBody(validators.ttsRequest), async (req, res) => {
+app.post('/api/tts', verifyTrustedOrigin, ttsIpLimiter, authenticateToken, ttsLimiter, validateBody(validators.ttsRequest), async (req, res) => {
     try {
         const { text } = req.validatedBody;
         const result = await generateContent({
