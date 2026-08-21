@@ -35,7 +35,6 @@ const {
     UsageDaily
 } = require('./models');
 const validators = require('./validation');
-const { generateSpeech, initTTS } = require('./tts');
 const {
     positiveInteger,
     normalizeEmail,
@@ -353,10 +352,16 @@ const healthLimiter = createLimiter('rate_limit.health', {
     limit: 120,
     message: { error: 'Too many health check requests.', code: 'RATE_LIMITED' }
 });
+const ttsIpLimiter = createLimiter('rate_limit.tts_ip', {
+    windowMs: 15 * 60 * 1000,
+    limit: positiveInteger(process.env.TTS_RATE_LIMIT, 30) * 2,
+    message: { error: 'Too many text-to-speech requests from this IP. Please try again later.', code: 'RATE_LIMITED' }
+});
 const ttsLimiter = createLimiter('rate_limit.tts', {
     windowMs: 15 * 60 * 1000,
     limit: positiveInteger(process.env.TTS_RATE_LIMIT, 30),
-    message: { error: 'Too many text-to-speech requests. Please try again later.', code: 'RATE_LIMITED' }
+    message: { error: 'Too many text-to-speech requests. Please try again later.', code: 'RATE_LIMITED' },
+    keyGenerator: (req) => req.user?.sessionId || getClientIpHash(req, process.env.JWT_SECRET)
 });
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1986,13 +1991,33 @@ app.post('/api/journal/generate', verifyTrustedOrigin, authenticateToken, askLim
     return res.json({ period: req.validatedBody.period, summary: String(result.text || '').trim() });
 });
 
-app.post('/api/tts', verifyTrustedOrigin, ttsLimiter, authenticateToken, validateBody(validators.ttsRequest), async (req, res) => {
+app.post('/api/tts', verifyTrustedOrigin, ttsIpLimiter, authenticateToken, ttsLimiter, validateBody(validators.ttsRequest), async (req, res) => {
     try {
-        const { text, voice } = req.validatedBody;
-        const wavBuffer = await generateSpeech(text, voice);
-        res.setHeader('Content-Type', 'audio/wav');
-        res.setHeader('Content-Length', wavBuffer.length);
-        return res.send(wavBuffer);
+        const { text } = req.validatedBody;
+        const result = await generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [{ role: 'user', parts: [{ text }] }],
+            config: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: {
+                            voiceName: 'Aoede'
+                        }
+                    }
+                }
+            }
+        }, false);
+        
+        const inlineData = result.candidates?.[0]?.content?.parts?.[0]?.inlineData || result.response?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (!inlineData || !inlineData.data) {
+            throw new Error('No audio returned from Gemini.');
+        }
+        
+        const audioBuffer = Buffer.from(inlineData.data, 'base64');
+        res.setHeader('Content-Type', inlineData.mimeType || 'audio/wav');
+        res.setHeader('Content-Length', audioBuffer.length);
+        return res.send(audioBuffer);
     } catch (error) {
         log('error', 'tts_generation_failed', { requestId: req.requestId, message: error.message });
         return res.status(500).json({ error: 'Failed to generate speech.', code: 'TTS_GENERATION_FAILED' });
@@ -2416,15 +2441,6 @@ const shutdown = async (signal) => {
 
 const startServer = async () => {
     await connectDB();
-    initTTS().then((res) => {
-        if (res.success) {
-            log('info', 'tts_prewarm_ok', { durationMs: res.durationMs, modelId: res.modelId, dtype: res.dtype });
-        } else {
-            log('error', 'tts_prewarm_failed', { message: res.error?.message || String(res.error), durationMs: res.durationMs });
-        }
-    }).catch((err) => {
-        log('error', 'tts_prewarm_failed', { message: err.message });
-    });
     startReminderWorker();
     server = app.listen(PORT, () => {
         log('info', 'server_started', {

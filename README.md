@@ -216,13 +216,10 @@ LOGIN_NOTIFICATION_EMAILS=false
 ## 🗣️ Text-to-Speech settings
 
 ```env
-KOKORO_MODEL_ID=onnx-community/Kokoro-82M-v1.0-ONNX
-KOKORO_DTYPE=q8
 TTS_RATE_LIMIT=30
-KOKORO_CACHE_DIR=.cache/kokoro
 ```
 
-`KOKORO_MODEL_ID` and `KOKORO_DTYPE` configure the Kokoro-82M model identity and quantization level (e.g., `q8`, `fp32`, `fp16`). `TTS_RATE_LIMIT` sets the maximum TTS generation requests per 15 minutes per user. `KOKORO_CACHE_DIR` configures the directory where the ONNX model files and voice embeddings are cached. Note that on Render's free plan, this cache does not persist across deploys or cold-start restarts because there is no attached persistent disk. Eager startup pre-warming ensures the model loads in the background upon container startup.
+`TTS_RATE_LIMIT` sets the maximum TTS generation requests per 15 minutes per user.
 
 ---
 

@@ -120,8 +120,7 @@ const adminLogin = z.object({
 });
 
 const ttsRequest = z.object({
-    text: z.string().trim().min(1).max(2000),
-    voice: z.enum(['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma']).default('af_bella')
+    text: z.string().trim().min(1).max(2000).transform(val => val.replace(/[\x00-\x1F\x7F-\x9F\u200B-\u200D\uFEFF]/g, ''))
 });
 
 module.exports = {
