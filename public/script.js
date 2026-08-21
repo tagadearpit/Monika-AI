@@ -1596,12 +1596,13 @@ function populateVoices() {
     const selected = userSettings.voiceName !== undefined ? userSettings.voiceName : 'gemini_tts';
     select.innerHTML = '';
 
+    const oldKokoroVoices = ['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma'];
     const aiGroup = document.createElement('optgroup');
     aiGroup.label = 'AI Voices (Gemini)';
     const geminiOption = document.createElement('option');
     geminiOption.value = 'gemini_tts';
     geminiOption.textContent = 'Gemini (Cloud TTS)';
-    geminiOption.selected = selected === 'gemini_tts' || selected === 'af_bella';
+    geminiOption.selected = selected === 'gemini_tts' || oldKokoroVoices.includes(selected);
     aiGroup.appendChild(geminiOption);
     select.appendChild(aiGroup);
 
@@ -1713,7 +1714,8 @@ async function monikaSpeak(text) {
     if (!cleanedText) return;
 
     const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'gemini_tts';
-    const isAiVoice = selectedVoice === 'gemini_tts' || selectedVoice === 'af_bella';
+    const oldKokoroVoices = ['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma'];
+    const isAiVoice = selectedVoice === 'gemini_tts' || oldKokoroVoices.includes(selectedVoice);
 
     if (!authToken || !isAiVoice) {
         fallbackBrowserSpeak(cleanedText);
