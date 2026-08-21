@@ -89,13 +89,6 @@ const settingsModal = $('settingsModal');
 const globalUtterance = new SpeechSynthesisUtterance();
 let currentTtsAudio = null;
 
-const KOKORO_VOICES = [
-    { id: 'af_bella', name: 'Bella (Warm American - AI)' },
-    { id: 'af_heart', name: 'Heart (Friendly American - AI)' },
-    { id: 'af_sky', name: 'Sky (Bright American - AI)' },
-    { id: 'af_nicole', name: 'Nicole (Natural American - AI)' },
-    { id: 'bf_emma', name: 'Emma (Soft British - AI)' }
-];
 
 function stopCurrentSpeech() {
     if (currentTtsAudio) {
@@ -1600,19 +1593,17 @@ micBtn.onclick = () => {
 function populateVoices() {
     const select = $('settingVoiceSelect');
     if (!select) return;
-    const selected = userSettings.voiceName !== undefined ? userSettings.voiceName : 'af_bella';
+    const selected = userSettings.voiceName !== undefined ? userSettings.voiceName : 'gemini_tts';
     select.innerHTML = '';
 
-    const kokoroGroup = document.createElement('optgroup');
-    kokoroGroup.label = 'AI Voices (Kokoro-82M)';
-    for (const v of KOKORO_VOICES) {
-        const option = document.createElement('option');
-        option.value = v.id;
-        option.textContent = v.name;
-        option.selected = v.id === selected;
-        kokoroGroup.appendChild(option);
-    }
-    select.appendChild(kokoroGroup);
+    const aiGroup = document.createElement('optgroup');
+    aiGroup.label = 'AI Voices (Gemini)';
+    const geminiOption = document.createElement('option');
+    geminiOption.value = 'gemini_tts';
+    geminiOption.textContent = 'Gemini (Cloud TTS)';
+    geminiOption.selected = selected === 'gemini_tts' || selected === 'af_bella';
+    aiGroup.appendChild(geminiOption);
+    select.appendChild(aiGroup);
 
     if ('speechSynthesis' in window) {
         const browserVoices = window.speechSynthesis.getVoices();
@@ -1721,10 +1712,10 @@ async function monikaSpeak(text) {
     const cleanedText = cleanMoodTags(text);
     if (!cleanedText) return;
 
-    const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'af_bella';
-    const isKokoroVoice = KOKORO_VOICES.some((v) => v.id === selectedVoice);
+    const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'gemini_tts';
+    const isAiVoice = selectedVoice === 'gemini_tts' || selectedVoice === 'af_bella';
 
-    if (!authToken || !isKokoroVoice) {
+    if (!authToken || !isAiVoice) {
         fallbackBrowserSpeak(cleanedText);
         return;
     }
@@ -1738,8 +1729,7 @@ async function monikaSpeak(text) {
                 'Authorization': `Bearer ${authToken}`
             }),
             body: JSON.stringify({
-                text: cleanedText.slice(0, 2000),
-                voice: selectedVoice
+                text: cleanedText.slice(0, 2000)
             })
         });
 
