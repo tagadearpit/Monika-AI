@@ -1274,7 +1274,7 @@ const runReminderWorker = async () => {
     if (mongoose.connection.readyState === 1) {
         try {
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            await Session.deleteMany(mongoose.trusted({ revokedAt: { $lt: oneDayAgo } }));
+            await Session.collection.deleteMany({ revokedAt: { $lt: oneDayAgo } });
         } catch (error) {
             log('error', 'session_cleanup_failed', { message: error.message });
         }
