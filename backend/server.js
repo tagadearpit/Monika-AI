@@ -18,6 +18,33 @@ const { getAuth } = require('firebase-admin/auth');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 
+function pcmToWav(pcmBuffer, mimeType) {
+    const rateMatch = /rate=(\d+)/.exec(mimeType || '');
+    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+    const blockAlign = numChannels * bitsPerSample / 8;
+    const dataSize = pcmBuffer.length;
+
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + dataSize, 4);
+    header.write('WAVE', 8);
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);
+    header.writeUInt16LE(numChannels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(byteRate, 28);
+    header.writeUInt16LE(blockAlign, 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+    header.write('data', 36);
+    header.writeUInt32LE(dataSize, 40);
+
+    return Buffer.concat([header, pcmBuffer]);
+}
+
 const PDFDocument = require('pdfkit');
 const webPush = require('web-push');
 const {
@@ -2015,10 +2042,11 @@ app.post('/api/tts', verifyTrustedOrigin, ttsIpLimiter, authenticateToken, ttsLi
             throw new Error('No audio returned from Gemini.');
         }
         
-        const audioBuffer = Buffer.from(inlineData.data, 'base64');
-        res.setHeader('Content-Type', inlineData.mimeType || 'audio/wav');
-        res.setHeader('Content-Length', audioBuffer.length);
-        return res.send(audioBuffer);
+        const pcmBuffer = Buffer.from(inlineData.data, 'base64');
+        const wavBuffer = pcmToWav(pcmBuffer, inlineData.mimeType);
+        res.setHeader('Content-Type', 'audio/wav');
+        res.setHeader('Content-Length', wavBuffer.length);
+        return res.send(wavBuffer);
     } catch (error) {
         log('error', 'tts_generation_failed', { requestId: req.requestId, message: error.message });
         return res.status(500).json({ error: 'Failed to generate speech.', code: 'TTS_GENERATION_FAILED' });
