@@ -9,6 +9,8 @@ Version 3.0.2 keeps the existing Monika visual style while adding conversation m
 - Production-grade, branded HTML + plain-text templates for the sign-in code and new-sign-in alert emails
 - Clean, bookmarkable URLs for login, OTP verification, chat, and settings
 - New **About** tab in Settings with an app overview, a contact email, and a link to contribute
+- Implemented comprehensive security fixes including CSRF cookie clearing on logout, issuer/audience checks for legacy tokens, rate limits for push subscriptions and health endpoints, and sensitive content filtering for memories
+- Replaced insecure fallbacks and legacy localStorage tokens with secure alternatives
 
 ### v3.0.1 maintenance update
 
