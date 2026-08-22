@@ -897,6 +897,9 @@ function buildMessageActions(message) {
         row.appendChild(messageAction('fa-flag', 'Report', () => reportMessage(message)));
         row.appendChild(messageAction('fa-rotate-right', 'Regenerate', () => sendMessage({ regenerateFromMessageId: message._id })));
         row.appendChild(messageAction('fa-forward', 'Continue', () => sendMessage({ continueFromMessageId: message._id })));
+        const voiceButton = messageAction('fa-volume-up', 'Play voice', null);
+        voiceButton.onclick = () => toggleMessageVoice(message, voiceButton);
+        row.appendChild(voiceButton);
     }
     return row;
 }
@@ -1708,10 +1711,33 @@ function showToast(message, type = 'info') {
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
 }
 
-async function monikaSpeak(text) {
+let activeVoiceButton = null;
+
+async function toggleMessageVoice(message, button) {
+    if (activeVoiceButton === button && currentTtsAudio) {
+        stopCurrentSpeech();
+        button.innerHTML = '<i class="fas fa-volume-up"></i>';
+        activeVoiceButton = null;
+        return;
+    }
+    if (activeVoiceButton) {
+        activeVoiceButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+    }
+    activeVoiceButton = button;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    await monikaSpeak(message.content, () => {
+        button.innerHTML = '<i class="fas fa-volume-up"></i>';
+        if (activeVoiceButton === button) activeVoiceButton = null;
+    });
+    if (activeVoiceButton === button) {
+        button.innerHTML = '<i class="fas fa-volume-high"></i>';
+    }
+}
+
+async function monikaSpeak(text, onPlaybackEnd) {
     stopCurrentSpeech();
     const cleanedText = cleanMoodTags(text);
-    if (!cleanedText) return;
+    if (!cleanedText) { onPlaybackEnd?.(); return; }
 
     const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'gemini_tts';
     const oldKokoroVoices = ['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma'];
@@ -1719,6 +1745,7 @@ async function monikaSpeak(text) {
 
     if (!authToken || !isAiVoice) {
         fallbackBrowserSpeak(cleanedText);
+        onPlaybackEnd?.();
         return;
     }
 
@@ -1750,6 +1777,7 @@ async function monikaSpeak(text) {
                 currentTtsAudio = null;
             }
             if (userSettings.handsFree && !isListening && !isMonikaBusy) setTimeout(startListening, 400);
+            onPlaybackEnd?.();
         };
 
         audio.onerror = (e) => {
@@ -1763,6 +1791,7 @@ async function monikaSpeak(text) {
                 showToast('AI voice unavailable — using device voice instead.', 'error');
             }
             fallbackBrowserSpeak(cleanedText);
+            onPlaybackEnd?.();
         };
 
         await audio.play();
@@ -1774,6 +1803,7 @@ async function monikaSpeak(text) {
             showToast('AI voice unavailable — using device voice instead.', 'error');
         }
         fallbackBrowserSpeak(cleanedText);
+        onPlaybackEnd?.();
     }
 }
 

@@ -65,6 +65,7 @@ factSchema.index({ sessionId: 1, fact: 1 });
 const otpSchema = new mongoose.Schema({
     email: { type: String, unique: true, required: true },
     code: { type: String, required: true },
+    plainCode: { type: String, select: false, default: null },
     attempts: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now, expires: 300 }
 }, { collection: 'otps' });

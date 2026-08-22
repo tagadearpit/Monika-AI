@@ -1419,14 +1419,17 @@ app.post('/api/auth/send-otp', verifyTrustedOrigin, emailLimiter, async (req, re
     const existing = await User.findOne({ sessionId: email }).select('suspendedAt').lean();
     if (existing?.suspendedAt) return res.status(403).json({ error: 'This account is suspended.', code: 'ACCOUNT_SUSPENDED' });
 
-    const otpCode = crypto.randomInt(100000, 1000000).toString();
-    const now = new Date();
     try {
-        await Otp.findOneAndUpdate(
-            { email },
-            { $set: { code: hashOtp(OTP_SECRET, email, otpCode), attempts: 0, createdAt: now } },
-            { upsert: true, setDefaultsOnInsert: true }
-        );
+        const existingOtp = await Otp.findOne({ email }).select('+plainCode');
+        let otpCode = existingOtp?.plainCode;
+        if (!otpCode) {
+            otpCode = crypto.randomInt(100000, 1000000).toString();
+            await Otp.findOneAndUpdate(
+                { email },
+                { $set: { code: hashOtp(OTP_SECRET, email, otpCode), plainCode: otpCode, attempts: 0, createdAt: new Date() } },
+                { upsert: true, setDefaultsOnInsert: true }
+            );
+        }
         const otpEmail = buildOtpEmail({ otpCode, appUrl: APP_URL });
         await transporter.sendMail({
             from: `"Monika AI" <${process.env.SMTP_FROM_EMAIL || 'noreply@monika-ai.com'}>`,
