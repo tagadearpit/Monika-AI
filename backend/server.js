@@ -1995,7 +1995,7 @@ app.post('/api/tts', verifyTrustedOrigin, ttsIpLimiter, authenticateToken, ttsLi
     try {
         const { text } = req.validatedBody;
         const result = await generateContent({
-            model: 'gemini-2.5-flash',
+            model: process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts',
             contents: [{ role: 'user', parts: [{ text }] }],
             config: {
                 responseModalities: ['AUDIO'],
