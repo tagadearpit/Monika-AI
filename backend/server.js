@@ -229,6 +229,7 @@ app.use(helmet({
                 'https://www.googletagmanager.com'
             ],
             workerSrc: ["'self'", 'blob:'],
+            mediaSrc: ["'self'", 'blob:'],
             manifestSrc: ["'self'"]
         }
     },
