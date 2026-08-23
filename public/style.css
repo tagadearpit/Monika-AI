@@ -943,3 +943,28 @@ body.text-large .message-content { font-size: 1.08rem; }
     .admin-header { align-items: flex-start; flex-direction: column; }
     .metric-grid { grid-template-columns: 1fr; }
 }
+
+/* =========================================
+   SUGGESTED PROMPTS
+   ========================================= */
+.suggested-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 15px 8px;
+}
+.suggested-prompt-chip {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.8);
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.suggested-prompt-chip:hover {
+    background: rgba(255, 20, 147, 0.15);
+    color: #ff1493;
+    border-color: rgba(255, 20, 147, 0.3);
+}

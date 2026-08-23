@@ -71,6 +71,29 @@ const bootStatus = $('bootStatus');
 const loginOverlay = $('login-overlay');
 const chatMessages = $('chatMessages');
 const messageInput = $('messageInput');
+const suggestedPrompts = $('suggestedPrompts');
+const SUGGESTED_QUESTIONS = [
+    'Remind me to call mom tomorrow at 6 PM',
+    'What do you remember about me so far?',
+    "I'm feeling stressed today, can we talk?"
+];
+
+function renderSuggestedPrompts() {
+    if (!suggestedPrompts) return;
+    suggestedPrompts.innerHTML = '';
+    for (const question of SUGGESTED_QUESTIONS) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'suggested-prompt-chip';
+        chip.textContent = question;
+        chip.onclick = () => {
+            messageInput.value = question;
+            sendMessage();
+        };
+        suggestedPrompts.appendChild(chip);
+    }
+}
+renderSuggestedPrompts();
 const sendBtn = $('sendBtn');
 const conversationList = $('conversationList');
 const conversationSearchInput = $('conversationSearchInput');
@@ -88,9 +111,10 @@ const pipBtn = $('pipButton');
 const settingsModal = $('settingsModal');
 const globalUtterance = new SpeechSynthesisUtterance();
 let currentTtsAudio = null;
-
+let speechSessionId = 0;
 
 function stopCurrentSpeech() {
+    speechSessionId++; // invalidates any in-flight chunk queue from a prior monikaSpeak() call
     if (currentTtsAudio) {
         try {
             currentTtsAudio.pause();
@@ -825,6 +849,7 @@ async function selectConversation(id, { forceReload = false } = {}) {
 
 function renderMessages() {
     chatMessages.innerHTML = '';
+    if (suggestedPrompts) suggestedPrompts.hidden = currentMessages.length !== 0;
     if (currentMessages.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'empty-state';
@@ -1734,8 +1759,49 @@ async function toggleMessageVoice(message, button) {
     }
 }
 
+function splitIntoSpeechChunks(text) {
+    const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)/g) || [text];
+    const chunks = [];
+    let buffer = '';
+    for (const sentence of sentences) {
+        buffer += sentence;
+        if (buffer.trim().length >= 30) {
+            chunks.push(buffer.trim());
+            buffer = '';
+        }
+    }
+    if (buffer.trim()) chunks.push(buffer.trim());
+    return chunks.length ? chunks : [text.trim()];
+}
+
+async function fetchTtsAudioUrl(text) {
+    const response = await fetch(`${baseUrl}/api/tts`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: mutationHeaders({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+        }),
+        body: JSON.stringify({ text: text.slice(0, 2000) })
+    });
+    if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+}
+
+function playAudioUrl(url) {
+    return new Promise((resolve, reject) => {
+        const audio = new Audio(url);
+        currentTtsAudio = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+        audio.play().catch(reject);
+    });
+}
+
 async function monikaSpeak(text, onPlaybackEnd) {
     stopCurrentSpeech();
+    const mySession = speechSessionId;
     const cleanedText = cleanMoodTags(text);
     if (!cleanedText) { onPlaybackEnd?.(); return; }
 
@@ -1749,62 +1815,47 @@ async function monikaSpeak(text, onPlaybackEnd) {
         return;
     }
 
-    try {
-        const response = await fetch(`${baseUrl}/api/tts`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: mutationHeaders({
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            }),
-            body: JSON.stringify({
-                text: cleanedText.slice(0, 2000)
-            })
-        });
+    const chunks = splitIntoSpeechChunks(cleanedText);
+    // Fire every chunk's TTS request in parallel right away, so later chunks
+    // are already generating while an earlier one plays.
+    const audioUrlPromises = chunks.map((chunk) =>
+        fetchTtsAudioUrl(chunk).catch((err) => {
+            console.warn('Chunk TTS failed:', err);
+            return null;
+        })
+    );
 
-        if (!response.ok) {
-            throw new Error(`TTS API error: ${response.status}`);
+    let firstChunkFailed = false;
+    for (let i = 0; i < audioUrlPromises.length; i++) {
+        if (mySession !== speechSessionId) return; // interrupted by a newer stop/speak
+        const url = await audioUrlPromises[i];
+        if (mySession !== speechSessionId) { if (url) URL.revokeObjectURL(url); return; }
+        if (!url) {
+            if (i === 0) firstChunkFailed = true;
+            continue; // skip a failed chunk instead of derailing the whole reply
         }
+        try {
+            await playAudioUrl(url);
+        } catch (err) {
+            console.warn('Chunk playback failed:', err);
+        }
+    }
 
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        currentTtsAudio = audio;
+    if (mySession !== speechSessionId) return;
+    currentTtsAudio = null;
 
-        audio.onended = () => {
-            if (currentTtsAudio === audio) {
-                URL.revokeObjectURL(audioUrl);
-                currentTtsAudio = null;
-            }
-            if (userSettings.handsFree && !isListening && !isMonikaBusy) setTimeout(startListening, 400);
-            onPlaybackEnd?.();
-        };
-
-        audio.onerror = (e) => {
-            console.warn('Audio playback error, falling back to browser synthesis:', e);
-            if (currentTtsAudio === audio) {
-                URL.revokeObjectURL(audioUrl);
-                currentTtsAudio = null;
-            }
-            if (!ttsFailureToastShown) {
-                ttsFailureToastShown = true;
-                showToast('AI voice unavailable — using device voice instead.', 'error');
-            }
-            fallbackBrowserSpeak(cleanedText);
-            onPlaybackEnd?.();
-        };
-
-        await audio.play();
-        ttsFailureToastShown = false;
-    } catch (err) {
-        console.warn('Server TTS failed, falling back to browser synthesis:', err);
+    if (firstChunkFailed && chunks.length === 1) {
         if (!ttsFailureToastShown) {
             ttsFailureToastShown = true;
             showToast('AI voice unavailable — using device voice instead.', 'error');
         }
         fallbackBrowserSpeak(cleanedText);
-        onPlaybackEnd?.();
+    } else {
+        ttsFailureToastShown = false;
     }
+
+    if (userSettings.handsFree && !isListening && !isMonikaBusy) setTimeout(startListening, 400);
+    onPlaybackEnd?.();
 }
 
 pipBtn.onclick = async () => {
