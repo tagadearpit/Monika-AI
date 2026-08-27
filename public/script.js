@@ -1778,18 +1778,50 @@ async function toggleMessageVoice(message, button) {
 }
 
 function splitIntoSpeechChunks(text) {
-    const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)/g) || [text];
+    if (!text || typeof text !== 'string') return [];
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+
+    const regex = /[.!?]+(?=\s+|$)/g;
+    const sentences = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(trimmed)) !== null) {
+        const end = match.index + match[0].length;
+        const sentence = trimmed.slice(lastIndex, end).trim();
+        if (sentence) {
+            sentences.push(sentence);
+        }
+        let nextIndex = end;
+        while (nextIndex < trimmed.length && /\s/.test(trimmed[nextIndex])) {
+            nextIndex++;
+        }
+        lastIndex = nextIndex;
+    }
+
+    if (lastIndex < trimmed.length) {
+        const remaining = trimmed.slice(lastIndex).trim();
+        if (remaining) {
+            sentences.push(remaining);
+        }
+    }
+
+    if (!sentences.length) return [trimmed];
+
     const chunks = [];
     let buffer = '';
     for (const sentence of sentences) {
-        buffer += sentence;
-        if (buffer.trim().length >= 30) {
-            chunks.push(buffer.trim());
+        buffer = buffer ? `${buffer} ${sentence}` : sentence;
+        if (buffer.length >= 30) {
+            chunks.push(buffer);
             buffer = '';
         }
     }
-    if (buffer.trim()) chunks.push(buffer.trim());
-    return chunks.length ? chunks : [text.trim()];
+    if (buffer) {
+        chunks.push(buffer);
+    }
+    return chunks.length ? chunks : [trimmed];
 }
 
 async function fetchTtsAudioUrl(text) {
@@ -1819,7 +1851,7 @@ function playAudioUrl(url) {
 
 function createStreamingSpeechPipeline() {
     const mySession = speechSessionId;
-    let dispatchedChunkCount = 0;
+    let dispatchedText = '';
     const audioQueue = [];  // array of Promise<string|null> (blob URLs)
     let drainStarted = false;
     let drainResolve = null;
@@ -1867,31 +1899,91 @@ function createStreamingSpeechPipeline() {
         drainResolve();
     }
 
+    function locateChunks(cleaned, chunks) {
+        let pos = 0;
+        return chunks.map((chunk) => {
+            const idx = cleaned.indexOf(chunk, pos);
+            const start = idx >= 0 ? idx : pos;
+            const end = start + chunk.length;
+            pos = end;
+            return { text: chunk, start, end };
+        });
+    }
+
     return {
         feed(fullText) {
             if (mySession !== speechSessionId) return;
             const cleaned = cleanMoodTags(fullText);
             if (!cleaned) return;
             const allChunks = splitIntoSpeechChunks(cleaned);
-            // All chunks except the last are "sealed" — their content won't change
-            // as more text is appended. Only dispatch newly sealed chunks.
-            const sealedCount = Math.max(0, allChunks.length - 1);
-            if (sealedCount > dispatchedChunkCount) {
-                dispatchChunks(allChunks.slice(dispatchedChunkCount, sealedCount));
-                dispatchedChunkCount = sealedCount;
+            if (allChunks.length < 2) return;
+
+            const sealedChunks = allChunks.slice(0, -1);
+            const mapped = locateChunks(cleaned, sealedChunks);
+            const sealedEnd = mapped[mapped.length - 1].end;
+            const sealedPrefix = cleaned.slice(0, sealedEnd);
+
+            if (sealedPrefix.length <= dispatchedText.length) return;
+
+            if (dispatchedText && sealedPrefix.startsWith(dispatchedText)) {
+                const newChunks = mapped
+                    .filter((c) => c.start >= dispatchedText.length)
+                    .map((c) => c.text);
+                if (newChunks.length) {
+                    dispatchChunks(newChunks);
+                } else {
+                    const tail = sealedPrefix.slice(dispatchedText.length).trim();
+                    if (tail) dispatchChunks([tail]);
+                }
+            } else if (!dispatchedText) {
+                dispatchChunks(sealedChunks);
+            } else {
+                const tail = sealedPrefix.slice(dispatchedText.length).trim();
+                if (tail) dispatchChunks([tail]);
             }
+            dispatchedText = sealedPrefix;
         },
         async flush(finalText) {
             if (mySession !== speechSessionId) return;
             const cleaned = cleanMoodTags(finalText);
-            if (!cleaned) return;
-            const allChunks = splitIntoSpeechChunks(cleaned);
-            // Dispatch any remaining chunks (the held-back last chunk + anything new)
-            if (allChunks.length > dispatchedChunkCount) {
-                dispatchChunks(allChunks.slice(dispatchedChunkCount));
-                dispatchedChunkCount = allChunks.length;
+            if (!cleaned) {
+                if (!drainStarted) drainResolve();
+                await drainDone;
+                return;
             }
-            // Wait for all queued audio to finish playing
+            const allChunks = splitIntoSpeechChunks(cleaned);
+            if (!allChunks.length) {
+                if (!drainStarted) drainResolve();
+                await drainDone;
+                return;
+            }
+
+            const mapped = locateChunks(cleaned, allChunks);
+            const fullEnd = mapped[mapped.length - 1].end;
+            const fullPrefix = cleaned.slice(0, fullEnd);
+
+            if (fullPrefix.length > dispatchedText.length) {
+                if (dispatchedText && fullPrefix.startsWith(dispatchedText)) {
+                    const newChunks = mapped
+                        .filter((c) => c.start >= dispatchedText.length)
+                        .map((c) => c.text);
+                    if (newChunks.length) {
+                        dispatchChunks(newChunks);
+                    } else {
+                        const tail = fullPrefix.slice(dispatchedText.length).trim();
+                        if (tail) dispatchChunks([tail]);
+                    }
+                } else if (!dispatchedText) {
+                    dispatchChunks(allChunks);
+                } else {
+                    const tail = fullPrefix.slice(dispatchedText.length).trim();
+                    if (tail) dispatchChunks([tail]);
+                }
+                dispatchedText = fullPrefix;
+            }
+            if (!drainStarted) {
+                drainResolve();
+            }
             await drainDone;
         }
     };

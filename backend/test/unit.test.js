@@ -290,3 +290,57 @@ test('empty streaming placeholder renders empty text without fallback and typing
     assert.match(source, /streamingWrapper\?\.remove\(\);/);
     assert.match(source, /userSettings\.typingAnimation/);
 });
+
+test('splitIntoSpeechChunks preserves 100% of characters without dropping decimals, abbreviations, or symbols', () => {
+    const vm = require('node:vm');
+    const publicDir = path.resolve(__dirname, '../../public');
+    const source = fs.readFileSync(path.join(publicDir, 'script.js'), 'utf8');
+
+    const extractFunction = (name) => {
+        const start = source.indexOf(`function ${name}(`);
+        assert.notEqual(start, -1, `${name} exists`);
+        const bodyStart = source.indexOf(') {', start) + 2;
+        let depth = 0;
+        for (let index = bodyStart; index < source.length; index += 1) {
+            if (source[index] === '{') depth += 1;
+            if (source[index] === '}') depth -= 1;
+            if (depth === 0) return source.slice(start, index + 1);
+        }
+        throw new Error(`Could not extract ${name}`);
+    };
+
+    const context = {};
+    vm.runInNewContext(
+        `${extractFunction('splitIntoSpeechChunks')}\nthis.splitIntoSpeechChunks = splitIntoSpeechChunks;`,
+        context
+    );
+
+    const testStrings = [
+        'Your score was 9.5 out of 10. Great work! Keep pushing.',
+        'The item costs $12.99 or Rs.45 at 3.30pm... Dr.Smith confirmed it!',
+        'Hello... world?! Yes! Really?',
+        'Dr. Watson and Mr. Holmes met at 221B Baker St. at 5.45pm.',
+        'Plain text with no ending punctuation whatsoever',
+        'Short.',
+        'Multiple short sentences. One. Two. Three. Four. Five sentences combined together.'
+    ];
+
+    for (const str of testStrings) {
+        const chunks = context.splitIntoSpeechChunks(str);
+        assert.ok(Array.isArray(chunks) && chunks.length > 0, `Returns non-empty array for: "${str}"`);
+        const joined = chunks.join(' ');
+        const normalizedOriginal = str.replace(/\s+/g, ' ').trim();
+        const normalizedJoined = joined.replace(/\s+/g, ' ').trim();
+        assert.equal(normalizedJoined, normalizedOriginal, `Zero characters dropped for: "${str}"`);
+    }
+
+    // Specific decimal and abbreviation content assertions
+    const scoreChunks = context.splitIntoSpeechChunks('Your score was 9.5 out of 10. Great work! Keep pushing.');
+    assert.ok(scoreChunks.some((c) => c.includes('9.5')), 'Decimals like 9.5 are preserved in chunks');
+    assert.ok(scoreChunks[0].startsWith('Your score was 9.5'), 'First chunk starts from the beginning');
+
+    const doctorChunks = context.splitIntoSpeechChunks('The item costs $12.99 or Rs.45 at 3.30pm... Dr.Smith confirmed it!');
+    assert.ok(doctorChunks.some((c) => c.includes('$12.99') && c.includes('Rs.45') && c.includes('3.30pm')), 'Currencies and times preserved');
+    assert.ok(doctorChunks.some((c) => c.includes('Dr.Smith')), 'Abbreviations like Dr.Smith preserved');
+});
+
