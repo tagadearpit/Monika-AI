@@ -251,6 +251,10 @@ body.auth-pending {
 #messageInput {
     flex: 1; background: transparent; border: none; outline: none;
     color: white; padding: 10px 15px; font-size: 0.95rem;
+    font-family: inherit; resize: none; line-height: 1.4;
+    max-height: 160px; overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 107, 157, 0.4) transparent;
 }
 
 .tool-btn {

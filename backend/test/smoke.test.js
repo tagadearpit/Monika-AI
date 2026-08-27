@@ -236,6 +236,27 @@ test('AI endpoints support complete and streaming responses without exposing raw
         assert.match(streamed.text, /Test response from Monika/);
         assert.equal(createdMessages.filter((item) => item.role === 'user').length, 2);
         assert.equal(createdMessages.filter((item) => item.role === 'model').length, 2);
+
+        // Test /api/tts normal flow
+        process.env.FAKE_AI_RESPONSES = 'true';
+        const ttsResp = await agent
+            .post('/api/tts')
+            .set(commonHeaders)
+            .send({ text: 'Hello Monika.' })
+            .expect(200);
+        assert.equal(ttsResp.headers['content-type'], 'audio/wav');
+        assert.ok(ttsResp.body.length > 44);
+
+        // Test /api/tts 429 quota error flow
+        process.env.FAKE_AI_RESPONSES = 'quota_error';
+        const ttsQuotaResp = await agent
+            .post('/api/tts')
+            .set(commonHeaders)
+            .send({ text: 'Hello Monika again.' })
+            .expect(429);
+        assert.equal(ttsQuotaResp.body.code, 'TTS_QUOTA_EXCEEDED');
+        assert.equal(ttsQuotaResp.body.retryAfterSeconds, 30);
+        assert.equal(ttsQuotaResp.headers['retry-after'], '30');
     } finally {
         if (originals.fakeAi === undefined) delete process.env.FAKE_AI_RESPONSES;
         else process.env.FAKE_AI_RESPONSES = originals.fakeAi;

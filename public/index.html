@@ -144,12 +144,12 @@
                     <div class="input-wrapper">
                         <input type="file" id="attachmentInput" accept="image/jpeg,image/png,image/webp,application/pdf,text/plain,text/markdown,.txt,.md,.pdf" multiple hidden>
                         <button id="attachButton" class="tool-btn" type="button" title="Attach image, PDF, or text file"><i class="fas fa-paperclip"></i></button>
-                        <input type="text" id="messageInput" placeholder="Type to Monika... 💕" autocomplete="off" maxlength="4000">
+                        <textarea id="messageInput" placeholder="Type to Monika... 💕" autocomplete="off" maxlength="4000" rows="1"></textarea>
                         <button id="camButton" class="tool-btn" type="button" title="Vision Mode"><i class="fas fa-camera"></i></button>
                         <button id="micButton" class="tool-btn" type="button" title="Voice input"><i class="fas fa-microphone"></i></button>
                         <button id="sendBtn" class="send-btn" type="button" aria-label="Send message"><i class="fas fa-paper-plane"></i></button>
                     </div>
-                    <div class="input-hint"><span>Enter to send</span><span id="attachmentLimitHint">Up to 4 files · 8 MB each</span></div>
+                    <div class="input-hint"><span>Enter to send · Shift + Enter for new line</span><span id="attachmentLimitHint">Up to 4 files · 8 MB each</span></div>
                 </div>
             </main>
         </div>

@@ -88,6 +88,7 @@ function renderSuggestedPrompts() {
         chip.textContent = question;
         chip.onclick = () => {
             messageInput.value = question;
+            autoResizeInput();
             sendMessage();
         };
         suggestedPrompts.appendChild(chip);
@@ -115,6 +116,7 @@ let speechSessionId = 0;
 
 function stopCurrentSpeech() {
     speechSessionId++; // invalidates any in-flight chunk queue from a prior monikaSpeak() call
+    ttsQuotaToastShown = false;
     if (currentTtsAudio) {
         try {
             currentTtsAudio.pause();
@@ -1189,11 +1191,21 @@ $('exportTxtBtn').onclick = () => exportConversation('txt');
 $('exportMdBtn').onclick = () => exportConversation('md');
 $('exportPdfBtn').onclick = () => exportConversation('pdf');
 
-function restoreDraft() {
-    if (!messageInput.value) messageInput.value = localStorage.getItem('monika_message_draft') || '';
+function autoResizeInput() {
+    if (!messageInput) return;
+    messageInput.style.height = 'auto';
+    messageInput.style.height = `${Math.min(messageInput.scrollHeight, 160)}px`;
 }
 
-messageInput.addEventListener('input', () => localStorage.setItem('monika_message_draft', messageInput.value.slice(0, 4000)));
+function restoreDraft() {
+    if (!messageInput.value) messageInput.value = localStorage.getItem('monika_message_draft') || '';
+    autoResizeInput();
+}
+
+messageInput.addEventListener('input', () => {
+    autoResizeInput();
+    localStorage.setItem('monika_message_draft', messageInput.value.slice(0, 4000));
+});
 messageInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
@@ -1306,6 +1318,7 @@ async function sendMessage(options = {}) {
             const handled = await parseNaturalReminder(question);
             if (handled) {
                 messageInput.value = '';
+                autoResizeInput();
                 localStorage.removeItem('monika_message_draft');
                 return;
             }
@@ -1321,6 +1334,7 @@ async function sendMessage(options = {}) {
     if (!specialAction && themes[themeCommand] !== undefined && pendingAttachments.length === 0) {
         await saveSettings({ theme: themeCommand }, { quiet: true });
         messageInput.value = '';
+        autoResizeInput();
         localStorage.removeItem('monika_message_draft');
         addSystemMessage(`Appearance updated to ${themeCommand.substring(1)}. ✨`);
         return;
@@ -1353,6 +1367,7 @@ async function sendMessage(options = {}) {
         renderMessage(optimisticUser);
     }
     messageInput.value = '';
+    autoResizeInput();
     localStorage.removeItem('monika_message_draft');
     pendingAttachments = [];
     renderAttachmentPreview();
@@ -1534,6 +1549,7 @@ function editAndResend(message) {
     const edited = prompt('Edit the message and resend:', message.content)?.trim();
     if (!edited) return;
     messageInput.value = edited;
+    autoResizeInput();
     messageInput.focus();
 }
 
@@ -1714,6 +1730,7 @@ function fallbackBrowserSpeak(cleanedText) {
 }
 
 let ttsFailureToastShown = false;
+let ttsQuotaToastShown = false;
 
 function showToast(message, type = 'info') {
     let container = document.getElementById('toastContainer');
@@ -1834,7 +1851,17 @@ async function fetchTtsAudioUrl(text) {
         }),
         body: JSON.stringify({ text: text.slice(0, 2000) })
     });
-    if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
+    if (!response.ok) {
+        if (response.status === 429) {
+            const data = await parseJsonSafely(response);
+            const err = new Error(data.error || 'AI voice quota exceeded.');
+            err.status = 429;
+            err.code = data.code || 'TTS_QUOTA_EXCEEDED';
+            err.retryAfterSeconds = typeof data.retryAfterSeconds === 'number' ? data.retryAfterSeconds : null;
+            throw err;
+        }
+        throw new Error(`TTS API error: ${response.status}`);
+    }
     const blob = await response.blob();
     return URL.createObjectURL(blob);
 }
@@ -1852,16 +1879,34 @@ function playAudioUrl(url) {
 function createStreamingSpeechPipeline() {
     const mySession = speechSessionId;
     let dispatchedText = '';
+    let quotaExhausted = false;
     const audioQueue = [];  // array of Promise<string|null> (blob URLs)
     let drainStarted = false;
     let drainResolve = null;
     const drainDone = new Promise((resolve) => { drainResolve = resolve; });
 
+    function handleTtsError(err) {
+        if (err?.status === 429 || err?.code === 'TTS_QUOTA_EXCEEDED') {
+            quotaExhausted = true;
+            if (!ttsQuotaToastShown) {
+                ttsQuotaToastShown = true;
+                const retrySec = err.retryAfterSeconds;
+                const msg = retrySec
+                    ? `AI voice is rate-limited right now — try again in ${retrySec}s.`
+                    : 'AI voice is rate-limited right now — try again in a bit.';
+                showToast(msg, 'error');
+            }
+        } else {
+            console.warn('Streaming chunk TTS failed:', err);
+        }
+    }
+
     function dispatchChunks(chunks) {
+        if (quotaExhausted) return;
         for (const chunk of chunks) {
             audioQueue.push(
                 fetchTtsAudioUrl(chunk).catch((err) => {
-                    console.warn('Streaming chunk TTS failed:', err);
+                    handleTtsError(err);
                     return null;
                 })
             );
@@ -1912,7 +1957,7 @@ function createStreamingSpeechPipeline() {
 
     return {
         feed(fullText) {
-            if (mySession !== speechSessionId) return;
+            if (mySession !== speechSessionId || quotaExhausted) return;
             const cleaned = cleanMoodTags(fullText);
             if (!cleaned) return;
             const allChunks = splitIntoSpeechChunks(cleaned);
@@ -1945,6 +1990,11 @@ function createStreamingSpeechPipeline() {
         },
         async flush(finalText) {
             if (mySession !== speechSessionId) return;
+            if (quotaExhausted) {
+                if (!drainStarted) drainResolve();
+                await drainDone;
+                return;
+            }
             const cleaned = cleanMoodTags(finalText);
             if (!cleaned) {
                 if (!drainStarted) drainResolve();
@@ -2006,11 +2056,22 @@ async function monikaSpeak(text, onPlaybackEnd) {
     }
 
     const chunks = splitIntoSpeechChunks(cleanedText);
-    // Fire every chunk's TTS request in parallel right away, so later chunks
-    // are already generating while an earlier one plays.
+    let quotaExhausted = false;
     const audioUrlPromises = chunks.map((chunk) =>
         fetchTtsAudioUrl(chunk).catch((err) => {
-            console.warn('Chunk TTS failed:', err);
+            if (err?.status === 429 || err?.code === 'TTS_QUOTA_EXCEEDED') {
+                quotaExhausted = true;
+                if (!ttsQuotaToastShown) {
+                    ttsQuotaToastShown = true;
+                    const retrySec = err.retryAfterSeconds;
+                    const msg = retrySec
+                        ? `AI voice is rate-limited right now — try again in ${retrySec}s.`
+                        : 'AI voice is rate-limited right now — try again in a bit.';
+                    showToast(msg, 'error');
+                }
+            } else {
+                console.warn('Chunk TTS failed:', err);
+            }
             return null;
         })
     );
@@ -2034,13 +2095,13 @@ async function monikaSpeak(text, onPlaybackEnd) {
     if (mySession !== speechSessionId) return;
     currentTtsAudio = null;
 
-    if (firstChunkFailed && chunks.length === 1) {
+    if (firstChunkFailed && chunks.length === 1 && !quotaExhausted) {
         if (!ttsFailureToastShown) {
             ttsFailureToastShown = true;
             showToast('AI voice unavailable — using device voice instead.', 'error');
         }
         fallbackBrowserSpeak(cleanedText);
-    } else {
+    } else if (!quotaExhausted) {
         ttsFailureToastShown = false;
     }
 

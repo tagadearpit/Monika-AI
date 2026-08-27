@@ -1000,7 +1000,27 @@ User: ${question || 'Please analyze the attached content.'}`
 };
 
 const generateContent = async (request, streaming = false) => {
+    if (process.env.FAKE_AI_RESPONSES === 'quota_error') {
+        const quotaErr = new Error('Resource has been exhausted (e.g. check quota).');
+        quotaErr.status = 429;
+        quotaErr.errorDetails = [{ retryDelay: '30s' }];
+        throw quotaErr;
+    }
     if (process.env.FAKE_AI_RESPONSES === 'true') {
+        if (request?.config?.responseModalities?.[0] === 'AUDIO') {
+            return {
+                candidates: [{
+                    content: {
+                        parts: [{
+                            inlineData: {
+                                mimeType: 'audio/pcm;rate=24000',
+                                data: Buffer.alloc(4800).toString('base64')
+                            }
+                        }]
+                    }
+                }]
+            };
+        }
         const isJson = request?.config?.responseMimeType === 'application/json';
         const fakeText = isJson
             ? JSON.stringify({ text: 'Test reminder', dueAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), recurrence: 'none' })
@@ -2055,6 +2075,41 @@ app.post('/api/tts', verifyTrustedOrigin, ttsIpLimiter, authenticateToken, ttsLi
         res.setHeader('Content-Length', wavBuffer.length);
         return res.send(wavBuffer);
     } catch (error) {
+        const isQuota = error.status === 429 || error.code === 429 || /RESOURCE_EXHAUSTED|429/i.test(error.message);
+        if (isQuota) {
+            let retryAfterSeconds = null;
+            const details = error.errorDetails || error.details || error.response?.data?.error?.details;
+            if (Array.isArray(details)) {
+                for (const d of details) {
+                    if (d?.retryDelay) {
+                        const parsed = parseFloat(String(d.retryDelay).replace(/[^\d.]/g, ''));
+                        if (!Number.isNaN(parsed) && parsed > 0) {
+                            retryAfterSeconds = Math.ceil(parsed);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (retryAfterSeconds === null && typeof error.message === 'string') {
+                const match = error.message.match(/retryDelay["']?\s*:\s*["']?(\d+(?:\.\d+)?)\s*s?["']?/i) || error.message.match(/(?:retry in|retry after)\s*(\d+(?:\.\d+)?)\s*s?/i);
+                if (match) {
+                    const parsed = parseFloat(match[1]);
+                    if (!Number.isNaN(parsed) && parsed > 0) {
+                        retryAfterSeconds = Math.ceil(parsed);
+                    }
+                }
+            }
+
+            log('warn', 'tts_quota_exceeded', { requestId: req.requestId, message: error.message, retryAfterSeconds });
+            if (retryAfterSeconds) {
+                res.setHeader('Retry-After', String(retryAfterSeconds));
+            }
+            return res.status(429).json({
+                error: 'AI voice quota exceeded.',
+                code: 'TTS_QUOTA_EXCEEDED',
+                ...(retryAfterSeconds ? { retryAfterSeconds } : {})
+            });
+        }
         log('error', 'tts_generation_failed', { requestId: req.requestId, message: error.message });
         return res.status(500).json({ error: 'Failed to generate speech.', code: 'TTS_GENERATION_FAILED' });
     }

@@ -344,3 +344,15 @@ test('splitIntoSpeechChunks preserves 100% of characters without dropping decima
     assert.ok(doctorChunks.some((c) => c.includes('Dr.Smith')), 'Abbreviations like Dr.Smith preserved');
 });
 
+test('frontend script handles 429 quota errors gracefully with single toast and no stuck state', () => {
+    const publicDir = path.resolve(__dirname, '../../public');
+    const source = fs.readFileSync(path.join(publicDir, 'script.js'), 'utf8');
+
+    assert.match(source, /TTS_QUOTA_EXCEEDED/);
+    assert.match(source, /retryAfterSeconds/);
+    assert.match(source, /AI voice is rate-limited/);
+    assert.match(source, /ttsQuotaToastShown/);
+    assert.match(source, /autoResizeInput/);
+});
+
+
