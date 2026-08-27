@@ -1396,6 +1396,17 @@ async function sendMessage(options = {}) {
             currentTypewriterRenderer = streamingRenderer;
             textNode.classList.add('typewriter-active');
         };
+        // Decide whether to run incremental TTS during streaming
+        const wantsVoice = userSettings.autoRead || userSettings.handsFree;
+        const selectedVoice = userSettings.voiceName !== undefined ? userSettings.voiceName : 'gemini_tts';
+        const oldKokoroVoices = ['af_bella', 'af_heart', 'af_sky', 'af_nicole', 'bf_emma'];
+        const isAiVoice = selectedVoice === 'gemini_tts' || oldKokoroVoices.includes(selectedVoice);
+        const useStreamingTts = wantsVoice && authToken && isAiVoice;
+        let speechPipeline = null;
+        if (useStreamingTts) {
+            stopCurrentSpeech();
+            speechPipeline = createStreamingSpeechPipeline();
+        }
         let finalData = null;
         await consumeSse(response, {
             meta(data) {
@@ -1408,6 +1419,7 @@ async function sendMessage(options = {}) {
                 placeholder.content += deltaText;
                 streamingWrapper.dataset.content = placeholder.content;
                 streamingRenderer.setRaw(placeholder.content);
+                if (speechPipeline) speechPipeline.feed(placeholder.content);
             },
             done(data) { finalData = data; },
             error(data) { throw createRequestError(null, data, 'Generation failed.'); }
@@ -1427,8 +1439,14 @@ async function sendMessage(options = {}) {
         meta.textContent = new Date().toLocaleString();
         streamingWrapper.append(meta, buildMessageActions(placeholder));
         currentMessages.push(placeholder);
-        if (userSettings.autoRead || userSettings.handsFree) monikaSpeak(placeholder.content);
-        else playResponseChime();
+        if (speechPipeline) {
+            await speechPipeline.flush(placeholder.content);
+        } else if (wantsVoice) {
+            // Non-AI voice fallback — speak the full finished text
+            fallbackBrowserSpeak(cleanMoodTags(placeholder.content));
+        } else {
+            playResponseChime();
+        }
         await refreshConversationMetadata(finalData.conversationId);
     } catch (error) {
         hideTypingIndicator();
@@ -1797,6 +1815,86 @@ function playAudioUrl(url) {
         audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
         audio.play().catch(reject);
     });
+}
+
+function createStreamingSpeechPipeline() {
+    const mySession = speechSessionId;
+    let dispatchedChunkCount = 0;
+    const audioQueue = [];  // array of Promise<string|null> (blob URLs)
+    let drainStarted = false;
+    let drainResolve = null;
+    const drainDone = new Promise((resolve) => { drainResolve = resolve; });
+
+    function dispatchChunks(chunks) {
+        for (const chunk of chunks) {
+            audioQueue.push(
+                fetchTtsAudioUrl(chunk).catch((err) => {
+                    console.warn('Streaming chunk TTS failed:', err);
+                    return null;
+                })
+            );
+        }
+        if (!drainStarted) {
+            drainStarted = true;
+            drainQueue();
+        }
+    }
+
+    async function drainQueue() {
+        let i = 0;
+        // Keep draining as new items are pushed — loop until flush signals completion
+        while (i < audioQueue.length) {
+            if (mySession !== speechSessionId) { drainResolve(); return; }
+            const url = await audioQueue[i];
+            if (mySession !== speechSessionId) {
+                if (url) URL.revokeObjectURL(url);
+                drainResolve();
+                return;
+            }
+            if (url) {
+                try {
+                    await playAudioUrl(url);
+                } catch (err) {
+                    console.warn('Streaming chunk playback failed:', err);
+                }
+            }
+            i++;
+        }
+        if (mySession !== speechSessionId) { drainResolve(); return; }
+        currentTtsAudio = null;
+        ttsFailureToastShown = false;
+        if (userSettings.handsFree && !isListening && !isMonikaBusy) setTimeout(startListening, 400);
+        drainResolve();
+    }
+
+    return {
+        feed(fullText) {
+            if (mySession !== speechSessionId) return;
+            const cleaned = cleanMoodTags(fullText);
+            if (!cleaned) return;
+            const allChunks = splitIntoSpeechChunks(cleaned);
+            // All chunks except the last are "sealed" — their content won't change
+            // as more text is appended. Only dispatch newly sealed chunks.
+            const sealedCount = Math.max(0, allChunks.length - 1);
+            if (sealedCount > dispatchedChunkCount) {
+                dispatchChunks(allChunks.slice(dispatchedChunkCount, sealedCount));
+                dispatchedChunkCount = sealedCount;
+            }
+        },
+        async flush(finalText) {
+            if (mySession !== speechSessionId) return;
+            const cleaned = cleanMoodTags(finalText);
+            if (!cleaned) return;
+            const allChunks = splitIntoSpeechChunks(cleaned);
+            // Dispatch any remaining chunks (the held-back last chunk + anything new)
+            if (allChunks.length > dispatchedChunkCount) {
+                dispatchChunks(allChunks.slice(dispatchedChunkCount));
+                dispatchedChunkCount = allChunks.length;
+            }
+            // Wait for all queued audio to finish playing
+            await drainDone;
+        }
+    };
 }
 
 async function monikaSpeak(text, onPlaybackEnd) {
