@@ -1,0 +1,68 @@
+---
+name: retrieving-developer-knowledge
+metadata:
+  category: CloudInfrastructureAndServices
+description: >-
+  Searches, retrieves, and synthesizes official Google developer documentation across Google Cloud,
+  AI/Gemini, Android, Chrome, Web, Flutter, Go, Firebase, and other Google developer platforms.
+  Integrates with the Developer Knowledge MCP server (search_documents, get_documents, answer_query)
+  or the Developer Knowledge REST API fallback. Use when searching for gcloud CLI commands, API syntax,
+  IAM permissions, official documentation, architectural comparisons, or product choice overviews.
+  Don't use for local filesystem lookups or non-Google documentation.
+---
+
+# Google Developer Knowledge
+
+The Developer Knowledge skill provides access to official Google developer documentation across Google Cloud, AI/ML (ai.google.dev, ADK, TensorFlow), Android, Chrome, Web, Flutter, Go, Firebase, and other Google developer platforms via the Developer Knowledge MCP server or REST API fallback.
+
+## Workflow
+
+1. **Direct Retrieval**: When answering a technical question, execute a single documentation lookup directly within your current conversation context (do not delegate retrieval to subagents):
+   - **If MCP tools are present in your environment**: Call `answer_query` (for conceptual guides/workflows) or `search_documents` (for CLI flags/syntax).
+   - **If MCP tools are not present**: Execute a REST API request via `curl` against `https://developerknowledge.googleapis.com/v1`.
+2. **Immediate & Complete Solution Output**: Immediately upon receiving the documentation response, output the complete, self-contained, and executable technical solution (commands with all required flags and placeholders, YAML/JSON configurations, or code snippets) directly in your response text.
+
+## Tool Selection & Usage
+
+Choose the appropriate tool based on availability in your runtime environment:
+
+### 1. Developer Knowledge MCP Tools (Preferred)
+When MCP tools are present in your active tool definitions:
+- **`answer_query(query="...")`**: Use for conceptual guides, architectural comparisons, product choice overviews, and multi-step workflows.
+- **`search_documents(query="...", page_size=5)`**: Use for granular CLI flags, exact syntax, parameter names, and IAM permissions (`service.resource.verb`). Use 2–5 focused keywords (e.g., `cloud run filestore nfs mount gcloud`) rather than full conversational sentences.
+- **`get_documents(names=["documents/{uri_without_scheme}"])`**: Fetch full documentation pages by resource name (e.g. `names: ["documents/docs.cloud.google.com/run/docs/overview/what-is-cloud-run"]`).
+
+### 2. REST API Fallback
+When MCP tools are not declared in your environment, use HTTP requests (`curl`) against the Developer Knowledge REST API (`https://developerknowledge.googleapis.com/v1`) with the environment API key (`DEVELOPERKNOWLEDGE_API_KEY`):
+- **Answer Query**:
+  ```bash
+  curl -s -X POST "https://developerknowledge.googleapis.com/v1:answerQuery?key=${DEVELOPERKNOWLEDGE_API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"query": "How do I configure public read access on Cloud Storage?"}'
+  ```
+- **Search Document Chunks** (use 2–5 focused keywords):
+  ```bash
+  curl -s "https://developerknowledge.googleapis.com/v1/documents:searchDocumentChunks?query=gcloud+logging+metrics+create&key=${DEVELOPERKNOWLEDGE_API_KEY}"
+  ```
+- **Get Document**:
+  ```bash
+  curl -s "https://developerknowledge.googleapis.com/v1/documents/docs.cloud.google.com/run/docs/overview/what-is-cloud-run?key=${DEVELOPERKNOWLEDGE_API_KEY}"
+  ```
+- **Batch Get Documents**:
+  ```bash
+  curl -s -X POST "https://developerknowledge.googleapis.com/v1/documents:batchGet?key=${DEVELOPERKNOWLEDGE_API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"names": ["documents/docs.cloud.google.com/run/docs/overview/what-is-cloud-run"]}'
+  ```
+
+## Synthesis & Output Guidelines
+
+1. **Grounding in Official Documentation**: Ground all solutions directly in retrieved documentation. Official documentation conventions have absolute precedence over memorized defaults.
+2. **Exact Parameter Formatting**: Format CLI flags, composite keys (e.g. `location=IP:PATH`), and IAM permission strings according to official Google specifications.
+3. **Complete Solutions in Final Response**: Always output the full, self-contained, executable technical solution (commands, configurations, or code snippets) with clear standard placeholders (e.g. `PROJECT_ID`, `SERVICE_NAME`, `REGION`) directly in your final message, even if previously referenced during internal planning.
+
+## References
+
+- [MCP Usage & Tool Details](references/mcp-usage.md)
+- [REST API Fallback Guide](references/api-fallback.md)
+- [Supported Domains & Scoping](references/supported-domains.md)
