@@ -62,114 +62,81 @@
                     <div class="status-badge"><span class="status-dot"></span> Checking live permissions</div>
                 </div>
 
-                <div class="kpi-grid" id="metricGrid"></div>
+                <!-- Tab Bar -->
+                <nav class="admin-tabs" role="tablist" aria-label="Dashboard sections">
+                    <button class="admin-tab active" role="tab" data-tab="overview" aria-selected="true" aria-controls="panel-overview" id="tab-overview" type="button">
+                        <i class="fas fa-gauge-high"></i> Overview
+                    </button>
+                    <button class="admin-tab" role="tab" data-tab="users" aria-selected="false" aria-controls="panel-users" id="tab-users" type="button">
+                        <i class="fas fa-users"></i> Users
+                    </button>
+                    <button class="admin-tab" role="tab" data-tab="moderation" aria-selected="false" aria-controls="panel-moderation" id="tab-moderation" type="button">
+                        <i class="fas fa-shield"></i> Moderation
+                    </button>
+                    <button class="admin-tab" role="tab" data-tab="analytics" aria-selected="false" aria-controls="panel-analytics" id="tab-analytics" type="button">
+                        <i class="fas fa-chart-line"></i> Analytics
+                    </button>
+                </nav>
 
-                <section class="admin-card">
-                    <div class="admin-toolbar">
-                        <div>
-                            <h2>Quick actions</h2>
-                            <p>High-frequency operational tasks for moderation and support.</p>
+                <!-- Tab: Overview -->
+                <div class="tab-panel active" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+                    <div class="kpi-grid" id="metricGrid"></div>
+
+                    <div class="maintenance-card">
+                        <div class="maintenance-info">
+                            <h3><i class="fas fa-wrench" style="margin-right:8px; color: var(--admin-warning);"></i>Maintenance Mode</h3>
+                            <p>When enabled, all non-admin API endpoints return 503. Resets on server restart.</p>
                         </div>
-                        <div class="toolbar-group">
-                            <button id="refreshReportsBtn" class="toolbar-btn" type="button"><i class="fas fa-flag"></i> Refresh reports</button>
-                            <button id="refreshAuditBtn" class="toolbar-btn" type="button"><i class="fas fa-shield"></i> Refresh audit</button>
-                            <button id="refreshSessionsBtn" class="toolbar-btn" type="button"><i class="fas fa-user-shield"></i> Refresh sessions</button>
+                        <div class="maintenance-controls">
+                            <span id="maintenanceStatusPill" class="pill maintenance-status-pill">Loading...</span>
+                            <label class="toggle-switch" title="Toggle maintenance mode">
+                                <input type="checkbox" id="maintenanceToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
                     </div>
-                </section>
-
-                <div class="admin-grid-two">
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>User suspension</h2>
-                                <p>Suspend, unsuspend, or investigate a specific account.</p>
-                            </div>
-                        </div>
-                        <div class="admin-form-row">
-                            <input id="adminUserId" type="text" placeholder="User email or phone number">
-                            <input id="adminReason" type="text" placeholder="Reason">
-                            <button id="suspendUserBtn" class="danger-action-btn" type="button"><i class="fas fa-ban"></i> Suspend</button>
-                            <button id="unsuspendUserBtn" class="secondary-action-btn" type="button"><i class="fas fa-circle-check"></i> Unsuspend</button>
-                        </div>
-                    </section>
-
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>System health</h2>
-                                <p>Quick status of production subsystems.</p>
-                            </div>
-                            <span class="pill success"><i class="fas fa-heart-pulse"></i> Healthy</span>
-                        </div>
-                        <div class="timeline-list">
-                            <div class="list-item">
-                                <strong>Authentication</strong>
-                                <small>Persistent sessions and refresh cookies active.</small>
-                            </div>
-                            <div class="list-item">
-                                <strong>Database</strong>
-                                <small>MongoDB connectivity and indexes monitored.</small>
-                            </div>
-                            <div class="list-item">
-                                <strong>AI pipeline</strong>
-                                <small>Streaming responses and fallback keys supported.</small>
-                            </div>
-                        </div>
-                    </section>
                 </div>
 
-                <div class="admin-grid-three">
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>Conversation activity</h2>
-                                <p>Recent creation, rename, pin, delete, and export usage.</p>
+                <!-- Tab: Users -->
+                <div class="tab-panel" role="tabpanel" id="panel-users" aria-labelledby="tab-users">
+                    <div class="admin-grid-two">
+                        <section class="admin-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>User suspension</h2>
+                                    <p>Suspend, unsuspend, or investigate a specific account.</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="soft-panel">
-                            <div class="kpi-top">
-                                <p class="kpi-label">This week</p>
-                                <span class="pill info">Live</span>
+                            <div class="admin-form-row">
+                                <input id="adminUserId" type="text" placeholder="User email or phone number">
+                                <input id="adminReason" type="text" placeholder="Reason">
+                                <button id="suspendUserBtn" class="danger-action-btn" type="button"><i class="fas fa-ban"></i> Suspend</button>
+                                <button id="unsuspendUserBtn" class="secondary-action-btn" type="button"><i class="fas fa-circle-check"></i> Unsuspend</button>
                             </div>
-                            <h3 class="kpi-value">—</h3>
-                            <p class="kpi-note" id="conversationActivityNote">Active production conversations and message volume.</p>
-                        </div>
-                    </section>
+                        </section>
 
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>Security overview</h2>
-                                <p>Auth failures, rate limits, and audit events.</p>
+                        <section class="admin-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Suspended users</h2>
+                                    <p>Currently suspended accounts.</p>
+                                </div>
+                                <button id="refreshSuspendedBtn" class="toolbar-btn" type="button"><i class="fas fa-rotate"></i></button>
                             </div>
-                        </div>
-                        <div class="timeline-list scrollable-list" id="auditList"></div>
-                        <button id="auditScrollDownBtn" class="scroll-down-bar" type="button" title="Scroll down for more audit events">
-                            <span>Scroll for more events</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </section>
+                            <div class="timeline-list scrollable-list" id="suspendedUsersList"></div>
+                        </section>
+                    </div>
 
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>Recent reports</h2>
-                                <p>Moderation queue and user feedback.</p>
-                            </div>
-                        </div>
-                        <div class="timeline-list scrollable-list" id="reportList"></div>
-                    </section>
-                </div>
-
-                <div class="admin-grid-two">
                     <section class="admin-card">
                         <div class="admin-card-header">
                             <div>
                                 <h2>Active sessions</h2>
                                 <p>Visible device list, last active time, and remote logout control.</p>
                             </div>
-                            <span class="pill warning"><i class="fas fa-laptop"></i> Session control</span>
+                            <div class="toolbar-group">
+                                <button id="refreshSessionsBtn" class="toolbar-btn" type="button"><i class="fas fa-user-shield"></i> Refresh</button>
+                                <span class="pill warning"><i class="fas fa-laptop"></i> Session control</span>
+                            </div>
                         </div>
                         <div class="table-wrap scrollable-list">
                             <table class="admin-table" aria-label="Active sessions">
@@ -190,57 +157,44 @@
                             </table>
                         </div>
                     </section>
-
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>Release notes</h2>
-                                <p>Version summary and deployment reminders.</p>
-                            </div>
-                        </div>
-                        <div class="timeline-list">
-                            <div class="list-item">
-                                <strong>v3.0.1 maintenance</strong>
-                                <small>Typewriter animation, session restoration, and friendlier error states.</small>
-                            </div>
-                            <div class="list-item">
-                                <strong>Safety reminder</strong>
-                                <small>Never expose secrets, keys, or admin tokens in logs or UI output.</small>
-                            </div>
-                            <div class="list-item">
-                                <strong>Operational note</strong>
-                                <small>Keep the release branch separate until the next merge window.</small>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-                <div class="admin-grid-two">
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>Daily Users & Requests</h2>
-                                <p>Engagement over the last 7 days.</p>
-                            </div>
-                        </div>
-                        <div class="chart-container" style="position: relative; height: 240px; width: 100%;">
-                            <canvas id="dailyUsersChart"></canvas>
-                        </div>
-                    </section>
-
-                    <section class="admin-card">
-                        <div class="admin-card-header">
-                            <div>
-                                <h2>Message Volume & Latency</h2>
-                                <p>System activity trends.</p>
-                            </div>
-                        </div>
-                        <div class="chart-container" style="position: relative; height: 240px; width: 100%;">
-                            <canvas id="volumeChart"></canvas>
-                        </div>
-                    </section>
                 </div>
 
-                <div class="admin-grid-two">
+                <!-- Tab: Moderation -->
+                <div class="tab-panel" role="tabpanel" id="panel-moderation" aria-labelledby="tab-moderation">
+                    <div class="admin-grid-two">
+                        <section class="admin-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Recent reports</h2>
+                                    <p>Moderation queue and user feedback.</p>
+                                </div>
+                                <button id="refreshReportsBtn" class="toolbar-btn" type="button"><i class="fas fa-flag"></i> Refresh</button>
+                            </div>
+                            <div class="timeline-list scrollable-list" id="reportList"></div>
+                        </section>
+
+                        <section class="admin-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Security &amp; audit log</h2>
+                                    <p>Auth failures, rate limits, and audit events.</p>
+                                </div>
+                                <button id="refreshAuditBtn" class="toolbar-btn" type="button"><i class="fas fa-shield"></i> Refresh</button>
+                            </div>
+                            <div class="filter-row" style="margin-bottom: 12px;">
+                                <label for="auditCategoryFilter">Category:</label>
+                                <select id="auditCategoryFilter" class="category-select">
+                                    <option value="">All events</option>
+                                    <option value="auth">Auth</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="rate_limit">Rate Limit</option>
+                                    <option value="ai">AI</option>
+                                </select>
+                            </div>
+                            <div class="timeline-list scrollable-list" id="auditList"></div>
+                        </section>
+                    </div>
+
                     <section class="admin-card">
                         <div class="admin-card-header">
                             <div>
@@ -255,6 +209,35 @@
                         </div>
                         <div id="adminSearchResults" class="timeline-list scrollable-list" style="margin-top: 14px; display: none;"></div>
                     </section>
+                </div>
+
+                <!-- Tab: Analytics -->
+                <div class="tab-panel" role="tabpanel" id="panel-analytics" aria-labelledby="tab-analytics">
+                    <div class="admin-grid-two">
+                        <section class="admin-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Daily Users &amp; Requests</h2>
+                                    <p>Engagement over the last 7 days.</p>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="dailyUsersChart"></canvas>
+                            </div>
+                        </section>
+
+                        <section class="admin-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Message Volume &amp; Latency</h2>
+                                    <p>System activity trends.</p>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="volumeChart"></canvas>
+                            </div>
+                        </section>
+                    </div>
 
                     <section class="admin-card">
                         <div class="admin-card-header">
@@ -284,7 +267,7 @@
         <div class="glass-card" style="max-width: 400px; margin: auto; padding: 24px;">
             <h3 id="confirmTitle" style="margin-top:0">Are you sure?</h3>
             <p id="confirmMessage" class="muted" style="margin-bottom: 20px;">This action cannot be undone.</p>
-            <div class="dialog-actions" style="display: flex; gap: 12px; justify-content: flex-end;">
+            <div class="dialog-actions">
                 <button id="confirmCancelBtn" class="secondary-action-btn">Cancel</button>
                 <button id="confirmProceedBtn" class="danger-action-btn">Proceed</button>
             </div>

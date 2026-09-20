@@ -7,9 +7,11 @@ const state = {
     reports: [],
     audit: [],
     sessions: [],
+    suspendedUsers: [],
     theme: localStorage.getItem('monika_theme') || 'dark',
     chartData: null,
-    searchTimeout: null
+    searchTimeout: null,
+    maintenanceMode: false
 };
 
 const $ = (id) => document.getElementById(id);
@@ -79,6 +81,35 @@ function showSkeleton(containerId, count = 3) {
     container.innerHTML = Array(count).fill('<div class="list-item"><strong class="muted">Loading...</strong></div>').join('');
 }
 
+// --- TABS ---
+function initTabs() {
+    const tabs = document.querySelectorAll('.admin-tab');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    function switchTab(tabName) {
+        tabs.forEach(t => {
+            const isActive = t.dataset.tab === tabName;
+            t.classList.toggle('active', isActive);
+            t.setAttribute('aria-selected', isActive);
+        });
+        panels.forEach(p => {
+            p.classList.toggle('active', p.id === `panel-${tabName}`);
+        });
+        window.location.hash = tabName;
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // Restore from URL hash
+    const hash = window.location.hash.replace('#', '');
+    const validTabs = ['overview', 'users', 'moderation', 'analytics'];
+    if (hash && validTabs.includes(hash)) {
+        switchTab(hash);
+    }
+}
+
 // --- API ---
 async function parseJson(response) {
     try { return await response.json(); } catch (_) { return {}; }
@@ -115,13 +146,16 @@ async function init() {
         
         showSkeleton('reportList', 3);
         showSkeleton('auditList', 5);
+        showSkeleton('suspendedUsersList', 2);
         
         await Promise.all([
             loadOverview(), 
             loadReports(), 
             loadAudit(),
             loadSessions(),
-            loadAnalytics()
+            loadAnalytics(),
+            loadSuspendedUsers(),
+            loadMaintenanceStatus()
         ]);
         
         $('adminStatus').hidden = true;
@@ -141,28 +175,29 @@ async function loadOverview() {
     state.overview = data;
 
     const metrics = [
-        ['Users', data.users],
-        ['New users (24h)', data.newUsers24h],
-        ['Active users (24h)', data.activeUsers24h],
-        ['Conversations', data.conversations],
-        ['Messages', data.messages],
-        ['Active sessions', data.activeSessions],
-        ['Open reports', data.reports],
-        ['AI failures (24h)', data.aiFailures24h],
-        ['Auth events (24h)', data.authenticationFailures24h],
-        ['Rate limits (24h)', data.rateLimitEvents24h],
-        ['AI requests', data.usage?.messages || 0],
-        ['Estimated tokens', data.usage?.estimatedTokens || 0],
-        ['Cost (USD)', Number(data.usage?.estimatedCostUsd || 0).toFixed(4)]
+        ['Users', data.users, 'fa-users'],
+        ['New users (24h)', data.newUsers24h, 'fa-user-plus'],
+        ['Active users (24h)', data.activeUsers24h, 'fa-user-clock'],
+        ['Conversations', data.conversations, 'fa-comments'],
+        ['Messages', data.messages, 'fa-envelope'],
+        ['Active sessions', data.activeSessions, 'fa-laptop'],
+        ['Open reports', data.reports, 'fa-flag'],
+        ['Pending reminders', data.pendingReminders, 'fa-bell'],
+        ['AI failures (24h)', data.aiFailures24h, 'fa-robot'],
+        ['Auth events (24h)', data.authenticationFailures24h, 'fa-key'],
+        ['Rate limits (24h)', data.rateLimitEvents24h, 'fa-gauge-high'],
+        ['AI requests', data.usage?.messages || 0, 'fa-bolt'],
+        ['Estimated tokens', data.usage?.estimatedTokens || 0, 'fa-microchip'],
+        ['Cost (USD)', Number(data.usage?.estimatedCostUsd || 0).toFixed(4), 'fa-dollar-sign']
     ];
     
     const grid = $('metricGrid');
     if (grid) {
-        grid.innerHTML = metrics.map(([label, value]) => `
+        grid.innerHTML = metrics.map(([label, value, icon]) => `
             <div class="kpi-card fade-in">
                 <div class="kpi-top">
                     <p class="kpi-label">${label}</p>
-                    <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="kpi-icon"><i class="fas ${icon}"></i></div>
                 </div>
                 <h3 class="kpi-value">${Number(value || 0).toLocaleString()}</h3>
             </div>
@@ -193,8 +228,9 @@ async function loadReports() {
     `).join('');
 }
 
-async function loadAudit() {
-    const response = await apiFetch('/api/admin/audit', { method: 'GET', cache: 'no-store' });
+async function loadAudit(category) {
+    const categoryParam = category ? `?category=${encodeURIComponent(category)}` : '';
+    const response = await apiFetch(`/api/admin/audit${categoryParam}`, { method: 'GET', cache: 'no-store' });
     const data = await parseJson(response);
     if (!response.ok) return;
     state.audit = Array.isArray(data) ? data : [];
@@ -253,6 +289,99 @@ async function loadSessions() {
     tbody.querySelectorAll('.revoke-session-btn').forEach(btn => {
         btn.onclick = () => revokeSession(btn.getAttribute('data-session-id'));
     });
+}
+
+async function loadSuspendedUsers() {
+    const list = $('suspendedUsersList');
+    if (!list) return;
+    const response = await apiFetch('/api/admin/users/suspended', { method: 'GET', cache: 'no-store' });
+    const data = await parseJson(response);
+    if (!response.ok) {
+        list.innerHTML = '<div class="list-item"><strong class="muted">Could not load suspended users.</strong></div>';
+        return;
+    }
+    state.suspendedUsers = Array.isArray(data) ? data : [];
+    if (!state.suspendedUsers.length) {
+        list.innerHTML = '<div class="list-item"><strong class="muted">No suspended users.</strong></div>';
+        return;
+    }
+    list.innerHTML = state.suspendedUsers.map(u => `
+        <div class="suspended-user-item fade-in">
+            <div class="user-info">
+                <strong>${u.sessionIdMasked || u.sessionId}</strong>
+                <small>${u.suspensionReason || 'No reason given'} · Suspended ${new Date(u.suspendedAt).toLocaleString()}</small>
+            </div>
+            <button class="secondary-action-btn unsuspend-btn" data-user-id="${u.sessionId}" type="button">
+                <i class="fas fa-circle-check"></i> Unsuspend
+            </button>
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.unsuspend-btn').forEach(btn => {
+        btn.onclick = async () => {
+            const userId = btn.getAttribute('data-user-id');
+            if (!await confirmAction(`Unsuspend ${userId}?`)) return;
+            const resp = await apiFetch(`/api/admin/users/${encodeURIComponent(userId)}/suspension`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ suspended: false, reason: '' })
+            });
+            if (!resp.ok) return showAdminToast('Failed to unsuspend user.', 'error');
+            showAdminToast('User suspension removed.', 'success');
+            await Promise.all([loadSuspendedUsers(), loadOverview(), loadAudit()]);
+        };
+    });
+}
+
+async function loadMaintenanceStatus() {
+    try {
+        const response = await apiFetch('/api/admin/maintenance', { method: 'GET', cache: 'no-store' });
+        const data = await parseJson(response);
+        if (response.ok) {
+            state.maintenanceMode = !!data.maintenanceMode;
+            updateMaintenanceUI();
+        }
+    } catch (_) {
+        // Non-critical — toggle will still work
+    }
+}
+
+function updateMaintenanceUI() {
+    const toggle = $('maintenanceToggle');
+    const pill = $('maintenanceStatusPill');
+    if (toggle) toggle.checked = state.maintenanceMode;
+    if (pill) {
+        if (state.maintenanceMode) {
+            pill.className = 'pill danger maintenance-status-pill';
+            pill.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Active';
+        } else {
+            pill.className = 'pill success maintenance-status-pill';
+            pill.innerHTML = '<i class="fas fa-check-circle"></i> Off';
+        }
+    }
+}
+
+async function toggleMaintenance() {
+    const action = state.maintenanceMode ? 'disable' : 'enable';
+    if (!await confirmAction(`Are you sure you want to ${action} maintenance mode? ${!state.maintenanceMode ? 'All non-admin API endpoints will return 503.' : 'Normal service will resume.'}`)) {
+        // Revert the checkbox
+        const toggle = $('maintenanceToggle');
+        if (toggle) toggle.checked = state.maintenanceMode;
+        return;
+    }
+    try {
+        const response = await apiFetch('/api/admin/maintenance', { method: 'POST' });
+        const data = await parseJson(response);
+        if (!response.ok) throw new Error('Toggle failed');
+        state.maintenanceMode = !!data.maintenanceMode;
+        updateMaintenanceUI();
+        showAdminToast(`Maintenance mode ${state.maintenanceMode ? 'enabled' : 'disabled'}.`, 'success');
+    } catch (e) {
+        showAdminToast(e.message, 'error');
+        // Revert
+        const toggle = $('maintenanceToggle');
+        if (toggle) toggle.checked = state.maintenanceMode;
+    }
 }
 
 async function loadAnalytics() {
@@ -344,27 +473,7 @@ async function setSuspension(suspended) {
     showAdminToast(suspended ? 'User suspended and active sessions revoked.' : 'User suspension removed.', 'success');
     $('adminUserId').value = '';
     $('adminReason').value = '';
-    await Promise.all([loadOverview(), loadAudit(), loadSessions()]);
-}
-
-async function doQuickAction(action) {
-    if (!await confirmAction(`Proceed with action: ${action}?`)) return;
-    try {
-        let endpoint = '';
-        if (action === 'cache') endpoint = '/api/admin/cache';
-        if (action === 'maintenance') endpoint = '/api/admin/maintenance';
-        if (action === 'broadcast') {
-            showAdminToast('Broadcast functionality would open a modal here.', 'info');
-            return;
-        }
-        
-        if (!endpoint) return;
-        const res = await apiFetch(endpoint, { method: 'POST' });
-        if (!res.ok) throw new Error('Action failed');
-        showAdminToast(`Action '${action}' completed successfully.`, 'success');
-    } catch (e) {
-        showAdminToast(e.message, 'error');
-    }
+    await Promise.all([loadOverview(), loadAudit(), loadSessions(), loadSuspendedUsers()]);
 }
 
 // --- SEARCH ---
@@ -434,19 +543,18 @@ function handleExport(type) {
 
 // --- EVENTS ---
 window.addEventListener('load', () => {
+    initTabs();
     init();
-    
-    // Quick Actions
-    const quickButtons = document.querySelectorAll('.admin-toolbar .toolbar-btn');
-    if (quickButtons[0]) quickButtons[0].onclick = () => doQuickAction('broadcast');
-    if (quickButtons[1]) quickButtons[1].onclick = () => doQuickAction('cache');
-    if (quickButtons[2]) quickButtons[2].onclick = () => doQuickAction('maintenance');
     
     // Bindings
     if ($('suspendUserBtn')) $('suspendUserBtn').onclick = () => setSuspension(true);
     if ($('unsuspendUserBtn')) $('unsuspendUserBtn').onclick = () => setSuspension(false);
     if ($('refreshReportsBtn')) $('refreshReportsBtn').onclick = () => { showSkeleton('reportList'); loadReports(); };
-    if ($('refreshAuditBtn')) $('refreshAuditBtn').onclick = () => { showSkeleton('auditList', 5); loadAudit(); };
+    if ($('refreshAuditBtn')) $('refreshAuditBtn').onclick = () => {
+        const category = $('auditCategoryFilter')?.value || '';
+        showSkeleton('auditList', 5);
+        loadAudit(category);
+    };
     if ($('refreshDashboardBtn')) $('refreshDashboardBtn').onclick = init;
     if ($('adminLogoutBtn')) $('adminLogoutBtn').onclick = async () => {
         try {
@@ -457,9 +565,25 @@ window.addEventListener('load', () => {
         window.location.href = '/admin-login';
     };
     if ($('refreshSessionsBtn')) $('refreshSessionsBtn').onclick = loadSessions;
+    if ($('refreshSuspendedBtn')) $('refreshSuspendedBtn').onclick = () => {
+        showSkeleton('suspendedUsersList', 2);
+        loadSuspendedUsers();
+    };
     if ($('adminSearchBtn')) $('adminSearchBtn').onclick = handleSearch;
     if ($('adminClearSearchBtn')) $('adminClearSearchBtn').onclick = clearSearch;
     
+    // Maintenance toggle
+    if ($('maintenanceToggle')) $('maintenanceToggle').onchange = toggleMaintenance;
+
+    // Audit category filter
+    if ($('auditCategoryFilter')) {
+        $('auditCategoryFilter').onchange = () => {
+            const category = $('auditCategoryFilter').value;
+            showSkeleton('auditList', 5);
+            loadAudit(category);
+        };
+    }
+
     // Debounced Search
     const searchInput = $('adminSearchQuery');
     if (searchInput) {

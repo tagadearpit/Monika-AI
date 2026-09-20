@@ -2317,7 +2317,8 @@ app.get('/api/admin/overview', adminLimiter, requireAdminSession, async (req, re
         aiFailures,
         authenticationFailures,
         rateLimitEvents,
-        aiUsage
+        aiUsage,
+        pendingReminders
     ] = await Promise.all([
         User.countDocuments(),
         User.countDocuments({ firstLogin: mongoose.trusted({ $gte: dayAgo }) }),
@@ -2329,7 +2330,8 @@ app.get('/api/admin/overview', adminLimiter, requireAdminSession, async (req, re
         AuditEvent.countDocuments({ action: 'ai.request_failed', createdAt: mongoose.trusted({ $gte: dayAgo }) }),
         AuditEvent.countDocuments({ action: /^auth\./, createdAt: mongoose.trusted({ $gte: dayAgo }) }),
         AuditEvent.countDocuments({ action: /^rate_limit\./, createdAt: mongoose.trusted({ $gte: dayAgo }) }),
-        UsageDaily.aggregate([{ $group: { _id: null, messages: { $sum: '$messageCount' }, estimatedTokens: { $sum: '$estimatedTokens' } } }])
+        UsageDaily.aggregate([{ $group: { _id: null, messages: { $sum: '$messageCount' }, estimatedTokens: { $sum: '$estimatedTokens' } } }]),
+        Reminder.countDocuments({ status: 'pending' })
     ]);
     const usage = aiUsage[0] || { messages: 0, estimatedTokens: 0 };
     usage.estimatedCostUsd = Number(((usage.estimatedTokens / 1_000_000) * ESTIMATED_COST_PER_MILLION_TOKENS_USD).toFixed(6));
@@ -2344,6 +2346,7 @@ app.get('/api/admin/overview', adminLimiter, requireAdminSession, async (req, re
         aiFailures24h: aiFailures,
         authenticationFailures24h: authenticationFailures,
         rateLimitEvents24h: rateLimitEvents,
+        pendingReminders,
         usage
     });
 });
@@ -2358,7 +2361,13 @@ app.get('/api/admin/reports', adminLimiter, requireAdminSession, async (req, res
 });
 
 app.get('/api/admin/audit', adminLimiter, requireAdminSession, async (req, res) => {
-    const events = await AuditEvent.find().sort({ createdAt: -1 }).limit(200).lean();
+    const AUDIT_CATEGORY_PREFIXES = { auth: /^auth\./, admin: /^admin\./, rate_limit: /^rate_limit\./, ai: /^ai\./ };
+    const category = String(req.query.category || '').toLowerCase();
+    const filter = {};
+    if (category && AUDIT_CATEGORY_PREFIXES[category]) {
+        filter.action = AUDIT_CATEGORY_PREFIXES[category];
+    }
+    const events = await AuditEvent.find(filter).sort({ createdAt: -1 }).limit(200).lean();
     return res.json(events.map(event => ({
         ...event,
         identifierMasked: auditIdentifier(event),
@@ -2399,6 +2408,15 @@ app.delete('/api/admin/sessions/:sessionId', verifyTrustedOrigin, adminLimiter, 
     if (!session) return res.status(404).json({ error: 'Session not found or already revoked.', code: 'SESSION_NOT_FOUND' });
     recordAudit('admin.session_revoked', req.user.sessionId, req, { targetSessionId: sessionId, targetUserId: session.userId });
     return res.json({ success: true, sessionId });
+});
+
+app.get('/api/admin/users/suspended', adminLimiter, requireAdminSession, async (req, res) => {
+    const users = await User.find({ suspendedAt: mongoose.trusted({ $ne: null }) })
+        .sort({ suspendedAt: -1 })
+        .limit(100)
+        .select('sessionId suspendedAt suspensionReason lastActive')
+        .lean();
+    return res.json(users.map(u => ({ ...u, sessionIdMasked: maskIdentifier(u.sessionId) })));
 });
 
 
@@ -2462,6 +2480,10 @@ app.get('/api/admin/analytics', adminLimiter, requireAdminSession, async (req, r
     }
     
     return res.json({ dates, users, requests, messages });
+});
+
+app.get('/api/admin/maintenance', adminLimiter, requireAdminSession, (req, res) => {
+    return res.json({ maintenanceMode: globalMaintenanceMode });
 });
 
 app.post('/api/admin/maintenance', verifyTrustedOrigin, adminLimiter, requireAdminSession, async (req, res) => {

@@ -9,7 +9,7 @@
     "build": "npm run check",
     "prod": "NODE_ENV=production node server.js",
     "check": "node --check server.js && node --check models.js && node --check utils.js && node --check validation.js && node --check ../public/script.js && node --check ../public/admin.js && node --check ../public/admin-login.js && node --check ../public/sw.js",
-    "lint": "cd .. && ./backend/node_modules/.bin/eslint backend/*.js backend/test/*.js public/*.js",
+    "lint": "cd .. && node backend/node_modules/eslint/bin/eslint.js backend/*.js backend/test/*.js public/*.js",
     "hash-admin-password": "node scripts/hash-admin-password.js",
     "test": "npm run check && npm run lint && node --test test/*.test.js"
   },
@@ -26,7 +26,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.1",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.0.10",
     "pdfkit": "^0.19.1",
     "web-push": "^3.6.7",
     "xss": "^1.0.15",
@@ -43,8 +43,8 @@
     "sharp": "^0.35.0"
   },
   "optionalDependencies": {
-    "@img/sharp-linux-x64": "0.35.3",
-    "@img/sharp-libvips-linux-x64": "1.3.2"
+    "@img/sharp-libvips-linux-x64": "1.3.2",
+    "@img/sharp-linux-x64": "0.35.3"
   },
   "devDependencies": {
     "eslint": "^10.8.0",
