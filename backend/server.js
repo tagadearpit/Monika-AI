@@ -2444,42 +2444,77 @@ app.get('/api/admin/search', adminLimiter, requireAdminSession, async (req, res)
     });
 });
 app.get('/api/admin/analytics', adminLimiter, requireAdminSession, async (req, res) => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-    
-    const [messagesAgg, usersAgg] = await Promise.all([
-        Message.aggregate([
-            { $match: { createdAt: { $gte: sevenDaysAgo } } },
-            { $group: { _id: { $dateToString: { format: "%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } }
-        ]),
-        User.aggregate([
-            { $match: { lastActive: { $gte: sevenDaysAgo } } },
-            { $group: { _id: { $dateToString: { format: "%m-%d", date: "$lastActive" } }, count: { $sum: 1 } } }
-        ])
-    ]);
-    
-    const dates = [];
-    const usersMap = new Map(usersAgg.map(u => [u._id, u.count]));
-    const messagesMap = new Map(messagesAgg.map(m => [m._id, m.count]));
-    
-    const users = [];
-    const messages = [];
-    const requests = [];
-    
-    for (let i = 6; i >= 0; i--) {
+    const rangeStart = new Date();
+    rangeStart.setDate(rangeStart.getDate() - 13);
+    rangeStart.setHours(0, 0, 0, 0);
+
+    const dateKeys = [];
+    const labels = [];
+    for (let i = 13; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = (d.getMonth() + 1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0');
-        dates.push(dateStr);
-        users.push(usersMap.get(dateStr) || 0);
-        
-        const msgs = messagesMap.get(dateStr) || 0;
-        messages.push(msgs);
-        requests.push(Math.round(msgs * 1.5)); // estimate requests based on messages
+        const dateKey = d.toISOString().slice(0, 10);
+        dateKeys.push(dateKey);
+        labels.push((d.getMonth() + 1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0'));
     }
-    
-    return res.json({ dates, users, requests, messages });
+
+    const [messagesAgg, signupsAgg, activeAgg, errorAgg, browserAgg, osAgg, featureTotals] = await Promise.all([
+        Message.aggregate([
+            { $match: { createdAt: mongoose.trusted({ $gte: rangeStart }) } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } }
+        ]),
+        User.aggregate([
+            { $match: { firstLogin: mongoose.trusted({ $gte: rangeStart }) } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$firstLogin" } }, count: { $sum: 1 } } }
+        ]),
+        UsageDaily.aggregate([
+            { $match: { dateKey: { $gte: dateKeys[0] } } },
+            { $group: { _id: '$dateKey', count: { $addToSet: '$userId' } } },
+            { $project: { count: { $size: '$count' } } }
+        ]),
+        AuditEvent.aggregate([
+            { $match: { createdAt: mongoose.trusted({ $gte: rangeStart }), action: { $in: [/^auth\./, /^rate_limit\./, 'ai.request_failed'] } } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } }
+        ]),
+        Session.aggregate([
+            { $match: { revokedAt: null, expiresAt: mongoose.trusted({ $gt: new Date() }) } },
+            { $group: { _id: '$browser', count: { $sum: 1 } } }
+        ]),
+        Session.aggregate([
+            { $match: { revokedAt: null, expiresAt: mongoose.trusted({ $gt: new Date() }) } },
+            { $group: { _id: '$operatingSystem', count: { $sum: 1 } } }
+        ]),
+        Promise.all([
+            Conversation.countDocuments(),
+            Message.countDocuments(),
+            Reminder.countDocuments(),
+            Fact.countDocuments()
+        ])
+    ]);
+
+    const toMap = (agg) => new Map(agg.map(a => [a._id, a.count]));
+    const messagesMap = toMap(messagesAgg);
+    const signupsMap = toMap(signupsAgg);
+    const activeMap = toMap(activeAgg);
+    const errorMap = toMap(errorAgg);
+
+    return res.json({
+        dates: labels,
+        messages: dateKeys.map(k => messagesMap.get(k) || 0),
+        signups: dateKeys.map(k => signupsMap.get(k) || 0),
+        activeUsers: dateKeys.map(k => activeMap.get(k) || 0),
+        errors: dateKeys.map(k => errorMap.get(k) || 0),
+        devices: {
+            browsers: Object.fromEntries(browserAgg.map(b => [b._id || 'Unknown', b.count])),
+            operatingSystems: Object.fromEntries(osAgg.map(o => [o._id || 'Unknown', o.count]))
+        },
+        featureTotals: {
+            conversations: featureTotals[0],
+            messages: featureTotals[1],
+            reminders: featureTotals[2],
+            memoryFacts: featureTotals[3]
+        }
+    });
 });
 
 app.get('/api/admin/maintenance', adminLimiter, requireAdminSession, (req, res) => {
