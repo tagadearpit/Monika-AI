@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#281523">
+    <meta name="theme-color" content="#0a0e1a">
     <meta name="color-scheme" content="dark">
     <title>Monika AI Admin</title>
     <link rel="icon" href="/icon-192.png" type="image/png">
@@ -17,7 +17,7 @@
     gtag('config', 'G-6S1R6WW5HP');
     </script>
     <link rel="stylesheet" href="/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/admin.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -35,12 +35,7 @@
                     <p class="brand-subtitle">
                         Operational metrics, reports, session controls, moderation tools, and release health in one place.
                     </p>
-                    <div class="hero-chips">
-                        <span class="chip"><i class="fas fa-robot"></i> Gemini-backed AI</span>
-                        <span class="chip"><i class="fas fa-database"></i> MongoDB sessions</span>
-                        <span class="chip"><i class="fas fa-lock"></i> Secure auth</span>
-                        <span class="chip"><i class="fas fa-chart-line"></i> Production analytics</span>
-                    </div>
+
                 </div>
 
                 <div class="hero-actions">
@@ -82,9 +77,20 @@
                 <div class="tab-panel active" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
                     <div class="kpi-grid" id="metricGrid"></div>
 
+                    <section class="admin-card live-activity-card">
+                        <div class="admin-card-header">
+                            <div>
+                                <h2><i class="fas fa-satellite-dish" style="margin-right:8px; color: var(--v2-accent);"></i>Live Activity</h2>
+                                <p>Most recent events, auto-refreshing every 8 seconds.</p>
+                            </div>
+                            <span id="liveActivityStatus" class="pill success"><i class="fas fa-circle"></i> Polling</span>
+                        </div>
+                        <div id="liveActivityFeed" class="live-feed"></div>
+                    </section>
+
                     <div class="maintenance-card">
                         <div class="maintenance-info">
-                            <h3><i class="fas fa-wrench" style="margin-right:8px; color: var(--admin-warning);"></i>Maintenance Mode</h3>
+                            <h3><i class="fas fa-wrench" style="margin-right:8px; color: var(--v2-warning);"></i>Maintenance Mode</h3>
                             <p>When enabled, all non-admin API endpoints return 503. Resets on server restart.</p>
                         </div>
                         <div class="maintenance-controls">
@@ -214,27 +220,58 @@
                 <!-- Tab: Analytics -->
                 <div class="tab-panel" role="tabpanel" id="panel-analytics" aria-labelledby="tab-analytics">
                     <div class="admin-grid-two">
-                        <section class="admin-card">
+                        <section class="admin-card chart-card">
                             <div class="admin-card-header">
                                 <div>
-                                    <h2>Daily Users &amp; Requests</h2>
-                                    <p>Engagement over the last 7 days.</p>
+                                    <h2>Growth &amp; Engagement</h2>
+                                    <p>Signups, active users, and messages — last 14 days.</p>
                                 </div>
                             </div>
                             <div class="chart-container">
-                                <canvas id="dailyUsersChart"></canvas>
+                                <canvas id="growthChart"></canvas>
                             </div>
                         </section>
 
-                        <section class="admin-card">
+                        <section class="admin-card chart-card">
                             <div class="admin-card-header">
                                 <div>
-                                    <h2>Message Volume &amp; Latency</h2>
-                                    <p>System activity trends.</p>
+                                    <h2>Errors Over Time</h2>
+                                    <p>Auth failures, rate limits, and AI errors — last 14 days.</p>
                                 </div>
                             </div>
                             <div class="chart-container">
-                                <canvas id="volumeChart"></canvas>
+                                <canvas id="errorsChart"></canvas>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="admin-grid-two">
+                        <section class="admin-card chart-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Sessions by Device</h2>
+                                    <p>Browser and OS distribution of active sessions.</p>
+                                </div>
+                            </div>
+                            <div class="chart-container-row">
+                                <div class="chart-container chart-doughnut">
+                                    <canvas id="browserChart"></canvas>
+                                </div>
+                                <div class="chart-container chart-doughnut">
+                                    <canvas id="osChart"></canvas>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="admin-card chart-card">
+                            <div class="admin-card-header">
+                                <div>
+                                    <h2>Feature Usage</h2>
+                                    <p>Lifetime totals — not a rate, just how much data exists.</p>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="featureChart"></canvas>
                             </div>
                         </section>
                     </div>

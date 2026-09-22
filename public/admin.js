@@ -1,4 +1,4 @@
-/* global Chart */
+/* global Chart, performance */
 'use strict';
 
 const state = {
@@ -11,7 +11,9 @@ const state = {
     theme: localStorage.getItem('monika_theme') || 'dark',
     chartData: null,
     searchTimeout: null,
-    maintenanceMode: false
+    maintenanceMode: false,
+    livePollingTimer: null,
+    livePollingActive: false
 };
 
 const $ = (id) => document.getElementById(id);
@@ -35,12 +37,12 @@ function showAdminToast(message, type = 'info') {
     toast.style.pointerEvents = 'auto';
     toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
     toast.innerHTML = `
-        <i class="fas ${type === 'error' ? 'fa-paw' : 'fa-check-circle'}" style="color: ${type === 'error' ? 'var(--admin-danger)' : 'var(--admin-success)'}; font-size: 1.4rem;"></i>
+        <i class="fas ${type === 'error' ? 'fa-paw' : 'fa-check-circle'}" style="color: ${type === 'error' ? 'var(--v2-danger)' : 'var(--v2-success)'}; font-size: 1.4rem;"></i>
         <div style="flex:1">
             <h4 style="margin:0; font-size: 0.95rem;">${type === 'error' ? 'Oops!' : 'Notice'}</h4>
             <p style="margin:2px 0 0; font-size: 0.85rem;" class="muted">${message}</p>
         </div>
-        <button style="background:transparent; border:none; color:var(--admin-muted); cursor:pointer;" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+        <button style="background:transparent; border:none; color:var(--v2-muted); cursor:pointer;" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
     `;
     container.appendChild(toast);
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
@@ -79,6 +81,36 @@ function showSkeleton(containerId, count = 3) {
     const container = $(containerId);
     if (!container) return;
     container.innerHTML = Array(count).fill('<div class="list-item"><strong class="muted">Loading...</strong></div>').join('');
+}
+
+// --- KPI COUNT-UP ANIMATION ---
+function animateCountUp(element, target, duration = 900) {
+    const start = 0;
+    const startTime = performance.now();
+    const isDecimal = String(target).includes('.');
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease-out cubic for a satisfying deceleration
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = start + (target - start) * eased;
+        
+        if (isDecimal) {
+            element.textContent = current.toFixed(4);
+        } else {
+            element.textContent = Math.round(current).toLocaleString();
+        }
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            // Ensure final value is exact
+            element.textContent = isDecimal ? Number(target).toFixed(4) : Number(target).toLocaleString();
+        }
+    }
+    
+    requestAnimationFrame(update);
 }
 
 // --- TABS ---
@@ -160,6 +192,9 @@ async function init() {
         
         $('adminStatus').hidden = true;
         $('adminContent').hidden = false;
+
+        // Start live activity polling
+        startLiveActivityPolling();
     } catch (error) {
         $('adminStatus').textContent = error.message;
         $('adminStatus').classList.add('error');
@@ -199,9 +234,15 @@ async function loadOverview() {
                     <p class="kpi-label">${label}</p>
                     <div class="kpi-icon"><i class="fas ${icon}"></i></div>
                 </div>
-                <h3 class="kpi-value">${Number(value || 0).toLocaleString()}</h3>
+                <h3 class="kpi-value" data-target="${value}">0</h3>
             </div>
         `).join('');
+
+        // Animate count-up for each KPI value
+        grid.querySelectorAll('.kpi-value').forEach(el => {
+            const target = parseFloat(el.dataset.target) || 0;
+            animateCountUp(el, target);
+        });
     }
 }
 
@@ -384,6 +425,7 @@ async function toggleMaintenance() {
     }
 }
 
+// --- ANALYTICS ---
 async function loadAnalytics() {
     const response = await apiFetch('/api/admin/analytics', { method: 'GET', cache: 'no-store' });
     const data = await parseJson(response);
@@ -394,56 +436,298 @@ async function loadAnalytics() {
 
 // --- CHARTS ---
 let chartsObj = {};
+
+function createGradient(ctx, canvas, colorTop, colorBottom) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, colorTop);
+    gradient.addColorStop(1, colorBottom);
+    return gradient;
+}
+
+function chartDefaults() {
+    Chart.defaults.color = 'rgba(160, 180, 210, 0.6)';
+    Chart.defaults.font.family = "'JetBrains Mono', 'Consolas', monospace";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.elements.line.borderWidth = 2;
+    Chart.defaults.elements.point.radius = 3;
+    Chart.defaults.elements.point.hoverRadius = 6;
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.padding = 16;
+}
+
 function renderCharts() {
     if (!state.chartData || !window.Chart) return;
-    
-    Chart.defaults.color = 'rgba(255, 255, 255, 0.68)';
-    Chart.defaults.font.family = "'Poppins', sans-serif";
-    
-    const { dates, users, requests, messages } = state.chartData;
-    
-    if (chartsObj.dailyUsers) chartsObj.dailyUsers.destroy();
-    const ctxUsers = $('dailyUsersChart');
-    if (ctxUsers) {
-        chartsObj.dailyUsers = new Chart(ctxUsers, {
+    chartDefaults();
+
+    const { dates, signups, activeUsers, messages, errors, devices, featureTotals } = state.chartData;
+
+    // 1. Growth & Engagement — line chart
+    if (chartsObj.growth) chartsObj.growth.destroy();
+    const growthCanvas = $('growthChart');
+    if (growthCanvas) {
+        const gCtx = growthCanvas.getContext('2d');
+        chartsObj.growth = new Chart(growthCanvas, {
             type: 'line',
             data: {
                 labels: dates,
-                datasets: [{
-                    label: 'Active Users',
-                    data: users,
-                    borderColor: '#ff4fa3',
-                    backgroundColor: 'rgba(255, 79, 163, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true
-                }]
+                datasets: [
+                    {
+                        label: 'Signups',
+                        data: signups,
+                        borderColor: '#34d399',
+                        backgroundColor: createGradient(gCtx, growthCanvas, 'rgba(52, 211, 153, 0.25)', 'rgba(52, 211, 153, 0.01)'),
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#34d399'
+                    },
+                    {
+                        label: 'Active Users',
+                        data: activeUsers,
+                        borderColor: '#38bdf8',
+                        backgroundColor: createGradient(gCtx, growthCanvas, 'rgba(56, 189, 248, 0.2)', 'rgba(56, 189, 248, 0.01)'),
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#38bdf8'
+                    },
+                    {
+                        label: 'Messages',
+                        data: messages,
+                        borderColor: '#818cf8',
+                        backgroundColor: createGradient(gCtx, growthCanvas, 'rgba(129, 140, 248, 0.15)', 'rgba(129, 140, 248, 0.01)'),
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#818cf8'
+                    }
+                ]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { grid: { color: 'rgba(56, 189, 248, 0.05)' } },
+                    y: { grid: { color: 'rgba(56, 189, 248, 0.05)' }, beginAtZero: true }
+                }
+            }
         });
     }
 
-    if (chartsObj.volume) chartsObj.volume.destroy();
-    const ctxVolume = $('volumeChart');
-    if (ctxVolume) {
-        chartsObj.volume = new Chart(ctxVolume, {
+    // 2. Errors Over Time — bar chart
+    if (chartsObj.errors) chartsObj.errors.destroy();
+    const errorsCanvas = $('errorsChart');
+    if (errorsCanvas) {
+        const eCtx = errorsCanvas.getContext('2d');
+        chartsObj.errors = new Chart(errorsCanvas, {
             type: 'bar',
             data: {
                 labels: dates,
                 datasets: [{
-                    label: 'Requests',
-                    data: requests,
-                    backgroundColor: '#8d63ff',
-                    borderRadius: 4
-                }, {
-                    label: 'Messages',
-                    data: messages,
-                    backgroundColor: '#49d17c',
-                    borderRadius: 4
+                    label: 'Errors',
+                    data: errors,
+                    backgroundColor: createGradient(eCtx, errorsCanvas, 'rgba(248, 113, 113, 0.7)', 'rgba(248, 113, 113, 0.2)'),
+                    borderColor: 'rgba(248, 113, 113, 0.9)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    hoverBackgroundColor: 'rgba(248, 113, 113, 0.9)'
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { color: 'rgba(56, 189, 248, 0.05)' } },
+                    y: { grid: { color: 'rgba(56, 189, 248, 0.05)' }, beginAtZero: true }
+                }
+            }
         });
+    }
+
+    // 3. Sessions by Device — two doughnut charts
+    const doughnutColors = ['#38bdf8', '#818cf8', '#34d399', '#fbbf24', '#f87171', '#60a5fa', '#a78bfa', '#fb923c'];
+
+    if (chartsObj.browser) chartsObj.browser.destroy();
+    const browserCanvas = $('browserChart');
+    if (browserCanvas && devices?.browsers) {
+        const browserLabels = Object.keys(devices.browsers);
+        const browserData = Object.values(devices.browsers);
+        chartsObj.browser = new Chart(browserCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: browserLabels,
+                datasets: [{
+                    data: browserData,
+                    backgroundColor: doughnutColors.slice(0, browserLabels.length),
+                    borderColor: 'rgba(14, 22, 42, 0.8)',
+                    borderWidth: 2,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 10 } },
+                    title: { display: true, text: 'Browsers', color: 'rgba(160, 180, 210, 0.7)', font: { size: 12, weight: '600' } }
+                }
+            }
+        });
+    }
+
+    if (chartsObj.os) chartsObj.os.destroy();
+    const osCanvas = $('osChart');
+    if (osCanvas && devices?.operatingSystems) {
+        const osLabels = Object.keys(devices.operatingSystems);
+        const osData = Object.values(devices.operatingSystems);
+        chartsObj.os = new Chart(osCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: osLabels,
+                datasets: [{
+                    data: osData,
+                    backgroundColor: doughnutColors.slice(0, osLabels.length),
+                    borderColor: 'rgba(14, 22, 42, 0.8)',
+                    borderWidth: 2,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 10 } },
+                    title: { display: true, text: 'Operating Systems', color: 'rgba(160, 180, 210, 0.7)', font: { size: 12, weight: '600' } }
+                }
+            }
+        });
+    }
+
+    // 4. Feature Usage — bar chart (lifetime totals)
+    if (chartsObj.feature) chartsObj.feature.destroy();
+    const featureCanvas = $('featureChart');
+    if (featureCanvas && featureTotals) {
+        const fCtx = featureCanvas.getContext('2d');
+        const featureLabels = ['Conversations', 'Messages', 'Reminders', 'Memory Facts'];
+        const featureData = [
+            featureTotals.conversations || 0,
+            featureTotals.messages || 0,
+            featureTotals.reminders || 0,
+            featureTotals.memoryFacts || 0
+        ];
+        const barColors = [
+            createGradient(fCtx, featureCanvas, 'rgba(56, 189, 248, 0.7)', 'rgba(56, 189, 248, 0.2)'),
+            createGradient(fCtx, featureCanvas, 'rgba(129, 140, 248, 0.7)', 'rgba(129, 140, 248, 0.2)'),
+            createGradient(fCtx, featureCanvas, 'rgba(52, 211, 153, 0.7)', 'rgba(52, 211, 153, 0.2)'),
+            createGradient(fCtx, featureCanvas, 'rgba(251, 191, 36, 0.7)', 'rgba(251, 191, 36, 0.2)')
+        ];
+        chartsObj.feature = new Chart(featureCanvas, {
+            type: 'bar',
+            data: {
+                labels: featureLabels,
+                datasets: [{
+                    label: 'Lifetime Totals',
+                    data: featureData,
+                    backgroundColor: barColors,
+                    borderColor: ['#38bdf8', '#818cf8', '#34d399', '#fbbf24'],
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: { grid: { color: 'rgba(56, 189, 248, 0.05)' }, beginAtZero: true },
+                    y: { grid: { display: false } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+}
+
+// --- LIVE ACTIVITY PANEL ---
+function formatAuditEvent(event) {
+    const identifier = event.identifierMasked || event.userIdMasked || event.userId || event.metadata?.email
+        || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anon');
+    const methodLabel = event.method ? ` · ${event.method}` : '';
+    const time = new Date(event.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return { time, action: event.action, identifier: `${identifier}${methodLabel}` };
+}
+
+async function fetchLiveActivity() {
+    try {
+        const response = await apiFetch('/api/admin/audit', { method: 'GET', cache: 'no-store' });
+        const data = await parseJson(response);
+        if (!response.ok) return;
+
+        const events = (Array.isArray(data) ? data : []).slice(0, 8);
+        const feed = $('liveActivityFeed');
+        if (!feed) return;
+
+        if (!events.length) {
+            feed.innerHTML = '<div class="live-event"><span class="live-event-time">--:--:--</span><span class="live-event-action muted">No events yet</span><span class="live-event-id"></span></div>';
+            return;
+        }
+
+        feed.innerHTML = events.map(event => {
+            const { time, action, identifier } = formatAuditEvent(event);
+            return `
+                <div class="live-event">
+                    <span class="live-event-time">${time}</span>
+                    <span class="live-event-action">${action}</span>
+                    <span class="live-event-id">${identifier}</span>
+                </div>
+            `;
+        }).join('');
+    } catch (_) {
+        // Silently fail — next poll will retry
+    }
+}
+
+function startLiveActivityPolling() {
+    // Initial fetch
+    fetchLiveActivity();
+    state.livePollingActive = true;
+    updateLiveStatus(true);
+
+    // Poll every 8 seconds
+    state.livePollingTimer = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            fetchLiveActivity();
+        }
+    }, 8000);
+
+    // Pause/resume on visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+}
+
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+        // Tab became visible — fetch immediately and resume
+        fetchLiveActivity();
+        updateLiveStatus(true);
+    } else {
+        // Tab hidden — polling continues via setInterval but fetchLiveActivity
+        // won't actually make requests due to the visibility check inside
+        updateLiveStatus(false);
+    }
+}
+
+function updateLiveStatus(active) {
+    const statusPill = $('liveActivityStatus');
+    if (!statusPill) return;
+    if (active) {
+        statusPill.className = 'pill success';
+        statusPill.innerHTML = '<i class="fas fa-circle"></i> Polling';
+    } else {
+        statusPill.className = 'pill warning';
+        statusPill.innerHTML = '<i class="fas fa-pause"></i> Paused';
     }
 }
 
