@@ -47,7 +47,7 @@
     "@img/sharp-linux-x64": "0.35.3"
   },
   "devDependencies": {
-    "eslint": "^10.8.0",
+    "eslint": "^10.10.0",
     "mongodb-memory-server": "^10.3.0",
     "supertest": "^7.2.2"
   }
