@@ -128,6 +128,11 @@ function initTabs() {
             p.classList.toggle('active', p.id === `panel-${tabName}`);
         });
         window.location.hash = tabName;
+        if (tabName === 'analytics') {
+            // Canvases measure as 0x0 while their panel is display:none,
+            // so (re)draw once the panel is actually visible.
+            requestAnimationFrame(() => renderCharts());
+        }
     }
 
     tabs.forEach(tab => {
@@ -426,10 +431,26 @@ async function toggleMaintenance() {
 }
 
 // --- ANALYTICS ---
+function setAnalyticsError(message) {
+    const box = $('analyticsError');
+    if (!box) return;
+    box.textContent = message || '';
+    box.hidden = !message;
+}
+
 async function loadAnalytics() {
+    setAnalyticsError('');
+    if (!window.Chart) {
+        console.error('Chart.js failed to load (check /vendor/chart.umd.js and the CSP).');
+        setAnalyticsError('Charts could not load: the chart library failed to load.');
+        return;
+    }
     const response = await apiFetch('/api/admin/analytics', { method: 'GET', cache: 'no-store' });
     const data = await parseJson(response);
-    if (!response.ok || !window.Chart) return;
+    if (!response.ok) {
+        setAnalyticsError(`Analytics data could not be loaded (HTTP ${response.status}).`);
+        return;
+    }
     state.chartData = data;
     renderCharts();
 }
@@ -438,7 +459,7 @@ async function loadAnalytics() {
 let chartsObj = {};
 
 function createGradient(ctx, canvas, colorTop, colorBottom) {
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || canvas.height || 300);
     gradient.addColorStop(0, colorTop);
     gradient.addColorStop(1, colorBottom);
     return gradient;
@@ -547,7 +568,7 @@ function renderCharts() {
 
     if (chartsObj.browser) chartsObj.browser.destroy();
     const browserCanvas = $('browserChart');
-    if (browserCanvas && devices?.browsers) {
+    if (browserCanvas && devices?.browsers && Object.keys(devices.browsers).length > 0) {
         const browserLabels = Object.keys(devices.browsers);
         const browserData = Object.values(devices.browsers);
         chartsObj.browser = new Chart(browserCanvas, {
@@ -572,11 +593,13 @@ function renderCharts() {
                 }
             }
         });
+    } else if (browserCanvas) {
+        browserCanvas.parentElement.innerHTML = '<p class="muted" style="text-align:center; padding:40px 0;">No active sessions yet</p>';
     }
 
     if (chartsObj.os) chartsObj.os.destroy();
     const osCanvas = $('osChart');
-    if (osCanvas && devices?.operatingSystems) {
+    if (osCanvas && devices?.operatingSystems && Object.keys(devices.operatingSystems).length > 0) {
         const osLabels = Object.keys(devices.operatingSystems);
         const osData = Object.values(devices.operatingSystems);
         chartsObj.os = new Chart(osCanvas, {
@@ -601,6 +624,8 @@ function renderCharts() {
                 }
             }
         });
+    } else if (osCanvas) {
+        osCanvas.parentElement.innerHTML = '<p class="muted" style="text-align:center; padding:40px 0;">No active sessions yet</p>';
     }
 
     // 4. Feature Usage — bar chart (lifetime totals)

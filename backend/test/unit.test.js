@@ -355,4 +355,9 @@ test('frontend script handles 429 quota errors gracefully with single toast and 
     assert.match(source, /autoResizeInput/);
 });
 
-
+test('admin.html does not load scripts from hosts blocked by the CSP', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../../public/admin.html'), 'utf8');
+    assert.ok(!html.includes('cdn.jsdelivr.net'), 'admin.html must not load scripts from cdn.jsdelivr.net (blocked by CSP)');
+    assert.ok(html.includes('/vendor/chart.umd.js'), 'admin.html must load the self-hosted Chart.js');
+    assert.ok(fs.existsSync(path.join(__dirname, '../../public/vendor/chart.umd.js')), 'vendored Chart.js file must exist');
+});
