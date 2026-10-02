@@ -355,4 +355,30 @@ test('frontend script handles 429 quota errors gracefully with single toast and 
     assert.match(source, /autoResizeInput/);
 });
 
+test('admin.html does not load scripts from hosts blocked by the CSP', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../../public/admin.html'), 'utf8');
+    const scriptSrcMatches = Array.from(html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi), (m) => m[1]);
+
+    const allowedScriptHosts = new Set([
+        'www.googletagmanager.com',
+        'accounts.google.com',
+        'www.gstatic.com',
+        'apis.google.com',
+        'www.google.com',
+        'www.recaptcha.net'
+    ]);
+
+    for (const src of scriptSrcMatches) {
+        if (/^https?:\/\//i.test(src)) {
+            const url = new URL(src);
+            assert.ok(allowedScriptHosts.has(url.hostname), `Script host ${url.hostname} must be in allowed CSP hosts`);
+        } else {
+            const localPath = path.resolve(__dirname, '../../public', src.replace(/^\//, ''));
+            assert.ok(fs.existsSync(localPath), `Referenced local script ${src} must exist at ${localPath}`);
+        }
+    }
+
+    assert.ok(scriptSrcMatches.includes('/vendor/chart.umd.js'), 'admin.html must load the self-hosted Chart.js');
+    assert.ok(fs.existsSync(path.join(__dirname, '../../public/vendor/chart.umd.js')), 'vendored Chart.js file must exist');
+});
 
