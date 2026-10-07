@@ -25,6 +25,16 @@ function applyTheme() {
 applyTheme();
 
 // --- UI UTILS ---
+function esc(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function showAdminToast(message, type = 'info') {
     const container = $('adminToastContainer');
     if (!container) return alert(message);
@@ -40,10 +50,12 @@ function showAdminToast(message, type = 'info') {
         <i class="fas ${type === 'error' ? 'fa-paw' : 'fa-check-circle'}" style="color: ${type === 'error' ? 'var(--v2-danger)' : 'var(--v2-success)'}; font-size: 1.4rem;"></i>
         <div style="flex:1">
             <h4 style="margin:0; font-size: 0.95rem;">${type === 'error' ? 'Oops!' : 'Notice'}</h4>
-            <p style="margin:2px 0 0; font-size: 0.85rem;" class="muted">${message}</p>
+            <p style="margin:2px 0 0; font-size: 0.85rem;" class="muted">${esc(message)}</p>
         </div>
-        <button style="background:transparent; border:none; color:var(--v2-muted); cursor:pointer;" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+        <button style="background:transparent; border:none; color:var(--v2-muted); cursor:pointer;" aria-label="Close"><i class="fas fa-times"></i></button>
     `;
+    const closeBtn = toast.querySelector('button');
+    if (closeBtn) closeBtn.onclick = () => toast.remove();
     container.appendChild(toast);
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
 }
@@ -236,10 +248,10 @@ async function loadOverview() {
         grid.innerHTML = metrics.map(([label, value, icon]) => `
             <div class="kpi-card fade-in">
                 <div class="kpi-top">
-                    <p class="kpi-label">${label}</p>
-                    <div class="kpi-icon"><i class="fas ${icon}"></i></div>
+                    <p class="kpi-label">${esc(label)}</p>
+                    <div class="kpi-icon"><i class="fas ${esc(icon)}"></i></div>
                 </div>
-                <h3 class="kpi-value" data-target="${value}">0</h3>
+                <h3 class="kpi-value" data-target="${esc(value)}">0</h3>
             </div>
         `).join('');
 
@@ -265,13 +277,18 @@ async function loadReports() {
         list.innerHTML = '<div class="list-item"><strong class="muted">No reports.</strong></div>';
         return;
     }
-    list.innerHTML = state.reports.map(report => `
+    list.innerHTML = state.reports.map(report => {
+        const typeAndUser = `${esc(report.feedback?.reportType || 'report')} · ${esc(report.userIdMasked || report.userId || '')}`;
+        const timestamp = new Date(report.feedback?.updatedAt || report.createdAt).toLocaleString();
+        const commentOrTime = report.feedback?.comment ? esc(report.feedback.comment) : timestamp;
+        return `
         <div class="list-item fade-in">
-            <strong>${report.feedback?.reportType || 'report'} · ${report.userIdMasked || report.userId}</strong>
-            <p>${report.content}</p>
-            <small class="muted">${report.feedback?.comment || new Date(report.feedback?.updatedAt || report.createdAt).toLocaleString()}</small>
+            <strong>${typeAndUser}</strong>
+            <p>${esc(report.content || '')}</p>
+            <small class="muted">${commentOrTime}</small>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 async function loadAudit(category) {
@@ -290,10 +307,11 @@ async function loadAudit(category) {
         const identifier = event.identifierMasked || event.userIdMasked || event.userId || event.metadata?.email
             || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'admin' : 'anonymous');
         const methodLabel = event.method ? ` (${event.method})` : '';
+        const metaLine = `${esc(identifier)}${esc(methodLabel)} · ${new Date(event.createdAt).toLocaleString()}`;
         return `
         <div class="list-item fade-in">
-            <strong>${event.action}</strong>
-            <small class="muted">${identifier}${methodLabel} · ${new Date(event.createdAt).toLocaleString()}</small>
+            <strong>${esc(event.action || '')}</strong>
+            <small class="muted">${metaLine}</small>
         </div>
     `;
     }).join('');
@@ -314,23 +332,30 @@ async function loadSessions() {
         tbody.innerHTML = '<tr><td colspan="5" class="muted">No active sessions found.</td></tr>';
         return;
     }
-    tbody.innerHTML = state.sessions.map(s => `
+    tbody.innerHTML = state.sessions.map(s => {
+        const device = esc(s.deviceName || s.browser || 'Unknown Device');
+        const osAndUser = `${esc(s.operatingSystem || 'OS unknown')} · ${esc(s.userIdMasked || s.userId || '')}`;
+        const ipHashSnippet = s.lastIpHash ? esc(s.lastIpHash.substring(0, 8) + '...') : '';
+        const lastSeen = s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : 'Just now';
+        const created = s.createdAt ? new Date(s.createdAt).toLocaleString() : 'N/A';
+        return `
         <tr class="fade-in">
             <td>
-                <strong>${s.deviceName || s.browser || 'Unknown Device'}</strong>
-                <div class="muted" style="font-size:0.78rem;">${s.operatingSystem || 'OS unknown'} · ${s.userIdMasked || s.userId}</div>
-                ${s.lastIpHash ? `<div class="muted" style="font-size:0.75rem;">IP Hash: ${s.lastIpHash.substring(0,8)}...</div>` : ''}
+                <strong>${device}</strong>
+                <div class="muted" style="font-size:0.78rem;">${osAndUser}</div>
+                ${ipHashSnippet ? `<div class="muted" style="font-size:0.75rem;">IP Hash: ${ipHashSnippet}</div>` : ''}
             </td>
-            <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : 'Just now'}</td>
-            <td>${s.createdAt ? new Date(s.createdAt).toLocaleString() : 'N/A'}</td>
+            <td>${esc(lastSeen)}</td>
+            <td>${esc(created)}</td>
             <td><span class="pill success">Active</span></td>
             <td>
-                <button class="danger-action-btn revoke-session-btn" data-session-id="${s._id || ''}" style="padding: 6px 12px; min-height: unset; font-size: 0.82rem;" type="button">
+                <button class="danger-action-btn revoke-session-btn" data-session-id="${esc(s._id || '')}" style="padding: 6px 12px; min-height: unset; font-size: 0.82rem;" type="button">
                     Terminate
                 </button>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 
     tbody.querySelectorAll('.revoke-session-btn').forEach(btn => {
         btn.onclick = () => revokeSession(btn.getAttribute('data-session-id'));
@@ -351,17 +376,21 @@ async function loadSuspendedUsers() {
         list.innerHTML = '<div class="list-item"><strong class="muted">No suspended users.</strong></div>';
         return;
     }
-    list.innerHTML = state.suspendedUsers.map(u => `
+    list.innerHTML = state.suspendedUsers.map(u => {
+        const identifier = esc(u.sessionIdMasked || u.sessionId || '');
+        const reasonAndDate = `${esc(u.suspensionReason || 'No reason given')} · Suspended ${new Date(u.suspendedAt).toLocaleString()}`;
+        return `
         <div class="suspended-user-item fade-in">
             <div class="user-info">
-                <strong>${u.sessionIdMasked || u.sessionId}</strong>
-                <small>${u.suspensionReason || 'No reason given'} · Suspended ${new Date(u.suspendedAt).toLocaleString()}</small>
+                <strong>${identifier}</strong>
+                <small>${reasonAndDate}</small>
             </div>
-            <button class="secondary-action-btn unsuspend-btn" data-user-id="${u.sessionId}" type="button">
+            <button class="secondary-action-btn unsuspend-btn" data-user-id="${esc(u.sessionId || '')}" type="button">
                 <i class="fas fa-circle-check"></i> Unsuspend
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     list.querySelectorAll('.unsuspend-btn').forEach(btn => {
         btn.onclick = async () => {
@@ -704,9 +733,9 @@ async function fetchLiveActivity() {
             const { time, action, identifier } = formatAuditEvent(event);
             return `
                 <div class="live-event">
-                    <span class="live-event-time">${time}</span>
-                    <span class="live-event-action">${action}</span>
-                    <span class="live-event-id">${identifier}</span>
+                    <span class="live-event-time">${esc(time)}</span>
+                    <span class="live-event-action">${esc(action)}</span>
+                    <span class="live-event-id">${esc(identifier)}</span>
                 </div>
             `;
         }).join('');
@@ -810,9 +839,21 @@ async function handleSearch() {
         return;
     }
     let html = '';
-    users.forEach(u => html += `<div class="list-item fade-in"><strong>User: ${u.sessionIdMasked || u.sessionId}</strong><small class="muted">Status: ${u.suspendedAt ? 'Suspended' : 'Active'} · Last Active: ${u.lastActive ? new Date(u.lastActive).toLocaleString() : 'N/A'}</small></div>`);
-    auditEvents.forEach(a => html += `<div class="list-item fade-in"><strong>Audit: ${a.action}</strong><small class="muted">User: ${a.userIdMasked || a.userId || 'anon'} · ${new Date(a.createdAt).toLocaleString()}</small></div>`);
-    reports.forEach(r => html += `<div class="list-item fade-in"><strong>Report: ${r.feedback?.reportType || 'report'}</strong><p style="margin:4px 0">${r.content}</p><small class="muted">User: ${r.userIdMasked || r.userId} · ${new Date(r.createdAt).toLocaleString()}</small></div>`);
+    users.forEach((u) => {
+        const userLabel = `User: ${u.sessionIdMasked || u.sessionId || ''}`;
+        const userStatus = `Status: ${u.suspendedAt ? 'Suspended' : 'Active'} · Last Active: ${u.lastActive ? new Date(u.lastActive).toLocaleString() : 'N/A'}`;
+        html += `<div class="list-item fade-in"><strong>${esc(userLabel)}</strong><small class="muted">${esc(userStatus)}</small></div>`;
+    });
+    auditEvents.forEach((a) => {
+        const auditLabel = `Audit: ${a.action || ''}`;
+        const auditMeta = `User: ${a.userIdMasked || a.userId || 'anon'} · ${new Date(a.createdAt).toLocaleString()}`;
+        html += `<div class="list-item fade-in"><strong>${esc(auditLabel)}</strong><small class="muted">${esc(auditMeta)}</small></div>`;
+    });
+    reports.forEach((r) => {
+        const reportType = `Report: ${esc(r.feedback?.reportType || 'report')}`;
+        const reportMeta = `User: ${esc(r.userIdMasked || r.userId || '')} · ${new Date(r.createdAt).toLocaleString()}`;
+        html += `<div class="list-item fade-in"><strong>${reportType}</strong><p style="margin:4px 0">${esc(r.content || '')}</p><small class="muted">${reportMeta}</small></div>`;
+    });
     if (resultBox) resultBox.innerHTML = html;
 }
 

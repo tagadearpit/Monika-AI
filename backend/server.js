@@ -1886,7 +1886,10 @@ app.post('/api/messages/:id/feedback', verifyTrustedOrigin, authenticateToken, v
     const update = {};
     if (req.validatedBody.reaction !== undefined) update['feedback.reaction'] = req.validatedBody.reaction;
     if (req.validatedBody.reportType !== undefined) update['feedback.reportType'] = req.validatedBody.reportType;
-    update['feedback.comment'] = req.validatedBody.comment;
+    const sanitizedComment = typeof req.validatedBody.comment === 'string'
+        ? xss(req.validatedBody.comment, { whiteList: {}, stripIgnoredTag: true }).trim()
+        : '';
+    update['feedback.comment'] = sanitizedComment;
     update['feedback.updatedAt'] = new Date();
     const message = await Message.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.sessionId, role: 'model' },

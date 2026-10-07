@@ -382,3 +382,54 @@ test('admin.html does not load scripts from hosts blocked by the CSP', () => {
     assert.ok(fs.existsSync(path.join(__dirname, '../../public/vendor/chart.umd.js')), 'vendored Chart.js file must exist');
 });
 
+test('admin.js escapes all server-derived data in innerHTML templates without unescaped sinks', () => {
+    const adminJsPath = path.resolve(__dirname, '../../public/admin.js');
+    const source = fs.readFileSync(adminJsPath, 'utf8');
+
+    // 1. Verify esc helper is defined in admin.js
+    const escMatch = source.match(/function esc\s*\(([^)]+)\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(escMatch, 'admin.js must define an esc() function');
+    const escFn = new Function('value', escMatch[2]);
+
+    assert.equal(escFn('&<>"\''), '&amp;&lt;&gt;&quot;&#39;', 'esc must escape all 5 critical HTML entities');
+    assert.equal(escFn(null), '', 'esc must handle null');
+    assert.equal(escFn(undefined), '', 'esc must handle undefined');
+    assert.equal(escFn(42), '42', 'esc must handle numbers');
+
+    // 2. Assert no unescaped server variables exist inside innerHTML templates
+    const unescapedSinks = [
+        '${report.content}',
+        '${report.feedback?.comment',
+        '${report.feedback?.reportType',
+        '${event.action}',
+        '${s.deviceName',
+        '${s.operatingSystem',
+        'data-session-id="${s._id',
+        'data-user-id="${u.sessionId',
+        '${u.suspensionReason',
+        '<p style="margin:2px 0 0; font-size: 0.85rem;" class="muted">${message}'
+    ];
+
+    for (const sink of unescapedSinks) {
+        assert.ok(
+            !source.includes(sink),
+            `admin.js must not contain unescaped sink: ${sink}`
+        );
+    }
+
+    // Assert that esc() is explicitly applied to required sinks
+    assert.ok(source.includes('${esc(message)}'), 'Toast message must be passed through esc()');
+    assert.ok(source.includes('${esc(report.content || \'\')}'), 'report.content must be passed through esc()');
+    assert.ok(source.includes('${esc(identifier)}'), 'identifier in live feed must be passed through esc()');
+    assert.ok(source.includes('${esc(s._id || \'\')}'), 'data-session-id attribute must be passed through esc()');
+    assert.ok(source.includes('${esc(u.sessionId || \'\')}'), 'data-user-id attribute must be passed through esc()');
+
+    // 3. Verify that all templates in admin.js sanitize attack payloads
+    const payload = '<iframe srcdoc="<script>parent.x=1</script>">broken</iframe>';
+    const escaped = escFn(payload);
+    assert.ok(!escaped.includes('<iframe'), 'Escaped payload must not contain raw <iframe');
+    assert.ok(!escaped.includes('<script'), 'Escaped payload must not contain raw <script');
+    assert.ok(escaped.includes('&lt;iframe'), 'Escaped payload must contain &lt;iframe');
+});
+
+
