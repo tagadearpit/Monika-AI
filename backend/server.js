@@ -71,12 +71,14 @@ const {
     resolveTimeZone,
     getCurrentDateTime,
     parseUserAgent,
+    getClientIp,
     getClientIpHash,
     escapeRegExp,
     sanitizeFileName,
     approximateBase64Bytes,
     dateKeyForTimeZone,
     estimateTokens,
+    hashAdminPassword,
     verifyAdminPassword
 } = require('./utils');
 require('dotenv').config();
@@ -97,6 +99,9 @@ if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
 
 const ADMIN_CONSOLE_EMAIL = String(process.env.ADMIN_CONSOLE_EMAIL || '').trim().toLowerCase();
 const ADMIN_CONSOLE_PASSWORD_HASH = String(process.env.ADMIN_CONSOLE_PASSWORD_HASH || '').replace(/\s+/g, '');
+const getAdminConsoleEmail = () => String(process.env.ADMIN_CONSOLE_EMAIL || ADMIN_CONSOLE_EMAIL || '').trim().toLowerCase();
+const getAdminConsolePasswordHash = () => String(process.env.ADMIN_CONSOLE_PASSWORD_HASH || ADMIN_CONSOLE_PASSWORD_HASH || '').replace(/\s+/g, '');
+const DUMMY_ADMIN_PASSWORD_HASH = hashAdminPassword('dummy-unmatchable-admin-password-constant-time');
 if (!ADMIN_CONSOLE_EMAIL || !ADMIN_CONSOLE_PASSWORD_HASH) {
     console.warn('WARNING: ADMIN_CONSOLE_EMAIL / ADMIN_CONSOLE_PASSWORD_HASH not set — the admin console login is disabled.');
 }
@@ -2265,37 +2270,94 @@ const adminLoginLimiter = createLimiter('rate_limit.admin_login', {
     message: { error: 'Too many admin login attempts. Try again later.', code: 'RATE_LIMITED' }
 });
 
+const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_MAX_FAILURES = 5;
+const ADMIN_LOGIN_BASE_LOCK_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_MAX_LOCK_MS = 60 * 60 * 1000;
+const ADMIN_MAX_ATTEMPTS_ENTRIES = 5000;
+
 const adminFailedAttempts = new Map();
 
+const pruneExpiredAdminAttempts = () => {
+    const now = Date.now();
+    const windowStart = now - ADMIN_LOGIN_WINDOW_MS;
+    for (const [key, record] of adminFailedAttempts.entries()) {
+        const isLocked = record.lockedUntil > now;
+        const hasRecentFailures = Array.isArray(record.failures) && record.failures.some((ts) => ts > windowStart);
+        if (!isLocked && !hasRecentFailures) {
+            adminFailedAttempts.delete(key);
+        }
+    }
+};
+
+const adminPruneInterval = setInterval(pruneExpiredAdminAttempts, 5 * 60 * 1000);
+if (adminPruneInterval && typeof adminPruneInterval.unref === 'function') {
+    adminPruneInterval.unref();
+}
+
 app.post('/api/admin/login', verifyTrustedOrigin, adminLoginLimiter, validateBody(validators.adminLogin), async (req, res) => {
-    if (!ADMIN_CONSOLE_EMAIL || !ADMIN_CONSOLE_PASSWORD_HASH) {
+    const adminEmail = getAdminConsoleEmail();
+    const adminHash = getAdminConsolePasswordHash();
+    if (!adminEmail || !adminHash) {
         return res.status(503).json({ error: 'Admin console is not configured.', code: 'ADMIN_NOT_CONFIGURED' });
     }
     const email = normalizeEmail(req.body.email);
+    const ip = getClientIp(req) || 'unknown-ip';
+    const attemptKey = `${ip}:${email}`;
     const now = Date.now();
-    const attempts = adminFailedAttempts.get(email) || { count: 0, lockedUntil: 0 };
-    
-    if (attempts.lockedUntil > now) {
+    let attempts = adminFailedAttempts.get(attemptKey);
+
+    if (attempts) {
+        if (attempts.lockedUntil > 0 && attempts.lockedUntil <= now) {
+            attempts.failures = [];
+            attempts.lockedUntil = 0;
+        }
+        if (attempts.failures && attempts.failures.length > 0) {
+            const windowStart = now - ADMIN_LOGIN_WINDOW_MS;
+            attempts.failures = attempts.failures.filter((ts) => ts > windowStart);
+        }
+    }
+
+    if (attempts && attempts.lockedUntil > now) {
         return res.status(429).json({ error: 'Account temporarily locked due to too many failed attempts.', code: 'ACCOUNT_LOCKED' });
     }
 
     const { password } = req.body;
-    const matches = email === ADMIN_CONSOLE_EMAIL && verifyAdminPassword(password, ADMIN_CONSOLE_PASSWORD_HASH);
-    
+    const emailMatches = email === adminEmail;
+    const hashToVerify = emailMatches ? adminHash : DUMMY_ADMIN_PASSWORD_HASH;
+    const passwordMatches = verifyAdminPassword(password, hashToVerify);
+    const matches = emailMatches && passwordMatches;
+
     if (!matches) {
-        attempts.count += 1;
-        if (attempts.count >= 5) {
-            attempts.lockedUntil = now + 15 * 60 * 1000;
+        if (!attempts) {
+            attempts = { failures: [], lockedUntil: 0, lockCount: 0 };
+        }
+        attempts.failures.push(now);
+        if (attempts.failures.length >= ADMIN_LOGIN_MAX_FAILURES) {
+            attempts.lockCount = (attempts.lockCount || 0) + 1;
+            const lockDuration = Math.min(
+                Math.round(ADMIN_LOGIN_BASE_LOCK_MS * Math.pow(1.5, attempts.lockCount - 1)),
+                ADMIN_LOGIN_MAX_LOCK_MS
+            );
+            attempts.lockedUntil = now + lockDuration;
+            attempts.failures = [];
             recordAudit('admin_login_locked', email || 'unknown-admin', req, { email, lockedUntil: attempts.lockedUntil });
         }
-        adminFailedAttempts.set(email, attempts);
+        if (!adminFailedAttempts.has(attemptKey) && adminFailedAttempts.size >= ADMIN_MAX_ATTEMPTS_ENTRIES) {
+            pruneExpiredAdminAttempts();
+            if (adminFailedAttempts.size >= ADMIN_MAX_ATTEMPTS_ENTRIES) {
+                const oldestKey = adminFailedAttempts.keys().next().value;
+                if (oldestKey) adminFailedAttempts.delete(oldestKey);
+            }
+        }
+        adminFailedAttempts.set(attemptKey, attempts);
         recordAudit('admin_login_failed', email || 'unknown-admin', req, { email });
         return res.status(401).json({ error: 'Invalid email or password.', code: 'ADMIN_LOGIN_INVALID' });
     }
-    
-    adminFailedAttempts.delete(email);
+
+    adminFailedAttempts.delete(attemptKey);
     res.cookie(ADMIN_COOKIE_NAME, signAdminToken(), adminCookieOptions());
-    recordAudit('admin_login_success', email || ADMIN_CONSOLE_EMAIL || 'admin', req, { email: email || ADMIN_CONSOLE_EMAIL });
+    recordAudit('admin_login_success', email || adminEmail || 'admin', req, { email: email || adminEmail });
     return res.json({ success: true });
 });
 
@@ -2616,5 +2678,12 @@ if (require.main === module) {
     startServer().catch(() => process.exit(1));
 }
 
-module.exports = { app, startServer, shutdown };
+module.exports = {
+    app,
+    startServer,
+    shutdown,
+    adminFailedAttempts,
+    pruneExpiredAdminAttempts,
+    DUMMY_ADMIN_PASSWORD_HASH
+};
 
