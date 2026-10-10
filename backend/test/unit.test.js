@@ -515,5 +515,269 @@ test('admin login logic: lockout triggers, resets after expiry, IP isolation, co
     adminFailedAttempts.clear();
 });
 
+test('Scenario B: background refresh handles definitive 401 logout vs transient errors', async () => {
+    const vm = require('node:vm');
+    const source = fs.readFileSync(path.resolve(__dirname, '../../public/script.js'), 'utf8');
+
+    const extractFunction = (name) => {
+        let start = source.indexOf(`async function ${name}`);
+        if (start === -1) start = source.indexOf(`function ${name}`);
+        assert.notEqual(start, -1, `${name} exists in script.js`);
+        const paramStart = source.indexOf('(', start);
+        let paramDepth = 0;
+        let paramEnd = paramStart;
+        for (let i = paramStart; i < source.length; i += 1) {
+            if (source[i] === '(') paramDepth += 1;
+            if (source[i] === ')') paramDepth -= 1;
+            if (paramDepth === 0) {
+                paramEnd = i;
+                break;
+            }
+        }
+        const bodyStart = source.indexOf('{', paramEnd);
+        let depth = 0;
+        for (let index = bodyStart; index < source.length; index += 1) {
+            if (source[index] === '{') depth += 1;
+            if (source[index] === '}') depth -= 1;
+            if (depth === 0) return source.slice(start, index + 1);
+        }
+        throw new Error(`Could not extract ${name}`);
+    };
+
+    const setupTestEnvironment = (fetchHandler, options = {}) => {
+        const elements = new Map();
+        const getElement = (id) => {
+            if (!elements.has(id)) {
+                elements.set(id, {
+                    id,
+                    hidden: id === 'login-overlay',
+                    disabled: false,
+                    textContent: '',
+                    setAttribute: () => {},
+                    getAttribute: () => null,
+                    removeAttribute: () => {},
+                    classList: { add: () => {}, remove: () => {}, contains: () => false }
+                });
+            }
+            return elements.get(id);
+        };
+
+        const storage = new Map();
+        const localStorage = {
+            getItem: (k) => storage.get(k) || null,
+            setItem: (k, v) => storage.set(k, String(v)),
+            removeItem: (k) => storage.delete(k),
+            clear: () => storage.clear()
+        };
+        const sessionStorage = { ...localStorage };
+
+        let currentUrl = options.initialPath || '/chat';
+        const windowObj = {
+            location: {
+                get pathname() { return currentUrl; },
+                set pathname(v) { currentUrl = v; },
+                search: ''
+            },
+            history: {
+                replaceState: (state, title, url) => { currentUrl = url; },
+                pushState: (state, title, url) => { currentUrl = url; }
+            }
+        };
+
+        const broadcastMessages = [];
+        const timers = [];
+        let timerId = 1;
+
+        const context = {
+            window: windowObj,
+            location: windowObj.location,
+            document: {
+                getElementById: getElement,
+                body: { classList: { add: () => {}, remove: () => {} } }
+            },
+            $: getElement,
+            navigator: { userAgent: 'test' },
+            localStorage,
+            sessionStorage,
+            Headers: class Headers {
+                constructor(init = {}) { this.map = new Map(Object.entries(init)); }
+                set(k, v) { this.map.set(k, v); }
+                get(k) { return this.map.get(k); }
+            },
+            authChannel: {
+                postMessage: (msg) => broadcastMessages.push(msg)
+            },
+            fetch: fetchHandler,
+            setTimeout: (fn, ms) => {
+                const id = timerId++;
+                timers.push({ id, fn, ms });
+                return id;
+            },
+            clearTimeout: (id) => {
+                const idx = timers.findIndex((t) => t.id === id);
+                if (idx !== -1) timers.splice(idx, 1);
+            },
+            setInterval: () => 1,
+            clearInterval: () => {},
+            console,
+            Date,
+            Array,
+            Object,
+            Promise,
+            Boolean,
+            Number,
+            String,
+            Math,
+            // Client auth state
+            baseUrl: '',
+            csrfToken: 'test-csrf-token',
+            authToken: options.authToken !== undefined ? options.authToken : 'valid-jwt-token',
+            authTokenExpiresAt: Date.now() + 600000,
+            refreshPromise: null,
+            refreshTimer: 99,
+            bootCompleted: options.bootCompleted !== undefined ? options.bootCompleted : true,
+            userAccount: { identifier: 'test@example.com' },
+            pendingLegalAcceptance: false,
+            pendingLoginWelcome: null,
+            reminderPollTimer: 123,
+            currentStreamController: null,
+            settingsModal: getElement('settingsModal'),
+            appShell: getElement('appShell'),
+            loginOverlay: getElement('loginOverlay'),
+            bootOverlay: getElement('bootOverlay'),
+            bootStatus: getElement('bootStatus'),
+            auth: null,
+            stopCurrentSpeech: () => {},
+            setupRecaptcha: () => {},
+            renderGoogleButton: () => {}
+        };
+
+        context.appShell.hidden = options.appShellHidden !== undefined ? options.appShellHidden : false;
+        context.loginOverlay.hidden = options.loginOverlayHidden !== undefined ? options.loginOverlayHidden : true;
+        if (options.hasSessionHint !== false) {
+            localStorage.setItem('monika_session_hint', '1');
+        }
+
+        const code = `
+            ${extractFunction('currentPath')}
+            ${extractFunction('navigateTo')}
+            ${extractFunction('setSessionHint')}
+            ${extractFunction('finishBoot')}
+            ${extractFunction('broadcastAuthEvent')}
+            ${extractFunction('showLogin')}
+            ${extractFunction('performClientLogout')}
+            ${extractFunction('restorePersistentSession')}
+            ${extractFunction('scheduleAccessTokenRefresh')}
+            ${extractFunction('mutationHeaders')}
+        `;
+
+        vm.runInNewContext(code, context);
+        return { context, broadcastMessages, timers, storage, getUrl: () => currentUrl };
+    };
+
+    // 1. Definitive 401 refresh failure triggers full client logout, login redirect, and tab broadcast
+    {
+        const { context, broadcastMessages, storage, getUrl } = setupTestEnvironment(async () => ({
+            ok: false,
+            status: 401,
+            json: async () => ({ error: 'Persistent session is unavailable.', code: 'SESSION_EXPIRED' })
+        }));
+
+        assert.equal(context.authToken, 'valid-jwt-token');
+        assert.equal(context.appShell.hidden, false);
+        assert.equal(context.loginOverlay.hidden, true);
+
+        const restored = await context.restorePersistentSession();
+        assert.equal(restored, false, 'restorePersistentSession must return false');
+        assert.equal(context.authToken, null, 'authToken must be cleared to null');
+        assert.equal(storage.get('monika_session_hint'), undefined, 'monika_session_hint must be removed');
+        assert.equal(context.appShell.hidden, true, 'appShell must be hidden');
+        assert.equal(context.loginOverlay.hidden, false, 'loginOverlay must be visible');
+        assert.equal(getUrl(), '/login', 'Client must navigate to /login');
+        assert.ok(
+            broadcastMessages.some((msg) => msg.type === 'logout'),
+            'Must broadcast logout event to all open tabs'
+        );
+    }
+
+    // 2. Transient server error (503) preserves session state and schedules retry
+    {
+        const { context, broadcastMessages, timers, storage, getUrl } = setupTestEnvironment(async () => ({
+            ok: false,
+            status: 503,
+            json: async () => ({ error: 'Service Unavailable' })
+        }));
+
+        const restored = await context.restorePersistentSession();
+        assert.equal(restored, false, 'restorePersistentSession must return false on 503');
+        assert.equal(context.authToken, 'valid-jwt-token', 'authToken must be preserved on transient 503');
+        assert.equal(storage.get('monika_session_hint'), '1', 'monika_session_hint must be preserved');
+        assert.equal(context.appShell.hidden, false, 'appShell must remain visible');
+        assert.equal(context.loginOverlay.hidden, true, 'loginOverlay must remain hidden');
+        assert.equal(getUrl(), '/chat', 'URL must remain unchanged');
+        assert.equal(broadcastMessages.length, 0, 'Must NOT broadcast logout on transient 503');
+        assert.ok(timers.length > 0, 'Retry timer must be scheduled');
+    }
+
+    // 3. Transient rate limit (429) preserves session state
+    {
+        const { context, broadcastMessages, storage, getUrl } = setupTestEnvironment(async () => ({
+            ok: false,
+            status: 429,
+            json: async () => ({ error: 'Rate limit exceeded' })
+        }));
+
+        const restored = await context.restorePersistentSession();
+        assert.equal(restored, false, 'restorePersistentSession must return false on 429');
+        assert.equal(context.authToken, 'valid-jwt-token', 'authToken must be preserved on 429');
+        assert.equal(storage.get('monika_session_hint'), '1', 'monika_session_hint must be preserved on 429');
+        assert.equal(context.appShell.hidden, false, 'appShell must remain visible on 429');
+        assert.equal(getUrl(), '/chat', 'URL must remain /chat on 429');
+        assert.equal(broadcastMessages.length, 0, 'Must NOT broadcast logout on 429');
+    }
+
+    // 4. Transient network error (fetch rejects) preserves session state
+    {
+        const { context, broadcastMessages, storage, getUrl } = setupTestEnvironment(async () => {
+            throw new TypeError('Failed to fetch');
+        });
+
+        const restored = await context.restorePersistentSession();
+        assert.equal(restored, false, 'restorePersistentSession must return false on network error');
+        assert.equal(context.authToken, 'valid-jwt-token', 'authToken must be preserved on network error');
+        assert.equal(storage.get('monika_session_hint'), '1', 'monika_session_hint must be preserved on network error');
+        assert.equal(context.appShell.hidden, false, 'appShell must remain visible on network error');
+        assert.equal(getUrl(), '/chat', 'URL must remain /chat on network error');
+        assert.equal(broadcastMessages.length, 0, 'Must NOT broadcast logout on network error');
+    }
+
+    // 5. Hard page reload with no refresh cookie routes cleanly to login without dead sessions
+    {
+        const { context, broadcastMessages, getUrl } = setupTestEnvironment(async () => ({
+            ok: false,
+            status: 401,
+            json: async () => ({ error: 'Persistent session is unavailable.', code: 'SESSION_EXPIRED' })
+        }), {
+            bootCompleted: false,
+            authToken: null,
+            appShellHidden: true,
+            loginOverlayHidden: true,
+            hasSessionHint: false,
+            initialPath: '/'
+        });
+
+        const restored = await context.restorePersistentSession();
+        assert.equal(restored, false, 'Cold boot restorePersistentSession must return false');
+        assert.equal(context.authToken, null, 'authToken remains null');
+        assert.equal(broadcastMessages.length, 0, 'Cold boot must NOT broadcast spurious logout');
+
+        // Initializer finishes boot and shows login
+        context.showLogin();
+        assert.equal(context.appShell.hidden, true, 'appShell is hidden');
+        assert.equal(context.loginOverlay.hidden, false, 'loginOverlay is visible');
+        assert.equal(getUrl(), '/login', 'Navigated cleanly to /login');
+    }
+});
+
 
 

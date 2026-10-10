@@ -264,6 +264,33 @@ function mutationHeaders(headers = {}) {
     return result;
 }
 
+function performClientLogout() {
+    authToken = null;
+    authTokenExpiresAt = 0;
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+    setSessionHint(false);
+    userAccount = null;
+    pendingLegalAcceptance = false;
+    pendingLoginWelcome = null;
+    clearInterval(reminderPollTimer);
+    reminderPollTimer = null;
+    stopCurrentSpeech();
+    if (currentStreamController) {
+        try { currentStreamController.abort(); } catch (_) {}
+        currentStreamController = null;
+    }
+    if (settingsModal) settingsModal.hidden = true;
+    const legalModal = $('legalAcceptModal');
+    if (legalModal) legalModal.hidden = true;
+    if (auth?.currentUser) {
+        auth.signOut().catch(() => undefined);
+    }
+    window.google?.accounts?.id?.disableAutoSelect?.();
+    broadcastAuthEvent('logout');
+    showLogin();
+}
+
 async function restorePersistentSession() {
     if (refreshPromise) return refreshPromise;
     const executeRefresh = async () => {
@@ -281,12 +308,35 @@ async function restorePersistentSession() {
                 pendingLegalAcceptance = Boolean(data.requiresLegalAcceptance);
                 return true;
             }
-            authToken = null;
-            clearTimeout(refreshTimer);
-            setSessionHint(false);
+            if (response.status === 429 || response.status >= 500) {
+                if (bootCompleted || authToken) {
+                    clearTimeout(refreshTimer);
+                    refreshTimer = setTimeout(() => {
+                        restorePersistentSession().catch(() => undefined);
+                    }, 30_000);
+                }
+                return false;
+            }
+            if (bootCompleted || authToken) {
+                performClientLogout();
+            } else {
+                authToken = null;
+                authTokenExpiresAt = 0;
+                clearTimeout(refreshTimer);
+                refreshTimer = null;
+                setSessionHint(false);
+                userAccount = null;
+                pendingLegalAcceptance = false;
+            }
             return false;
         } catch (error) {
             console.error('Session restoration failed:', error);
+            if (bootCompleted || authToken) {
+                clearTimeout(refreshTimer);
+                refreshTimer = setTimeout(() => {
+                    restorePersistentSession().catch(() => undefined);
+                }, 30_000);
+            }
             return false;
         }
     };
@@ -353,6 +403,9 @@ function setSessionHint(active) {
 
 function showLogin() {
     setSessionHint(false);
+    if (settingsModal) settingsModal.hidden = true;
+    const legalModal = $('legalAcceptModal');
+    if (legalModal) legalModal.hidden = true;
     appShell.hidden = true;
     loginOverlay.hidden = false;
     finishBoot();
