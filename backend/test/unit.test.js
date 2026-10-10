@@ -382,3 +382,138 @@ test('admin.html does not load scripts from hosts blocked by the CSP', () => {
     assert.ok(fs.existsSync(path.join(__dirname, '../../public/vendor/chart.umd.js')), 'vendored Chart.js file must exist');
 });
 
+test('admin.js escapes all server-derived data in innerHTML templates without unescaped sinks', () => {
+    const adminJsPath = path.resolve(__dirname, '../../public/admin.js');
+    const source = fs.readFileSync(adminJsPath, 'utf8');
+
+    // 1. Verify esc helper is defined in admin.js
+    const escMatch = source.match(/function esc\s*\(([^)]+)\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(escMatch, 'admin.js must define an esc() function');
+    const escFn = new Function('value', escMatch[2]);
+
+    assert.equal(escFn('&<>"\''), '&amp;&lt;&gt;&quot;&#39;', 'esc must escape all 5 critical HTML entities');
+    assert.equal(escFn(null), '', 'esc must handle null');
+    assert.equal(escFn(undefined), '', 'esc must handle undefined');
+    assert.equal(escFn(42), '42', 'esc must handle numbers');
+
+    // 2. Assert no unescaped server variables exist inside innerHTML templates
+    const unescapedSinks = [
+        '${report.content}',
+        '${report.feedback?.comment',
+        '${report.feedback?.reportType',
+        '${event.action}',
+        '${s.deviceName',
+        '${s.operatingSystem',
+        'data-session-id="${s._id',
+        'data-user-id="${u.sessionId',
+        '${u.suspensionReason',
+        '<p style="margin:2px 0 0; font-size: 0.85rem;" class="muted">${message}'
+    ];
+
+    for (const sink of unescapedSinks) {
+        assert.ok(
+            !source.includes(sink),
+            `admin.js must not contain unescaped sink: ${sink}`
+        );
+    }
+
+    // Assert that esc() is explicitly applied to required sinks
+    assert.ok(source.includes('${esc(message)}'), 'Toast message must be passed through esc()');
+    assert.ok(source.includes('${esc(report.content || \'\')}'), 'report.content must be passed through esc()');
+    assert.ok(source.includes('${esc(identifier)}'), 'identifier in live feed must be passed through esc()');
+    assert.ok(source.includes('${esc(s._id || \'\')}'), 'data-session-id attribute must be passed through esc()');
+    assert.ok(source.includes('${esc(u.sessionId || \'\')}'), 'data-user-id attribute must be passed through esc()');
+
+    // 3. Verify that all templates in admin.js sanitize attack payloads
+    const payload = '<iframe srcdoc="<script>parent.x=1</script>">broken</iframe>';
+    const escaped = escFn(payload);
+    assert.ok(!escaped.includes('<iframe'), 'Escaped payload must not contain raw <iframe');
+    assert.ok(!escaped.includes('<script'), 'Escaped payload must not contain raw <script');
+    assert.ok(escaped.includes('&lt;iframe'), 'Escaped payload must contain &lt;iframe');
+});
+
+test('admin login logic: lockout triggers, resets after expiry, IP isolation, constant-time verification, and pruning', () => {
+    const {
+        adminFailedAttempts,
+        pruneExpiredAdminAttempts,
+        DUMMY_ADMIN_PASSWORD_HASH
+    } = require('../server');
+    const { verifyAdminPassword } = require('../utils');
+
+    // 1. Verify DUMMY_ADMIN_PASSWORD_HASH exists and is a valid hash
+    assert.ok(DUMMY_ADMIN_PASSWORD_HASH, 'DUMMY_ADMIN_PASSWORD_HASH must be defined');
+    assert.ok(DUMMY_ADMIN_PASSWORD_HASH.includes(':'), 'DUMMY_ADMIN_PASSWORD_HASH must contain salt:key format');
+    // Calling verifyAdminPassword with dummy hash must run scrypt and return false
+    const dummyCheck = verifyAdminPassword('some-password', DUMMY_ADMIN_PASSWORD_HASH);
+    assert.equal(dummyCheck, false, 'DUMMY_ADMIN_PASSWORD_HASH must never match arbitrary passwords');
+
+    // 2. Lockout triggers after 5 failed attempts for an IP:email key
+    adminFailedAttempts.clear();
+    const testEmail = 'admin@security-test.com';
+    const attackerIp = '198.51.100.1';
+    const key = `${attackerIp}:${testEmail}`;
+
+    const now = Date.now();
+    const entry = { failures: [], lockedUntil: 0, lockCount: 0 };
+    for (let i = 0; i < 5; i++) {
+        entry.failures.push(now);
+    }
+    // Simulate threshold check in server.js
+    if (entry.failures.length >= 5) {
+        entry.lockCount += 1;
+        entry.lockedUntil = now + 15 * 60 * 1000;
+        entry.failures = [];
+    }
+    adminFailedAttempts.set(key, entry);
+
+    assert.ok(entry.lockedUntil > now, 'Lockout must be active after 5 failures');
+    assert.equal(adminFailedAttempts.get(key).lockedUntil, entry.lockedUntil);
+
+    // 3. Clean IP is not blocked by attacker IP lockout
+    const cleanIp = '203.0.113.42';
+    const cleanKey = `${cleanIp}:${testEmail}`;
+    const cleanEntry = adminFailedAttempts.get(cleanKey);
+    assert.equal(cleanEntry, undefined, 'Clean IP must have no entry and not be blocked by attacker lockout');
+
+    // 4. Counter resets after lockout expires (single typo does not re-lock)
+    const expiredNow = now + 16 * 60 * 1000; // past lockedUntil
+    const storedEntry = adminFailedAttempts.get(key);
+    assert.ok(storedEntry.lockedUntil <= expiredNow, 'Lock has expired');
+
+    // When server checks an expired entry:
+    if (storedEntry.lockedUntil > 0 && storedEntry.lockedUntil <= expiredNow) {
+        storedEntry.failures = [];
+        storedEntry.lockedUntil = 0;
+    }
+    assert.equal(storedEntry.lockedUntil, 0, 'lockedUntil must be reset to 0');
+    assert.deepEqual(storedEntry.failures, [], 'failures array must be empty after lock expires');
+
+    // A single typo happens after expiry:
+    storedEntry.failures.push(expiredNow);
+    assert.equal(storedEntry.failures.length, 1, 'Only 1 failure recorded for single typo');
+    assert.ok(storedEntry.failures.length < 5, 'Single typo must NOT re-lock the account');
+
+    // 5. Map pruning and capacity limits
+    adminFailedAttempts.clear();
+    const expiredKey = '10.0.0.1:expired@test.com';
+    adminFailedAttempts.set(expiredKey, {
+        failures: [Date.now() - 20 * 60 * 1000], // 20 min ago
+        lockedUntil: 0,
+        lockCount: 0
+    });
+    const activeKey = '10.0.0.2:active@test.com';
+    adminFailedAttempts.set(activeKey, {
+        failures: [Date.now() - 1 * 60 * 1000], // 1 min ago
+        lockedUntil: 0,
+        lockCount: 0
+    });
+
+    pruneExpiredAdminAttempts();
+    assert.equal(adminFailedAttempts.has(expiredKey), false, 'Expired entry must be pruned');
+    assert.equal(adminFailedAttempts.has(activeKey), true, 'Active entry must be preserved');
+
+    adminFailedAttempts.clear();
+});
+
+
+

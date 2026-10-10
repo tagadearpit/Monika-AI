@@ -272,3 +272,66 @@ test('AI endpoints support complete and streaming responses without exposing raw
         UsageDaily.updateOne = originals.usageUpdateOne;
     }
 });
+
+test('feedback endpoint sanitizes comment with xss whiteList {}', async () => {
+    const jwt = require('jsonwebtoken');
+    const mongoose = require('mongoose');
+    const { Session, User, Message } = require('../models');
+    const sessionId = new mongoose.Types.ObjectId();
+    const messageId = new mongoose.Types.ObjectId();
+    const userId = 'feedback-test@example.com';
+    const token = jwt.sign(
+        { sub: userId, sid: String(sessionId), type: 'access' },
+        process.env.JWT_SECRET,
+        { algorithm: 'HS256', expiresIn: 900, issuer: 'monika-ai', audience: 'monika-web' }
+    );
+
+    let savedUpdate = null;
+    const originals = {
+        sessionFindOne: Session.collection.findOne,
+        userFindOne: User.findOne,
+        messageFindOneAndUpdate: Message.findOneAndUpdate
+    };
+
+    Session.collection.findOne = async () => ({ _id: sessionId });
+    User.findOne = () => ({ select: () => ({ lean: async () => ({ suspendedAt: null }) }) });
+    Message.findOneAndUpdate = async (query, update) => {
+        savedUpdate = update;
+        return {
+            _id: messageId,
+            feedback: {
+                comment: update.$set['feedback.comment'],
+                reaction: update.$set['feedback.reaction'],
+                reportType: update.$set['feedback.reportType']
+            }
+        };
+    };
+
+    try {
+        const agent = request.agent(app);
+        const config = await agent.get('/api/config').expect(200);
+        const maliciousComment = '<iframe srcdoc="<script>alert(1)</script>">Broken</i><script>alert("xss")</script>hello';
+        const response = await agent
+            .post(`/api/messages/${messageId}/feedback`)
+            .set('Origin', 'http://localhost:10000')
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-CSRF-Token', config.body.csrfToken)
+            .send({
+                reportType: 'incorrect',
+                comment: maliciousComment
+            })
+            .expect(200);
+
+        assert.ok(savedUpdate, 'findOneAndUpdate must be called');
+        const stored = savedUpdate.$set['feedback.comment'];
+        assert.ok(!stored.includes('<iframe'), 'Stored comment must not contain <iframe');
+        assert.ok(!stored.includes('<script'), 'Stored comment must not contain <script');
+        assert.ok(stored.includes('hello'), 'Benign text must be preserved');
+        assert.equal(response.body.comment, stored);
+    } finally {
+        Session.collection.findOne = originals.sessionFindOne;
+        User.findOne = originals.userFindOne;
+        Message.findOneAndUpdate = originals.messageFindOneAndUpdate;
+    }
+});
+

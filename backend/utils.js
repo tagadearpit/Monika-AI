@@ -160,6 +160,7 @@ module.exports = {
     resolveTimeZone,
     getCurrentDateTime,
     parseUserAgent,
+    getClientIp,
     getClientIpHash,
     escapeRegExp,
     sanitizeFileName,
