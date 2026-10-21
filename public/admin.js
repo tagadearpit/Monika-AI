@@ -18,6 +18,45 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+const ACTION_LABELS = {
+    'session.created': 'Signed in',
+    'session.logout': 'Signed out',
+    'session.revoked': 'Ended a session',
+    'session.others_revoked': 'Signed out other devices',
+    'session.token_reuse_detected': 'Suspicious session reuse blocked',
+    'auth.google_failed': 'Google sign-in failed',
+    'auth.firebase_failed': 'Phone sign-in failed',
+    'auth.otp_invalid': 'Wrong sign-in code',
+    'auth.otp_verification_failed': 'Sign-in code failed',
+    'auth.otp_delivery_failed': 'Sign-in code could not be sent',
+    'auth.refresh_failed': 'Session refresh failed',
+    'auth.refresh_rejected': 'Session refresh rejected',
+    'auth.legal_accepted': 'Accepted terms',
+    'ai.request_failed': 'AI reply failed',
+    'conversation.created': 'Started a conversation',
+    'conversation.deleted': 'Deleted a conversation',
+    'conversation.all_cleared': 'Cleared all conversations',
+    'memory.all_cleared': 'Cleared memory',
+    'message.reported': 'Reported a message',
+    'reminder.created': 'Created a reminder',
+    'settings.updated': 'Changed settings',
+    'account.deleted': 'Deleted their account',
+    'admin.user_suspended': 'Suspended by admin',
+    'admin.user_unsuspended': 'Unsuspended by admin',
+    'admin.session_revoked': 'Session ended by admin',
+    'admin.maintenance_enabled': 'Maintenance turned on',
+    'admin.maintenance_disabled': 'Maintenance turned off',
+    admin_login_success: 'Admin signed in',
+    admin_login_failed: 'Admin sign-in failed',
+    admin_login_locked: 'Admin sign-in locked'
+};
+
+const labelForAction = (action) => !action
+    ? 'No recorded activity'
+    : action.startsWith('rate_limit.')
+        ? 'Hit the rate limit'
+        : (ACTION_LABELS[action] || action);
+
 // --- THEME ---
 function applyTheme() {
     document.documentElement.setAttribute('data-theme', state.theme);

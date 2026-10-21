@@ -2416,6 +2416,41 @@ app.get('/api/admin/overview', adminLimiter, requireAdminSession, async (req, re
     });
 });
 
+app.get('/api/admin/people', adminLimiter, requireAdminSession, async (_req, res) => {
+    const users = await User.find()
+        .sort({ lastActive: -1 })
+        .limit(25)
+        .select('sessionId lastActive firstLogin suspendedAt')
+        .lean();
+    if (!users.length) return res.json([]);
+
+    const userIds = users.map(user => user.sessionId);
+    const [loginMethods, latestActions] = await Promise.all([
+        AuditEvent.aggregate([
+            { $match: { userId: mongoose.trusted({ $in: userIds }), action: 'session.created' } },
+            { $sort: { createdAt: -1 } },
+            { $group: { _id: '$userId', method: { $first: '$metadata.method' } } }
+        ]),
+        AuditEvent.aggregate([
+            { $match: { userId: mongoose.trusted({ $in: userIds }) } },
+            { $sort: { createdAt: -1 } },
+            { $group: { _id: '$userId', action: { $first: '$action' } } }
+        ])
+    ]);
+    const methodByUser = new Map(loginMethods.map(item => [item._id, item.method]));
+    const actionByUser = new Map(latestActions.map(item => [item._id, item.action]));
+    const methodLabels = { google: 'Google', email: 'Email', phone: 'Phone' };
+
+    return res.json(users.map(user => ({
+        userIdMasked: maskIdentifier(user.sessionId),
+        loginMethod: methodLabels[methodByUser.get(user.sessionId)] || (user.sessionId.includes('@') ? 'Email' : 'Phone'),
+        lastActive: user.lastActive,
+        firstLogin: user.firstLogin,
+        status: user.suspendedAt ? 'suspended' : 'active',
+        lastAction: actionByUser.get(user.sessionId) || null
+    })));
+});
+
 app.get('/api/admin/reports', adminLimiter, requireAdminSession, async (req, res) => {
     const reports = await Message.find({ 'feedback.reportType': mongoose.trusted({ $ne: null }) })
         .sort({ 'feedback.updatedAt': -1 })
@@ -2686,4 +2721,3 @@ module.exports = {
     pruneExpiredAdminAttempts,
     DUMMY_ADMIN_PASSWORD_HASH
 };
-

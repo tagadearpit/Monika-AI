@@ -23,8 +23,10 @@ const {
     Conversation,
     Message,
     Fact,
-    Reminder
+    Reminder,
+    AuditEvent
 } = require('../models');
+const { maskIdentifier } = require('../utils');
 
 const enabled = process.env.RUN_DB_INTEGRATION_TESTS === 'true';
 
@@ -42,6 +44,13 @@ const authHeaders = () => ({
     Authorization: `Bearer ${accessToken}`,
     'X-CSRF-Token': csrfToken,
     Origin: 'http://localhost:10000'
+});
+const adminHeaders = () => ({
+    Cookie: `monika_admin=${jwt.sign(
+        { role: 'admin-console', type: 'admin' },
+        process.env.JWT_SECRET,
+        { algorithm: 'HS256', expiresIn: 900, issuer: 'monika-ai', audience: 'monika-admin-console' }
+    )}`
 });
 
 test.before(async () => {
@@ -205,9 +214,35 @@ test('conversation export supports text and PDF', async () => {
 });
 
 test('admin overview returns operational counts', async () => {
-    const overview = await agent.get('/api/admin/overview').set(authHeaders()).expect(200);
+    const overview = await request(app).get('/api/admin/overview').set(adminHeaders()).expect(200);
     assert.ok(overview.body.users >= 1);
     assert.ok(overview.body.messages >= 4);
     assert.ok(overview.body.activeSessions >= 1);
+});
+
+test('admin people requires an admin session', async () => {
+    await request(app).get('/api/admin/people').expect(401);
+});
+
+test('admin people returns recent users with masked identifiers only', async () => {
+    const phoneId = '+919876543210';
+    await User.create({ sessionId: phoneId, lastActive: new Date(), firstLogin: new Date() });
+    await AuditEvent.create({ userId, action: 'session.created', metadata: { method: 'google' }, createdAt: new Date(Date.now() - 1000) });
+    await AuditEvent.create({ userId: phoneId, action: 'session.created', metadata: { method: 'phone' }, createdAt: new Date(Date.now() - 1000) });
+    await AuditEvent.create({ userId: phoneId, action: 'message.reported', createdAt: new Date() });
+
+    const response = await request(app)
+        .get('/api/admin/people')
+        .set(adminHeaders())
+        .expect(200);
+
+    const emailUser = response.body.find(person => person.userIdMasked === maskIdentifier(userId));
+    const phoneUser = response.body.find(person => person.userIdMasked === maskIdentifier(phoneId));
+    assert.ok(emailUser);
+    assert.equal(emailUser.loginMethod, 'Google');
+    assert.equal(phoneUser.loginMethod, 'Phone');
+    assert.equal(phoneUser.lastAction, 'message.reported');
+    assert.equal(JSON.stringify(response.body).includes(userId), false);
+    assert.equal(JSON.stringify(response.body).includes(phoneId), false);
 });
 }
