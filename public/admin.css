@@ -41,6 +41,18 @@ button, a, input, select, summary { -webkit-tap-highlight-color: transparent; }
     padding: 0 56px 56px;
 }
 .admin-content { min-width: 0; }
+.section-spaced { margin-top: 34px; }
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .masthead, .admin-hero {
     display: flex;
     flex-wrap: wrap;
