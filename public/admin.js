@@ -624,21 +624,22 @@ function chartScales(horizontal = false) {
     const rule = cssToken('--rule');
     const muted = cssToken('--muted');
     return horizontal ? {
-        x: { beginAtZero: true, suggestedMax: 1, grid: { color: rule, lineWidth: 1 }, ticks: { color: muted } },
+        x: { beginAtZero: true, suggestedMax: 1, grid: { color: rule, lineWidth: 1 }, ticks: { color: muted, precision: 0 } },
         y: { grid: { display: false }, ticks: { color: muted } }
     } : {
         x: { grid: { display: false }, ticks: { color: muted } },
-        y: { beginAtZero: true, suggestedMax: 1, grid: { color: rule, lineWidth: 1 }, ticks: { color: muted } }
+        y: { beginAtZero: true, suggestedMax: 1, grid: { color: rule, lineWidth: 1 }, ticks: { color: muted, precision: 0 } }
     };
 }
 
-function lineDataset(label, values, color, backgroundColor) {
+function lineDataset(label, values, color, backgroundColor, options = {}) {
     return {
         label,
         data: Array.isArray(values) ? values : [],
         borderColor: color,
         backgroundColor,
-        fill: true,
+        fill: options.fill ?? true,
+        borderDash: options.dash || [],
         tension: 0.25,
         pointBackgroundColor: color,
         pointRadius: (context) => context.dataIndex === context.dataset.data.length - 1 ? 4 : 0,
@@ -653,6 +654,7 @@ function renderCharts() {
     const data = state.chartData;
     const green = cssToken('--green');
     const ink = cssToken('--ink');
+    const ochre = cssToken('--ochre');
     const red = cssToken('--red');
     const paper = cssToken('--card');
     const dates = Array.isArray(data.dates) ? data.dates : [];
@@ -669,9 +671,9 @@ function renderCharts() {
         chartsObj.growth = new Chart(growthCanvas, {
             type: 'line',
             data: { labels: dates, datasets: [
-                lineDataset('Signups', signups, green, tokenFill(green)),
-                lineDataset('Active users', activeUsers, ink, tokenFill(ink)),
-                lineDataset('Messages', messages, green, tokenFill(green))
+                lineDataset('Messages', messages, green, tokenFill(green)),
+                lineDataset('Active users', activeUsers, ink, tokenFill(ink), { fill: false }),
+                lineDataset('Signups', signups, ochre, tokenFill(ochre), { fill: false, dash: [6, 4] })
             ] },
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: chartScales() }
         });
@@ -732,8 +734,8 @@ function renderCharts() {
                 datasets: [{
                     label: 'Lifetime totals',
                     data: [asCount(totals.conversations), asCount(totals.messages), asCount(totals.reminders), asCount(totals.memoryFacts)],
-                    backgroundColor: [tokenFill(green), tokenFill(ink), tokenFill(green), tokenFill(ink)],
-                    borderColor: [green, ink, green, ink],
+                    backgroundColor: tokenFill(green),
+                    borderColor: green,
                     borderWidth: 1,
                     borderRadius: 0,
                     barPercentage: 0.62
@@ -752,7 +754,7 @@ function formatAuditEvent(event) {
     const identifier = event.identifierMasked || event.userIdMasked
         || (String(event.action || '').startsWith('admin_') || String(event.action || '').startsWith('admin.') ? 'Administrator' : 'Anonymous');
     const methodLabel = event.method ? ` · ${event.method}` : '';
-    const time = displayDate(event.createdAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const time = displayDate(event.createdAt, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     return { time, action: labelForAction(event.action), identifier: `${identifier}${methodLabel}` };
 }
 
