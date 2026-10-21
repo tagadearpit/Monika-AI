@@ -6,6 +6,7 @@
     --rule: #CBD2CC;
     --track: #DDE2DD;
     --green: #1F6B4F;
+    --ochre: #B7791F;
     --green-bg: #D2E8DC;
     --green-fg: #14573E;
     --amber-bg: #F6E1B8;
@@ -279,7 +280,7 @@ p { margin: 8px 0; }
     padding: 11px 0;
     border-bottom: 1px solid var(--rule);
 }
-.live-event-time { color: var(--muted); }
+.live-event-time { color: var(--muted); white-space: nowrap; }
 .live-event-action { font-family: var(--body); font-size: 14px; }
 .live-event-id { color: var(--muted); font-size: 12px; text-align: right; }
 #liveActivityStatus { white-space: nowrap; }
