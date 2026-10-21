@@ -122,7 +122,7 @@ function setActiveTab(tabName) {
         const active = tab.dataset.tab === tabName;
         tab.classList.toggle('active', active);
         tab.setAttribute('aria-selected', String(active));
-        tab.tabIndex = active ? 0 : -1;
+        tab.tabIndex = 0;
     });
     panels.forEach((panel) => {
         panel.classList.toggle('active', panel.id === `panel-${tabName}`);
