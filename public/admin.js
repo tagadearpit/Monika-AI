@@ -13,7 +13,15 @@ const state = {
     searchTimeout: null,
     maintenanceMode: false,
     livePollingTimer: null,
-    livePollingActive: false
+    livePollingActive: false,
+    activeTab: 'overview',
+    liveRefresh: {
+        timer: null,
+        inFlight: false,
+        lastOkAt: null,
+        failures: 0,
+        paused: false
+    }
 };
 
 const $ = (id) => document.getElementById(id);
@@ -116,6 +124,7 @@ function showSkeleton(containerId, count = 3) {
 }
 
 function setActiveTab(tabName) {
+    state.activeTab = tabName;
     const tabs = document.querySelectorAll('.admin-tab');
     const panels = document.querySelectorAll('.tab-panel');
     tabs.forEach((tab) => {
@@ -312,6 +321,109 @@ function showOverviewError(message) {
     $('attention').textContent = message;
 }
 
+let freshnessTicker = null;
+
+function formatFreshness() {
+    if (state.liveRefresh.paused) {
+        return 'Paused: too many requests';
+    }
+    if (!state.liveRefresh.lastOkAt) {
+        return '';
+    }
+    const seconds = Math.max(0, Math.floor((Date.now() - state.liveRefresh.lastOkAt) / 1000));
+    if (seconds < 2) {
+        return 'Updated just now';
+    }
+    return `Updated ${seconds}s ago`;
+}
+
+function updateFreshnessUI() {
+    const el = $('freshness');
+    if (!el) return;
+    el.textContent = formatFreshness();
+}
+
+function startFreshnessTicker() {
+    if (freshnessTicker) window.clearInterval(freshnessTicker);
+    updateFreshnessUI();
+    freshnessTicker = window.setInterval(updateFreshnessUI, 1000);
+}
+
+function getLiveRefreshDelay() {
+    if (state.liveRefresh.paused) {
+        return Math.max(120000, Math.min(300000, 30000 * Math.pow(2, state.liveRefresh.failures)));
+    }
+    if (state.liveRefresh.failures > 0) {
+        return Math.min(300000, 30000 * Math.pow(2, state.liveRefresh.failures));
+    }
+    return 30000;
+}
+
+function scheduleNextLiveRefresh(customDelay) {
+    if (state.liveRefresh.timer) {
+        window.clearTimeout(state.liveRefresh.timer);
+        state.liveRefresh.timer = null;
+    }
+    if (document.visibilityState !== 'visible') {
+        return;
+    }
+    const delay = customDelay !== undefined ? customDelay : getLiveRefreshDelay();
+    state.liveRefresh.timer = window.setTimeout(async () => {
+        state.liveRefresh.timer = null;
+        await refreshLiveData();
+    }, delay);
+}
+
+function startLiveRefresh() {
+    if (state.liveRefresh.timer) {
+        window.clearTimeout(state.liveRefresh.timer);
+        state.liveRefresh.timer = null;
+    }
+    scheduleNextLiveRefresh(getLiveRefreshDelay());
+}
+
+function resetLiveRefreshTimer() {
+    state.liveRefresh.lastOkAt = Date.now();
+    state.liveRefresh.failures = 0;
+    state.liveRefresh.paused = false;
+    updateFreshnessUI();
+    startLiveRefresh();
+}
+
+async function refreshLiveData() {
+    if (document.visibilityState !== 'visible') return;
+    if (state.liveRefresh.inFlight) return;
+    const confirmDialog = $('confirmDialog');
+    if (confirmDialog && confirmDialog.open) return;
+
+    state.liveRefresh.inFlight = true;
+    try {
+        const tasks = [
+            loadOverview({ background: true }),
+            loadPeople({ background: true })
+        ];
+        const isPeopleActive = state.activeTab === 'users'
+            || document.querySelector('.admin-tab.active')?.dataset.tab === 'users';
+        if (isPeopleActive) {
+            tasks.push(loadSessions({ background: true }));
+        }
+        await Promise.all(tasks);
+        state.liveRefresh.lastOkAt = Date.now();
+        state.liveRefresh.failures = 0;
+        state.liveRefresh.paused = false;
+        updateFreshnessUI();
+    } catch (error) {
+        state.liveRefresh.failures++;
+        if (error?.status === 429) {
+            state.liveRefresh.paused = true;
+        }
+        updateFreshnessUI();
+    } finally {
+        state.liveRefresh.inFlight = false;
+        scheduleNextLiveRefresh();
+    }
+}
+
 async function init() {
     const status = $('adminStatus');
     try {
@@ -339,6 +451,11 @@ async function init() {
             loadOverview(), loadPeople(), loadReports(), loadAudit(), loadSessions(),
             loadAnalytics(), loadSuspendedUsers(), loadMaintenanceStatus()
         ]);
+        state.liveRefresh.lastOkAt = Date.now();
+        state.liveRefresh.failures = 0;
+        state.liveRefresh.paused = false;
+        startFreshnessTicker();
+        startLiveRefresh();
         startLiveActivityPolling();
     } catch (error) {
         if (status) {
@@ -349,15 +466,24 @@ async function init() {
     }
 }
 
-async function loadOverview() {
+async function loadOverview(options = {}) {
     try {
         const response = await apiFetch('/api/admin/overview', { method: 'GET', cache: 'no-store' });
         const data = await parseJson(response);
-        if (!response.ok) throw new Error(data.error || 'Overview data could not be loaded.');
+        if (!response.ok) {
+            const err = new Error(data.error || 'Overview data could not be loaded.');
+            err.status = response.status;
+            throw err;
+        }
         state.overview = data;
         renderOverview(data);
     } catch (error) {
-        showOverviewError(error.message || 'Overview data could not be loaded.');
+        if (!options.background) {
+            showOverviewError(error.message || 'Overview data could not be loaded.');
+        }
+        if (options.background) {
+            throw error;
+        }
     }
 }
 
@@ -368,14 +494,20 @@ function statusOf(person) {
     return ['ok', 'Active'];
 }
 
-async function loadPeople() {
+async function loadPeople(options = {}) {
     const tbody = $('peopleBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading people…</td></tr>';
+    if (!options.background) {
+        tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading people…</td></tr>';
+    }
     try {
         const response = await apiFetch('/api/admin/people', { method: 'GET', cache: 'no-store' });
         const data = await parseJson(response);
-        if (!response.ok) throw new Error(data.error || 'People could not be loaded.');
+        if (!response.ok) {
+            const err = new Error(data.error || 'People could not be loaded.');
+            err.status = response.status;
+            throw err;
+        }
         state.people = Array.isArray(data) ? data : [];
         if (!state.people.length) {
             tbody.innerHTML = '<tr><td colspan="5" class="dim">No users yet.</td></tr>';
@@ -393,7 +525,12 @@ async function loadPeople() {
         }).join('');
         $('peopleNote').textContent = `${numberFormat.format(state.people.length)} recent ${state.people.length === 1 ? 'person' : 'people'}`;
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="5" class="dim">${esc(error.message || 'People could not be loaded.')}</td></tr>`;
+        if (!options.background) {
+            tbody.innerHTML = `<tr><td colspan="5" class="dim">${esc(error.message || 'People could not be loaded.')}</td></tr>`;
+        }
+        if (options.background) {
+            throw error;
+        }
     }
 }
 
@@ -451,14 +588,20 @@ async function loadAudit(category = '') {
     }
 }
 
-async function loadSessions() {
+async function loadSessions(options = {}) {
     const tbody = $('sessionTableBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading sessions…</td></tr>';
+    if (!options.background) {
+        tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading sessions…</td></tr>';
+    }
     try {
         const response = await apiFetch('/api/admin/sessions', { method: 'GET', cache: 'no-store' });
         const data = await parseJson(response);
-        if (!response.ok) throw new Error(data.error || 'Active sessions could not be loaded.');
+        if (!response.ok) {
+            const err = new Error(data.error || 'Active sessions could not be loaded.');
+            err.status = response.status;
+            throw err;
+        }
         state.sessions = Array.isArray(data) ? data : [];
         if (!state.sessions.length) {
             tbody.innerHTML = '<tr><td colspan="5" class="dim">No active sessions found.</td></tr>';
@@ -480,7 +623,12 @@ async function loadSessions() {
             button.addEventListener('click', () => revokeSession(button.getAttribute('data-session-id')));
         });
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="5" class="dim">${esc(error.message || 'Active sessions could not be loaded.')}</td></tr>`;
+        if (!options.background) {
+            tbody.innerHTML = `<tr><td colspan="5" class="dim">${esc(error.message || 'Active sessions could not be loaded.')}</td></tr>`;
+        }
+        if (options.background) {
+            throw error;
+        }
     }
 }
 
@@ -515,6 +663,7 @@ async function loadSuspendedUsers() {
                 if (!result.ok) return showAdminToast('Failed to unsuspend user.', 'error');
                 showAdminToast('User suspension removed.', 'success');
                 await Promise.all([loadSuspendedUsers(), loadPeople(), loadSessions(), loadAudit()]);
+                resetLiveRefreshTimer();
             });
         });
     } catch (error) {
@@ -564,6 +713,7 @@ async function toggleMaintenance() {
         state.maintenanceMode = Boolean(data.maintenanceMode);
         updateMaintenanceUI();
         showAdminToast(`Maintenance mode ${state.maintenanceMode ? 'enabled' : 'disabled'}.`, 'success');
+        resetLiveRefreshTimer();
     } catch (error) {
         showAdminToast(error.message || 'Maintenance mode could not be changed.', 'error');
         if ($('maintenanceToggle')) $('maintenanceToggle').checked = state.maintenanceMode;
@@ -764,7 +914,11 @@ async function fetchLiveActivity() {
     try {
         const response = await apiFetch('/api/admin/audit', { method: 'GET', cache: 'no-store' });
         const data = await parseJson(response);
-        if (!response.ok) throw new Error('Latest activity could not be loaded.');
+        if (!response.ok) {
+            const err = new Error(data.error || 'Latest activity could not be loaded.');
+            err.status = response.status;
+            throw err;
+        }
         const events = (Array.isArray(data) ? data : []).slice(0, 8);
         if (!events.length) {
             feed.innerHTML = '<div class="live-event"><span class="live-event-time">—</span><span class="live-event-action muted">No events yet</span><span class="live-event-id"></span></div>';
@@ -775,7 +929,13 @@ async function fetchLiveActivity() {
             return `<div class="live-event"><span class="live-event-time">${esc(time)}</span><span class="live-event-action">${esc(action)}</span><span class="live-event-id">${esc(identifier)}</span></div>`;
         }).join('');
     } catch (error) {
-        feed.textContent = error.message || 'Latest activity could not be loaded.';
+        if (error?.status === 429) {
+            state.liveRefresh.paused = true;
+            updateFreshnessUI();
+        }
+        if (!feed.children.length) {
+            feed.textContent = error.message || 'Latest activity could not be loaded.';
+        }
     }
 }
 
@@ -786,7 +946,7 @@ function startLiveActivityPolling() {
     updateLiveStatus(true);
     state.livePollingTimer = window.setInterval(() => {
         if (document.visibilityState === 'visible') fetchLiveActivity();
-    }, 8000);
+    }, 10000);
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 }
@@ -795,7 +955,20 @@ function handleVisibilityChange() {
     const active = document.visibilityState === 'visible';
     state.livePollingActive = active;
     updateLiveStatus(active);
-    if (active) fetchLiveActivity();
+    if (!active) {
+        if (state.liveRefresh.timer) {
+            window.clearTimeout(state.liveRefresh.timer);
+            state.liveRefresh.timer = null;
+        }
+    } else {
+        fetchLiveActivity();
+        const ageMs = state.liveRefresh.lastOkAt ? (Date.now() - state.liveRefresh.lastOkAt) : Infinity;
+        if (ageMs >= 30000) {
+            refreshLiveData();
+        } else {
+            scheduleNextLiveRefresh(Math.max(1000, 30000 - ageMs));
+        }
+    }
 }
 
 function updateLiveStatus(active) {
@@ -812,6 +985,7 @@ async function revokeSession(sessionId) {
         if (!response.ok) throw new Error(data.error || 'Session could not be ended.');
         showAdminToast('Session ended.', 'success');
         await Promise.all([loadSessions(), loadPeople()]);
+        resetLiveRefreshTimer();
     } catch (error) { showAdminToast(error.message || 'Session could not be ended.', 'error'); }
 }
 
@@ -831,6 +1005,7 @@ async function setSuspension(suspended) {
         $('adminUserId').value = '';
         $('adminReason').value = '';
         await Promise.all([loadOverview(), loadPeople(), loadAudit(), loadSessions(), loadSuspendedUsers()]);
+        resetLiveRefreshTimer();
     } catch (error) { showAdminToast(error.message || 'Account update failed.', 'error'); }
 }
 
