@@ -114,11 +114,23 @@ button, a, input, select, summary { -webkit-tap-highlight-color: transparent; }
 .btn.danger:hover, .danger-action-btn:hover { background: var(--red-fg); }
 
 #adminStatus, .admin-status {
-    margin: 12px 0 0;
+    display: inline-block;
+    margin: 12px 14px 0 0;
     color: var(--muted);
     font-size: 14px;
 }
 #adminStatus.error { color: var(--red-fg); }
+
+#freshness {
+    display: inline-block;
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .02em;
+    text-transform: none;
+    max-width: 100%;
+}
 .status-line { padding: 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted); }
 .status-line strong { color: var(--ink); font-weight: 500; }
 .status-badge, .status-dot, .pill.info, .pill.success, .pill.warning, .pill.danger { display: none; }
