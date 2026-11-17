@@ -235,7 +235,10 @@ app.use(helmet({
                 'https://www.recaptcha.net',
                 'https://www.googletagmanager.com',
                 'https://*.googletagmanager.com',
-                'https://*.google-analytics.com'
+                'https://google-analytics.com',
+                'https://*.google-analytics.com',
+                'https://analytics.google.com',
+                'https://*.analytics.google.com'
             ],
             styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com', 'https://accounts.google.com'],
             fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
@@ -251,8 +254,11 @@ app.use(helmet({
                 'https://www.recaptcha.net',
                 'https://www.googletagmanager.com',
                 'https://*.googletagmanager.com',
+                'https://google-analytics.com',
                 'https://*.google-analytics.com',
-                'https://*.analytics.google.com'
+                'https://analytics.google.com',
+                'https://*.analytics.google.com',
+                'https://stats.g.doubleclick.net'
             ],
             frameSrc: [
                 "'self'",

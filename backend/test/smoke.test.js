@@ -335,3 +335,13 @@ test('feedback endpoint sanitizes comment with xss whiteList {}', async () => {
     }
 });
 
+test('CSP headers permit Google Analytics apex and wildcard domains in connect-src and script-src', async () => {
+    const response = await request(app).get('/api/health').expect(200);
+    const csp = response.headers['content-security-policy'] || '';
+    assert.ok(csp.includes('connect-src'), 'CSP header must include connect-src');
+    assert.ok(csp.includes('https://analytics.google.com'), 'CSP must permit https://analytics.google.com');
+    assert.ok(csp.includes('https://*.analytics.google.com'), 'CSP must permit https://*.analytics.google.com');
+    assert.ok(csp.includes('https://google-analytics.com'), 'CSP must permit https://google-analytics.com');
+    assert.ok(csp.includes('https://*.google-analytics.com'), 'CSP must permit https://*.google-analytics.com');
+});
+
