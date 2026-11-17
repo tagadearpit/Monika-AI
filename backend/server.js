@@ -81,6 +81,7 @@ const {
     hashAdminPassword,
     verifyAdminPassword
 } = require('./utils');
+const { buildAdminSearchQueries } = require('./admin-search');
 require('dotenv').config();
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -1299,16 +1300,22 @@ const deliverReminder = async (reminder) => {
 };
 
 let reminderWorkerTimer = null;
+let reminderWorkerPromise = null;
+let shuttingDown = false;
 const runReminderWorker = async () => {
     if (mongoose.connection.readyState === 1) {
         try {
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
             await Session.collection.deleteMany({ revokedAt: { $lt: oneDayAgo } });
         } catch (error) {
-            log('error', 'session_cleanup_failed', { message: error.message });
+            if (shuttingDown) {
+                log('info', 'session_cleanup_interrupted', { message: error.message });
+            } else {
+                log('error', 'session_cleanup_failed', { message: error.message });
+            }
         }
     }
-    if (!pushConfigured || mongoose.connection.readyState !== 1) return;
+    if (shuttingDown || !pushConfigured || mongoose.connection.readyState !== 1) return;
     try {
         const staleClaimTime = new Date(Date.now() - 5 * 60 * 1000);
         await Reminder.updateMany(
@@ -1329,13 +1336,21 @@ const runReminderWorker = async () => {
             if (reminder) await deliverReminder(reminder);
         }
     } catch (error) {
-        log('error', 'reminder_worker_failed', { message: error.message });
+        if (shuttingDown) {
+            log('info', 'reminder_worker_interrupted', { message: error.message });
+        } else {
+            log('error', 'reminder_worker_failed', { message: error.message });
+        }
     }
 };
 
 const startReminderWorker = () => {
     clearInterval(reminderWorkerTimer);
-    reminderWorkerTimer = setInterval(runReminderWorker, 30_000);
+    reminderWorkerTimer = setInterval(() => {
+        if (shuttingDown) return;
+        reminderWorkerPromise = runReminderWorker();
+        reminderWorkerPromise.catch(() => { reminderWorkerPromise = null; });
+    }, 30_000);
     reminderWorkerTimer.unref?.();
 };
 
@@ -2151,11 +2166,29 @@ app.post('/api/reminders/parse', verifyTrustedOrigin, authenticateToken, askLimi
     const zone = resolveTimeZone(req.body.timeZone, DEFAULT_TIME_ZONE);
     if (!text) return res.status(400).json({ error: 'Reminder text is required.', code: 'INVALID_PAYLOAD' });
     const now = getCurrentDateTime(zone);
-    const result = await generateContent({
+    const aiRequest = {
         model: process.env.GEMINI_FACT_MODEL || 'gemini-2.5-flash-lite',
         contents: `Convert the reminder request into strict JSON with keys text, dueAt, recurrence. dueAt must be an ISO-8601 timestamp with an offset. recurrence must be none, daily, or weekly. Current local date: ${now.localDate}. Current local time: ${now.localTime}. Time zone: ${zone}. Request: ${text}`,
         config: { temperature: 0, responseMimeType: 'application/json' }
-    }, false);
+    };
+    const isAiBusy = (err) => err.status === 429 || err.status === 503 || String(err.message || '').includes('UNAVAILABLE');
+    let result;
+    try {
+        result = await generateContent(aiRequest, false);
+    } catch (firstError) {
+        if (!isAiBusy(firstError)) throw firstError;
+        log('warn', 'reminder_parse_ai_busy_retrying', { requestId: req.requestId, message: firstError.message });
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        try {
+            result = await generateContent(aiRequest, false);
+        } catch (secondError) {
+            if (isAiBusy(secondError)) {
+                log('warn', 'reminder_parse_ai_busy', { requestId: req.requestId, message: secondError.message });
+                return res.status(503).json({ error: 'The assistant is busy. Please try again in a moment.', code: 'AI_BUSY' });
+            }
+            throw secondError;
+        }
+    }
     try {
         const parsed = JSON.parse(String(result.text || '{}'));
         const validated = validators.reminderCreate.parse({ ...parsed, timeZone: zone });
@@ -2476,7 +2509,8 @@ app.get('/api/admin/audit', adminLimiter, requireAdminSession, async (req, res) 
 });
 
 app.patch('/api/admin/users/:userId/suspension', verifyTrustedOrigin, adminLimiter, requireAdminSession, validateBody(validators.adminSuspend), async (req, res) => {
-    const userId = decodeURIComponent(req.params.userId).slice(0, 254);
+    const rawUserId = decodeURIComponent(req.params.userId).trim().slice(0, 254);
+    const userId = emailRegex.test(rawUserId) ? normalizeEmail(rawUserId) : rawUserId;
     const update = req.validatedBody.suspended
         ? { suspendedAt: new Date(), suspensionReason: req.validatedBody.reason || 'Administrative action' }
         : { suspendedAt: null, suspensionReason: '' };
@@ -2525,23 +2559,27 @@ app.get('/api/admin/search', adminLimiter, requireAdminSession, async (req, res)
     const query = String(req.query.q || '').trim().slice(0, 100);
     if (!query) return res.json({ users: [], auditEvents: [], reports: [] });
     const regex = new RegExp(escapeRegExp(query), 'i');
-    const [users, auditEvents, reports] = await Promise.all([
-        // codeql[js/nosql-injection]
-        User.find(mongoose.trusted({ $or: [{ sessionId: regex }, { suspensionReason: regex }] })).limit(20).lean(),
-        // codeql[js/nosql-injection]
-        AuditEvent.find(mongoose.trusted({ $or: [{ userId: regex }, { action: regex }, { requestId: regex }] })).sort({ createdAt: -1 }).limit(30).lean(),
-        // codeql[js/nosql-injection]
-        Message.find(mongoose.trusted({ 'feedback.reportType': { $ne: null }, $or: [{ userId: regex }, { content: regex }] }))
-            .sort({ 'feedback.updatedAt': -1 })
-            .limit(20)
-            .select('userId conversationId content feedback createdAt')
-            .lean()
-    ]);
-    return res.json({
-        users: users.map(u => ({ ...u, sessionIdMasked: maskIdentifier(u.sessionId) })),
-        auditEvents: auditEvents.map(a => ({ ...a, identifierMasked: auditIdentifier(a), method: a.metadata?.method || null })),
-        reports: reports.map(r => ({ ...r, userIdMasked: maskIdentifier(r.userId) }))
+    const [usersResult, auditResult, reportsResult] = await Promise.allSettled(
+        buildAdminSearchQueries({ Message, User, AuditEvent, mongoose }, regex)
+    );
+    const sectionNames = ['users', 'audit', 'reports'];
+    const failedSections = [];
+    const [usersRaw, auditEventsRaw, reportsRaw] = [usersResult, auditResult, reportsResult].map((result, i) => {
+        if (result.status === 'fulfilled') return result.value;
+        log('error', 'admin_search_section_failed', { requestId: req.requestId, section: sectionNames[i], message: result.reason?.message });
+        failedSections.push(sectionNames[i]);
+        return [];
     });
+    const response = {
+        users: usersRaw.map(u => ({ ...u, sessionIdMasked: maskIdentifier(u.sessionId) })),
+        auditEvents: auditEventsRaw.map(a => ({ ...a, identifierMasked: auditIdentifier(a), method: a.metadata?.method || null })),
+        reports: reportsRaw.map(r => ({ ...r, userIdMasked: maskIdentifier(r.userId) }))
+    };
+    if (failedSections.length > 0) {
+        response.partial = true;
+        response.failedSections = failedSections;
+    }
+    return res.json(response);
 });
 app.get('/api/admin/analytics', adminLimiter, requireAdminSession, async (req, res) => {
     const rangeStart = new Date();
@@ -2682,7 +2720,9 @@ let server;
 
 const shutdown = async (signal) => {
     log('info', 'shutdown_started', { signal });
+    shuttingDown = true;
     clearInterval(reminderWorkerTimer);
+    if (reminderWorkerPromise) await reminderWorkerPromise.catch(() => {});
     if (server) await new Promise((resolve) => server.close(resolve));
     await mongoose.connection.close(false);
 };

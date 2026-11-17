@@ -1018,13 +1018,16 @@ async function handleSearch() {
     try {
         const response = await apiFetch(`/api/admin/search?q=${encodeURIComponent(query)}`, { method: 'GET', cache: 'no-store' });
         const data = await parseJson(response);
-        if (!response.ok) throw new Error(data.error || 'Search request failed.');
+        if (!response.ok) {
+            const isServerError = response.status === 400 || response.status === 500 || response.status >= 500;
+            throw new Error(isServerError ? 'Search is temporarily unavailable. Try again in a moment.' : (data.error || 'Search request failed.'));
+        }
         const { users = [], auditEvents = [], reports = [] } = data;
         if (!users.length && !auditEvents.length && !reports.length) {
             resultBox.innerHTML = '<div class="list-item"><strong class="muted">No matching records found.</strong></div>';
             return;
         }
-        let html = '';
+        let html = data.partial ? `<div class="list-item"><small class="muted">${esc('Some results could not be loaded.')}</small></div>` : '';
         users.forEach((user) => {
             const userLabel = `User: ${user.sessionIdMasked || ''}`;
             const status = `Status: ${user.suspendedAt ? 'Suspended' : 'Active'} · Last active: ${displayDate(user.lastActive)}`;
@@ -1042,7 +1045,8 @@ async function handleSearch() {
         });
         resultBox.innerHTML = html;
     } catch (error) {
-        resultBox.innerHTML = `<div class="list-item"><strong class="muted">${esc(error.message || 'Search request failed.')}</strong></div>`;
+        const msg = error.message && error.message.includes('unavailable') ? error.message : (error.message || 'Search is temporarily unavailable. Try again in a moment.');
+        resultBox.innerHTML = `<div class="list-item"><strong class="muted">${esc(msg)}</strong></div>`;
     }
 }
 
