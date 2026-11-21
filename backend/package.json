@@ -17,7 +17,7 @@
     "@google/genai": "^2.31.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
+    "dotenv": "^18.0.9",
     "express": "^4.18.2",
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^8.6.1",
